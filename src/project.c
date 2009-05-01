@@ -393,53 +393,62 @@ split_automake_variable (gchar *name, gint *flags, gchar **module, gchar **prima
 
 	if (!g_regex_match (regex, name, G_REGEX_MATCH_ANCHORED, &match_info)) return FALSE;
 
-	*flags = 0;
-	g_match_info_fetch_pos (match_info, 1, &start_pos, &end_pos);
-	if (start_pos > 0)
+	if (flags)
 	{
-		if (*(name + start_pos + 2) == 'b') *flags |= AM_TARGET_NOBASE;
-		if (*(name + start_pos + 2) == 't') *flags |= AM_TARGET_NOTRANS;
-	}
-
-	g_match_info_fetch_pos (match_info, 2, &start_pos, &end_pos);
-	if (start_pos > 0)
-	{
-		if (*(name + start_pos) == 'd') *flags |= AM_TARGET_DIST;
-		if (*(name + start_pos) == 'n') *flags |= AM_TARGET_NODIST;
-	}
-
-	g_match_info_fetch_pos (match_info, 3, &start_pos, &end_pos);
-	if (start_pos > 0)
-	{
-		if (*(name + start_pos) == 'n') *flags |= AM_TARGET_NOINST;
-		if (*(name + start_pos) == 'c') *flags |= AM_TARGET_CHECK;
-		if (*(name + start_pos) == 'm')
+		*flags = 0;
+		g_match_info_fetch_pos (match_info, 1, &start_pos, &end_pos);
+		if (start_pos > 0)
 		{
-			gchar section = *(name + end_pos);
-			*flags |= AM_TARGET_MAN;
-			if (section != 'n') *flags |= (section & 0x1F) << 7;
+			if (*(name + start_pos + 2) == 'b') *flags |= AM_TARGET_NOBASE;
+			if (*(name + start_pos + 2) == 't') *flags |= AM_TARGET_NOTRANS;
+		}
+
+		g_match_info_fetch_pos (match_info, 2, &start_pos, &end_pos);
+		if (start_pos > 0)
+		{
+			if (*(name + start_pos) == 'd') *flags |= AM_TARGET_DIST;
+			if (*(name + start_pos) == 'n') *flags |= AM_TARGET_NODIST;
+		}
+
+		g_match_info_fetch_pos (match_info, 3, &start_pos, &end_pos);
+		if (start_pos > 0)
+		{
+			if (*(name + start_pos) == 'n') *flags |= AM_TARGET_NOINST;
+			if (*(name + start_pos) == 'c') *flags |= AM_TARGET_CHECK;
+			if (*(name + start_pos) == 'm')
+			{
+				gchar section = *(name + end_pos);
+				*flags |= AM_TARGET_MAN;
+				if (section != 'n') *flags |= (section & 0x1F) << 7;
+			}
 		}
 	}
 
-	g_match_info_fetch_pos (match_info, 4, &start_pos, &end_pos);
-	if (start_pos > 0)
+	if (module)
 	{
-		*module = name + start_pos;
-		*(name + end_pos) = '\0';
-	}
-	else
-	{
-		*module = NULL;
+		g_match_info_fetch_pos (match_info, 4, &start_pos, &end_pos);
+		if (start_pos > 0)
+		{
+			*module = name + start_pos;
+			*(name + end_pos) = '\0';
+		}
+		else
+		{
+			*module = NULL;
+		}
 	}
 
-	g_match_info_fetch_pos (match_info, 5, &start_pos, &end_pos);
-	if (start_pos > 0)
+	if (primary)
 	{
-		*primary = name + start_pos;
-	}
-	else
-	{
-		*primary = NULL;
+		g_match_info_fetch_pos (match_info, 5, &start_pos, &end_pos);
+		if (start_pos > 0)
+		{
+			*primary = name + start_pos;
+		}
+		else
+		{
+			*primary = NULL;
+		}
 	}
 
 	g_regex_unref (regex);
@@ -1128,20 +1137,68 @@ foreach_group_reload (gpointer key, GNode *node, AmpProject *project)
 }
 
 static AnjutaToken*
-project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, const gchar *type)
+project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent)
 {
 	AnjutaToken *open_tok;
 	AnjutaToken *next_tok;
-	AnjutaToken *next;
+	AnjutaToken *next = NULL;
 	AnjutaToken *arg;
 	AmpGroup *group = (AmpGroup *)parent->data;
 	gchar *group_id = g_file_get_uri (group->file);
+	const gchar *type;
+	gchar *install;
+	gint flags;
 
-	
 	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
 	next_tok = anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL);
 
-	for (anjuta_token_match (open_tok, ANJUTA_SEARCH_INTO, start, &arg); arg != NULL; arg = anjuta_token_next (next))
+	if (anjuta_token_match (open_tok, ANJUTA_SEARCH_INTO, start, &next))
+	{
+		gchar *name;
+		gchar *primary;
+
+		switch (anjuta_token_get_type (start))
+		{
+		case AM_TOKEN__DATA:
+				type = "data";
+		case AM_TOKEN__HEADERS:
+				type = "headers";
+				break;
+		case AM_TOKEN__LIBRARIES:
+				type =  "static_lib";
+				break;
+		case AM_TOKEN__LISP:
+				type = "lisp";
+				break;
+		case AM_TOKEN__LTLIBRARIES:
+				type = "shared_lib";
+				break;
+		case AM_TOKEN__MANS:
+				type = "man";
+				break;
+		case AM_TOKEN__PROGRAMS:
+				type = "programs";
+				break;
+		case AM_TOKEN__PYTHON:
+				type = "python";
+				break;
+		case AM_TOKEN__JAVA:
+				type = "java";
+				break;
+		case AM_TOKEN__SCRIPTS:
+				type = "script";
+				break;
+		case AM_TOKEN__TEXINFOS:
+				type = "info";
+				break;
+		}
+
+		name = anjuta_token_evaluate (start, anjuta_token_previous (next));
+		split_automake_variable (name, flags, &install, NULL);
+		g_free (name);
+	}
+
+	for (arg = next; arg != NULL; arg = anjuta_token_next (next))
 	{
 		gchar *value;
 		gchar *target_id;
@@ -1166,8 +1223,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, con
 		}
 
 		/* Create target */
-		split_automake_variable (value, flags, &install, &primary);
-		target = amp_target_new (name, type, install, flags);
+		target = amp_target_new (value, type, install, flags);
 		node = g_node_new (group);
 		g_hash_table_insert (project->groups, group_id, node);
 		g_node_append (parent, node);
@@ -1289,10 +1345,6 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	
 	arg = group->makefile_sequence;
 
-	//
-	Parse target primary here then only the target name is parsed in load_target function
-	//
-		
 	for (anjuta_token_match (significant_tok, ANJUTA_SEARCH_OVER, arg, &arg); arg != NULL; arg = anjuta_token_next (arg))
 	{
 		switch (anjuta_token_get_type (arg))
@@ -1301,39 +1353,18 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 				arg = project_load_subdirs (project, arg, file, node, config_files);
 				break;
 		case AM_TOKEN__DATA:
-				arg = project_load_target (project, arg, node, "data");
-				break;
 		case AM_TOKEN__HEADERS:
-				arg = project_load_target (project, arg, node, "headers");
-				break;
 		case AM_TOKEN__LIBRARIES:
-				arg = project_load_target (project, arg, node, "static_lib");
-				break;
 		case AM_TOKEN__LISP:
-				arg = project_load_target (project, arg, node, "lisp");
-				break;
 		case AM_TOKEN__LTLIBRARIES:
-				arg = project_load_target (project, arg, node, "shared_lib");
-				break;
 		case AM_TOKEN__MANS:
-				arg = project_load_target (project, arg, node, "man");
-				break;
 		case AM_TOKEN__PROGRAMS:
-				arg = project_load_target (project, arg, node, "programs");
-				break;
 		case AM_TOKEN__PYTHON:
-				arg = project_load_target (project, arg, node, "python");
-				break;
 		case AM_TOKEN__JAVA:
-				arg = project_load_target (project, arg, node, "java");
-				break;
 		case AM_TOKEN__SCRIPTS:
-				arg = project_load_target (project, arg, node, "script");
-				break;
-		case AM_TOKEN__SOURCES:
-				break;
 		case AM_TOKEN__TEXINFOS:
-				arg = project_load_target (project, arg, node, "info");
+				arg = project_load_target (project, arg, node);
+		case AM_TOKEN__SOURCES:
 				break;
 		}
 	}

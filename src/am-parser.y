@@ -90,15 +90,15 @@ static void amp_am_yyerror (YYLTYPE *loc, void *scanner, char const *s);
 %%
 
 file:
-		optional_space statement
-		| file EOL optional_space statement
-		;
+	optional_space statement
+	| file EOL optional_space statement
+	;
         
 statement:
-		/* empty */
-		| line
-		| am_variable
-		;
+	/* empty */
+	| line
+	| am_variable
+	;
 
 line:
 	name_token
@@ -106,217 +106,218 @@ line:
 	;
 		
 variable:
-		head_with_space equal_token optional_space value_list optional_space
-		| head equal_token optional_space value_list optional_space
-		;
+	head_with_space equal_token optional_space value_list optional_space
+	| head equal_token optional_space value_list optional_space
+	;
 
 rule:
-		depend
-		| depend SEMI_COLON commands
-		| depend EOL TAB commands
-		;
+	depend
+	| depend SEMI_COLON commands
+	| depend EOL TAB commands
+	;
 		
 depend:
-		target_list rule_token optional_space prerequisite_list optional_space ORDER optional_space prerequisite_list 
-		;
+	target_list rule_token optional_space prerequisite_list optional_space ORDER optional_space prerequisite_list 
+	;
 
 commands:
-		token_list
-		| commands EOL TAB token_list
-		;
+	token_list
+	| commands EOL TAB token_list
+	;
 		
 am_variable:
-		AM_VARIABLE space_list_value {
-			anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
-		}
-		;
+	AM_VARIABLE space_list_value {
+		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
+	}
+	;
 				
 space_list_value: optional_space EQUAL optional_space value_list optional_space {
-			anjuta_token_set_flags ($4.first, ANJUTA_TOKEN_OPEN);
-			anjuta_token_set_flags ($4.last, ANJUTA_TOKEN_CLOSE);
-		}
-		;
+        anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
+	anjuta_token_set_flags ($4.first, ANJUTA_TOKEN_OPEN);
+	anjuta_token_set_flags ($4.last, ANJUTA_TOKEN_CLOSE);
+	}
+	;
 		
 value_list:
-		value
-		| value_list space value {
-			$$.first = $1.first;
-			$$.last = $3.last;
-			anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
-		}
-		;
+	value
+	| value_list space value {
+		$$.first = $1.first;
+		$$.last = $3.last;
+		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
+	}
+	;
 
 target_list:
-		head
-		| head_with_space
-		| head_with_space target_list2 optional_space
-		;
+	head
+	| head_with_space
+	| head_with_space target_list2 optional_space
+	;
 
 target_list2:
-		target
-		| target_list2 space target {
-			$$.first = $1.first;
-			$$.last = $3.last;
-			anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
-		}
-		;
+	target
+	| target_list2 space target {
+		$$.first = $1.first;
+		$$.last = $3.last;
+		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
+	}
+	;
 		
 token_list:
-		token {
-			$$.first = $1;
-			$$.last = $1;
-		}
-		| token_list token
-		;
+	token {
+		$$.first = $1;
+		$$.last = $1;
+	}
+	| token_list token
+	;
 		
 prerequisite_list:
-		prerequisite
-		| prerequisite_list space prerequisite {
-			$$.first = $1.first;
-			$$.last = $3.last;
-			anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
-		}
-		;
+	prerequisite
+	| prerequisite_list space prerequisite {
+		$$.first = $1.first;
+		$$.last = $3.last;
+		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
+	}
+	;
 
 		
 
 optional_space:
-		/* empty */
-		| space
-		;
+	/* empty */
+	| space
+	;
 
 
 head_with_space:
-		head space
-		;
+	head space
+	;
 		
 head:
-		head_token {
-			$$.first = $1;
-			$$.last = $1;
-		}
-		| head name_token {
-			$$.first = $1.first;
-			$$.last = $2;
-		}
-		;
+	head_token {
+		$$.first = $1;
+		$$.last = $1;
+	}
+	| head name_token {
+		$$.first = $1.first;
+		$$.last = $2;
+	}
+	;
 
 target:
-		head_token {
-			$$.first = $1;
-			$$.last = $1;
-		}
-		| target target_token {
-			$$.first = $1.first;
-			$$.last = $2;
-		}
-		;
+	head_token {
+		$$.first = $1;
+		$$.last = $1;
+	}
+	| target target_token {
+		$$.first = $1.first;
+		$$.last = $2;
+	}
+	;
 		
 value:
-		value_token {
-			$$.first = $1;
-			$$.last = $1;
-		}
-		| value value_token {
-			$$.first = $1.first;
-			$$.last = $2;
-		}
-		;
+	value_token {
+		$$.first = $1;
+		$$.last = $1;
+	}
+	| value value_token {
+		$$.first = $1.first;
+		$$.last = $2;
+	}
+	;
 
 prerequisite:
-		prerequisite_token {
-			$$.first = $1;
-			$$.last = $1;
-		}
-		| prerequisite prerequisite_token {
-			$$.first = $1.first;
-			$$.last = $2;
-		}
-		;
+	prerequisite_token {
+		$$.first = $1;
+		$$.last = $1;
+	}
+	| prerequisite prerequisite_token {
+		$$.first = $1.first;
+		$$.last = $2;
+	}
+	;
 		
 space:
-		space_token {
-			$$.first = $1;
-			$$.last = $1;
-			anjuta_token_set_flags ($1, ANJUTA_TOKEN_IRRELEVANT);
-		}
-		| space space_token	{
-			$$.first = $1.first;
-			$$.last = $2;
-			anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
-		}
-		;
+	space_token {
+		$$.first = $1;
+		$$.last = $1;
+		anjuta_token_set_flags ($1, ANJUTA_TOKEN_IRRELEVANT);
+	}
+	| space space_token	{
+		$$.first = $1.first;
+		$$.last = $2;
+		anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
+	}
+	;
 
 		
 token:
-		space_token
-		| value_token
-		;            
-		
+	space_token
+	| value_token
+	;            
+	
 value_token:
-		equal_token
-		| rule_token
-		| target_token
-		;
+	equal_token
+	| rule_token
+	| target_token
+	;
 
 prerequisite_token:
-		equal_token
-		| rule_token
-		| name_token
-		| automake_token
-		| ORDER
-		| SEMI_COLON
-		;
+	equal_token
+	| rule_token
+	| name_token
+	| automake_token
+	| ORDER
+	| SEMI_COLON
+	;
 
 target_token:
-		head_token
-		| automake_token
-		;
+	head_token
+	| automake_token
+	;
 		
 		
 space_token:
-		SPACE
-		| TAB
-		;
+	SPACE
+	| TAB
+	;
 
 equal_token:
-		EQUAL
-		| IMMEDIATE_EQUAL
-		| CONDITIONAL_EQUAL
-		| APPEND
-		;
+	EQUAL
+	| IMMEDIATE_EQUAL
+	| CONDITIONAL_EQUAL
+	| APPEND
+	;
 
 rule_token:
-		COLON
-		| DOUBLE_COLON
-		;
+	COLON
+	| DOUBLE_COLON
+	;
 		
 head_token:
-		MACRO
-		| VARIABLE
-		| NAME
-		| CHARACTER
-		| ORDER
-		| SEMI_COLON
-		;
+	MACRO
+	| VARIABLE
+	| NAME
+	| CHARACTER
+	| ORDER
+	| SEMI_COLON
+	;
 
 name_token:
-		MACRO
-		| VARIABLE
-		| NAME
-		| CHARACTER
-		;
+	MACRO
+	| VARIABLE
+	| NAME
+	| CHARACTER
+	;
 		
 automake_token:
-		AM_VARIABLE
-		;
+	AM_VARIABLE
+	;
 		
 %%
      
 static void
 amp_am_yyerror (YYLTYPE *loc, void *scanner, char const *s)
 {
-    g_message ("(%d:%d-%d:%d) %s\n", loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
+        g_message ("(%d:%d-%d:%d) %s\n", loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
 }
 
 /* Public functions
