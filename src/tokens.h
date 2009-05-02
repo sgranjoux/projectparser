@@ -103,8 +103,10 @@ gboolean anjuta_token_compare (AnjutaToken *tokena, AnjutaToken *tokenb);
 const gchar* anjuta_token_file_get_content (AnjutaTokenFile *tAnjutaTokenoken);
 gint anjuta_token_get_type (AnjutaToken *token);
 gint anjuta_token_get_flags (AnjutaToken *token);
+gchar* anjuta_token_get_value (AnjutaToken *token);
 
 void pm_token_dump (AnjutaToken *token);
+void pm_token_dump_range (AnjutaToken *start, AnjutaToken *end);
 
 G_END_DECLS
 

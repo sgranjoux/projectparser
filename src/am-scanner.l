@@ -234,6 +234,11 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
     return NAME;
 }
 
+<INITIAL>. {
+    yylval->token = amp_am_scanner_append_token  (yyextra, *yytext);   
+    return CHARACTER;
+}
+
 %%
      
 struct _AmpAmScanner
@@ -257,6 +262,7 @@ amp_am_scanner_append_token (AmpAmScanner *scanner, gint token)
     anjuta_token_insert_after (scanner->last, frag);
     scanner->last = frag;
     scanner->pos += yyget_leng (scanner->scanner);
+	//anjuta_token_dump (frag);
     
     return frag;
 }

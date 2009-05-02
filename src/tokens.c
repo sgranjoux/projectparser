@@ -122,7 +122,17 @@ anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling)
 void
 anjuta_token_dump (AnjutaToken *token)
 {
-	g_message ("%d: %.*s\n", token->type, token->length, token->pos);
+	g_message ("%d: %.*s", token->type, token->length, token->pos);
+}
+
+void
+anjuta_token_dump_range (AnjutaToken *start, AnjutaToken *end)
+{
+	for (; start != NULL; start = start->next)
+	{
+		anjuta_token_dump(start);
+		if (start == end) break;
+	}
 }
 
 void
@@ -252,6 +262,12 @@ gint
 anjuta_token_get_flags (AnjutaToken *token)
 {
 	return token->flags;
+}
+
+gchar *
+anjuta_token_get_value (AnjutaToken *token)
+{
+	return token && (token->pos != NULL) ? g_strndup (token->pos, token->length) : NULL;
 }
 
 gchar *

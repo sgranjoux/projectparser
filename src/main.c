@@ -98,7 +98,8 @@ int main()
 
 	printf ("\nget all groups\n");
 	list_group (project, "", 0);
-	
+
+	printf ("unref project\n");
 	g_object_unref (project);
 
 	return (0);

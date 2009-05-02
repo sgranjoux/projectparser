@@ -103,6 +103,8 @@ struct _AmpProjectClass {
 /* convenient shortcut macro the get the GbfAmpNode from a GNode */
 #define AMP_NODE(node)  ((node) != NULL ? (AmpNode *)((node)->data) : NULL)
 #define AMP_GROUP_NODE(node)  ((node) != NULL ? (AmpGroup *)((node)->data) : NULL)
+#define AMP_TARGET_NODE(node)  ((node) != NULL ? (AmpTarget *)((node)->data) : NULL)
+#define AMP_SOURCE_NODE(node)  ((node) != NULL ? (AmpSource *)((node)->data) : NULL)
 
 
 typedef struct _AmpPackage AmpPackage;
@@ -386,38 +388,45 @@ split_automake_variable (gchar *name, gint *flags, gchar **module, gchar **prima
 	                     "(dist_|nodist_)?"
 	                     "(noinst_|check_|man_|man[0-9al]_)?"
 	                     "(.*_)?"
-	                     "([^_])",
+	                     "([^_]+)",
 	                     G_REGEX_ANCHORED,
 	                     G_REGEX_MATCH_ANCHORED,
 	                     NULL);
 
 	if (!g_regex_match (regex, name, G_REGEX_MATCH_ANCHORED, &match_info)) return FALSE;
 
+	g_message ("match : ==%s==", g_match_info_fetch (match_info, 0));
+	g_message ("match 1: ==%s==", g_match_info_fetch (match_info, 1));
+	g_message ("match 2: ==%s==", g_match_info_fetch (match_info, 2));
+	g_message ("match 3: ==%s==", g_match_info_fetch (match_info, 3));
+	g_message ("match 4: ==%s==", g_match_info_fetch (match_info, 4));
+	g_message ("match 5: ==%s==", g_match_info_fetch (match_info, 5));
+	
 	if (flags)
 	{
 		*flags = 0;
 		g_match_info_fetch_pos (match_info, 1, &start_pos, &end_pos);
-		if (start_pos > 0)
+		if (start_pos >= 0)
 		{
 			if (*(name + start_pos + 2) == 'b') *flags |= AM_TARGET_NOBASE;
 			if (*(name + start_pos + 2) == 't') *flags |= AM_TARGET_NOTRANS;
 		}
 
 		g_match_info_fetch_pos (match_info, 2, &start_pos, &end_pos);
-		if (start_pos > 0)
+		if (start_pos >= 0)
 		{
 			if (*(name + start_pos) == 'd') *flags |= AM_TARGET_DIST;
 			if (*(name + start_pos) == 'n') *flags |= AM_TARGET_NODIST;
 		}
 
 		g_match_info_fetch_pos (match_info, 3, &start_pos, &end_pos);
-		if (start_pos > 0)
+		if (start_pos >= 0)
 		{
 			if (*(name + start_pos) == 'n') *flags |= AM_TARGET_NOINST;
 			if (*(name + start_pos) == 'c') *flags |= AM_TARGET_CHECK;
 			if (*(name + start_pos) == 'm')
 			{
-				gchar section = *(name + end_pos);
+				gchar section = *(name + end_pos - 1);
 				*flags |= AM_TARGET_MAN;
 				if (section != 'n') *flags |= (section & 0x1F) << 7;
 			}
@@ -427,10 +436,10 @@ split_automake_variable (gchar *name, gint *flags, gchar **module, gchar **prima
 	if (module)
 	{
 		g_match_info_fetch_pos (match_info, 4, &start_pos, &end_pos);
-		if (start_pos > 0)
+		if (start_pos >= 0)
 		{
 			*module = name + start_pos;
-			*(name + end_pos) = '\0';
+			*(name + end_pos - 1) = '\0';
 		}
 		else
 		{
@@ -441,7 +450,7 @@ split_automake_variable (gchar *name, gint *flags, gchar **module, gchar **prima
 	if (primary)
 	{
 		g_match_info_fetch_pos (match_info, 5, &start_pos, &end_pos);
-		if (start_pos > 0)
+		if (start_pos >= 0)
 		{
 			*primary = name + start_pos;
 		}
@@ -791,11 +800,11 @@ foreach_node_destroy (GNode    *g_node,
 			break;
 		case AMP_NODE_TARGET:
 			//g_hash_table_remove (project->targets, AMP_NODE (g_node)->id);
-			amp_node_free (AMP_NODE (g_node));
+			amp_target_free (AMP_TARGET_NODE (g_node));
 			break;
 		case AMP_NODE_SOURCE:
 			//g_hash_table_remove (project->sources, AMP_NODE (g_node)->id);
-			amp_node_free (AMP_NODE (g_node));
+			amp_source_free (AMP_SOURCE_NODE (g_node));
 			break;
 		default:
 			g_assert_not_reached ();
@@ -1119,6 +1128,7 @@ project_reload_group (AmpProject *project, AmpGroup *group)
 	file = g_file_get_child (group->file, makefile_am);
 	g_free (makefile_am);
 
+	g_message ("Parse %s", g_file_get_uri (file));
 	/* Parse makefile.am */	
 	scanner = amp_am_scanner_new ();
 	makefile = amp_am_scanner_parse (scanner, file);
@@ -1161,6 +1171,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent)
 		{
 		case AM_TOKEN__DATA:
 				type = "data";
+				break;
 		case AM_TOKEN__HEADERS:
 				type = "headers";
 				break;
@@ -1194,28 +1205,28 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent)
 		}
 
 		name = anjuta_token_evaluate (start, anjuta_token_previous (next));
-		split_automake_variable (name, flags, &install, NULL);
+		g_message ("group %s name %s", group_id, name);
+		split_automake_variable (name, &flags, &install, NULL);
 		g_free (name);
 	}
 
+	g_message("open token %s", anjuta_token_get_value (next));
 	for (arg = next; arg != NULL; arg = anjuta_token_next (next))
 	{
 		gchar *value;
 		gchar *target_id;
 		AmpTarget *target;
 		GNode *node;
-		gint flags;
-		gchar *install;
-		gchar *primary;
-			
-		anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
-		if (next == NULL) break;
+		gboolean last;
+
+		last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
+		g_message("next token %s", anjuta_token_get_value (next));
 		
 		value = anjuta_token_evaluate (arg, next);
 		
 		/* Check if target already exists */
 		target_id = g_strconcat (group_id, value, NULL);
-		if (g_hash_table_lookup (project->groups, group_id) != NULL)
+		if (g_hash_table_lookup (project->targets, target_id) != NULL)
 		{
 			g_free (value);
 			g_free (target_id);
@@ -1224,11 +1235,13 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent)
 
 		/* Create target */
 		target = amp_target_new (value, type, install, flags);
-		node = g_node_new (group);
-		g_hash_table_insert (project->groups, group_id, node);
+		node = g_node_new (target);
+		g_hash_table_insert (project->targets, target_id, node);
 		g_node_append (parent, node);
-		
+
 		g_free (value);
+		
+		if (last) break;
 	}
 
 	g_free (group_id);
@@ -1256,15 +1269,16 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNod
 	{
 		gchar *value;
 		GFile *subdir;
+		gboolean last;
 			
-		anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
-		if (next == NULL) break;
-	
+		last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
 		value = anjuta_token_evaluate (arg, next);
 		subdir = g_file_resolve_relative_path (file, value);
 		project_load_makefile (project, subdir, node, config_files);
 		g_object_unref (subdir);
 		g_free (value);
+		
+		if (last) break;
 	}
 
 	anjuta_token_unref (open_tok);
@@ -1333,6 +1347,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	}
 
 	/* Parse makefile.am */	
+	g_message ("Parse: %s", g_file_get_uri (file));
 	makefile = g_file_get_child (file, filename);
 	scanner = amp_am_scanner_new ();
 	group->makefile_sequence = amp_am_scanner_parse (scanner, makefile);
@@ -1344,9 +1359,11 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	significant_tok = anjuta_token_new_static (ANJUTA_TOKEN_SIGNIFICANT, NULL);
 	
 	arg = group->makefile_sequence;
+	//anjuta_token_dump_range (arg, NULL);
 
 	for (anjuta_token_match (significant_tok, ANJUTA_SEARCH_OVER, arg, &arg); arg != NULL; arg = anjuta_token_next (arg))
 	{
+		g_message("significant %s", anjuta_token_get_value (arg));
 		switch (anjuta_token_get_type (arg))
 		{
 		case AM_TOKEN_SUBDIRS:
@@ -1364,6 +1381,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 		case AM_TOKEN__SCRIPTS:
 		case AM_TOKEN__TEXINFOS:
 				arg = project_load_target (project, arg, node);
+				break;
 		case AM_TOKEN__SOURCES:
 				break;
 		}
@@ -1728,7 +1746,9 @@ impl_get_group (GbfProject  *_project,
 	AmpProject *project;
 	GbfProjectGroup *group;
 	GNode *g_node;
-	AmpGroup *node;
+	AmpGroup* group_node;
+	AmpNode *node;
+	gchar *target_id;
 	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
@@ -1749,11 +1769,11 @@ impl_get_group (GbfProject  *_project,
 			   _("Group doesn't exist"));
 		return NULL;
 	}
-	node = AMP_GROUP_NODE (g_node);
+	group_node = AMP_GROUP_NODE (g_node);
 
 	group = g_new0 (GbfProjectGroup, 1);
-	group->id = g_file_get_uri (node->file);
-	group->name = g_file_get_basename (node->file);
+	group->id = g_file_get_uri (group_node->file);
+	group->name = g_file_get_basename (group_node->file);
 	if (g_node->parent)
 		group->parent_id = g_file_get_uri (AMP_GROUP_NODE (g_node->parent)->file);
 	else
@@ -1764,15 +1784,15 @@ impl_get_group (GbfProject  *_project,
 	/* add subgroups and targets of the group */
 	g_node = g_node_first_child (g_node);
 	while (g_node) {
-		node = AMP_GROUP_NODE (g_node);
-		switch (node->node.type) {
+		node = AMP_NODE (g_node);
+		switch (node->type) {
 			case AMP_NODE_GROUP:
 				group->groups = g_list_prepend (group->groups,
-								g_file_get_uri (node->file));
+								g_file_get_uri (((AmpGroup *)node)->file));
 				break;
 			case AMP_NODE_TARGET:
 				group->targets = g_list_prepend (group->targets,
-								 NULL);
+								 g_strconcat (id, ((AmpTarget *)node)->name, NULL));
 				break;
 			default:
 				break;
@@ -1994,7 +2014,8 @@ impl_get_target (GbfProject  *_project,
 	AmpProject *project;
 	GbfProjectTarget *target;
 	GNode *g_node;
-	AmpNode *node;
+	AmpTarget *node;
+	AmpSource *child_node;
 
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
@@ -2005,23 +2026,23 @@ impl_get_target (GbfProject  *_project,
 			   _("Target doesn't exist"));
 		return NULL;
 	}
-	node = AMP_NODE (g_node);
+	node = AMP_TARGET_NODE (g_node);
 
 	target = g_new0 (GbfProjectTarget, 1);
-	target->id = g_strdup (node->id);
-	target->name = g_strdup (node->name);
-	target->type = g_strdup (node->detail);
 	target->group_id = g_strdup (AMP_NODE (g_node->parent)->id);
+	target->id = g_strconcat (target->group_id, node->name, NULL);
+	target->name = g_strdup (node->name);
+	target->type = g_strdup (node->type);
 	target->sources = NULL;
 
 	/* add sources to the target */
 	g_node = g_node_first_child (g_node);
 	while (g_node) {
-		node = AMP_NODE (g_node);
-		switch (node->type) {
+		child_node = AMP_NODE (g_node);
+		switch (child_node->node.type) {
 			case AMP_NODE_SOURCE:
 				target->sources = g_list_prepend (target->sources,
-								  g_strdup (node->id));
+								  g_file_get_uri (child_node->file));
 				break;
 			default:
 				break;
@@ -2881,6 +2902,12 @@ amp_project_get_property (GObject    *object,
 			break;
 	}
 }
+
+/* Public functions
+ *---------------------------------------------------------------------------*/
+
+/* Public functions
+ *---------------------------------------------------------------------------*/
 
 GbfProject *
 amp_project_new (void)
