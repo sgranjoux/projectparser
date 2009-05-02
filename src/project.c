@@ -653,6 +653,8 @@ amp_source_new (GFile *parent, const gchar *name)
 static void
 amp_source_free (AmpSource *source)
 {
+	g_message ("free %p", source);
+	g_message ("free source %s", g_file_get_uri (source->file));
     g_object_unref (source->file);
     g_slice_free (AmpSource, source);
 }
@@ -1147,7 +1149,7 @@ foreach_group_reload (gpointer key, GNode *node, AmpProject *project)
 }
 
 static AnjutaToken*
-project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent)
+project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHashTable *orphan_sources)
 {
 	AnjutaToken *open_tok;
 	AnjutaToken *next_tok;
@@ -1215,17 +1217,21 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent)
 	{
 		gchar *value;
 		gchar *target_id;
+		gchar *canon_id;
 		AmpTarget *target;
 		GNode *node;
 		gboolean last;
+		GList *sources;
+		gchar *orig_key;
 
 		last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
 		g_message("next token %s", anjuta_token_get_value (next));
 		
 		value = anjuta_token_evaluate (arg, next);
+		canon_id = canonicalize_automake_variable (value);		
 		
 		/* Check if target already exists */
-		target_id = g_strconcat (group_id, value, NULL);
+		target_id = g_strconcat (group_id, ":", canon_id, NULL);
 		if (g_hash_table_lookup (project->targets, target_id) != NULL)
 		{
 			g_free (value);
@@ -1239,12 +1245,132 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent)
 		g_hash_table_insert (project->targets, target_id, node);
 		g_node_append (parent, node);
 
+		/* Check if there are source availables */
+		if (g_hash_table_lookup_extended (orphan_sources, target_id, &orig_key, &sources))
+		{
+			GList *src;
+			g_hash_table_steal (orphan_sources, target_id);
+			for (src = sources; src != NULL; src = g_list_next (src))
+			{
+				GNode *s_node = g_node_new (src->data);
+
+				g_hash_table_insert (project->sources, g_file_get_uri (((AmpSource *)sources->data)->file), s_node);
+				g_node_prepend (node, s_node);
+			}
+			g_free (orig_key);
+			g_list_free (sources);
+		}
+	
 		g_free (value);
 		
 		if (last) break;
 	}
 
 	g_free (group_id);
+	anjuta_token_unref (open_tok);
+	anjuta_token_unref (next_tok);
+
+	return next;
+}
+
+static AnjutaToken*
+project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GHashTable *orphan_sources)
+{
+	AnjutaToken *open_tok;
+	AnjutaToken *next_tok;
+	AnjutaToken *next = NULL;
+	AnjutaToken *arg;
+	AmpGroup *group = (AmpGroup *)parent->data;
+	GFile *parent_file = g_object_ref (group->file);
+	gchar *group_id = g_file_get_uri (group->file);
+	gchar *target_id = NULL;
+	GList *orphan = NULL;
+	gint flags;
+			gchar *orig_key;
+			GList *orig_sources;
+
+	
+	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
+	next_tok = anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL);
+
+	if (anjuta_token_match (open_tok, ANJUTA_SEARCH_INTO, start, &next))
+	{
+		gchar *name;
+
+		name = anjuta_token_evaluate (start, anjuta_token_previous (next));
+		if (name)
+		{
+			gchar *end = strrchr (name, '_');
+			if (end)
+			{
+				*end = '\0';
+				target_id = g_strconcat (group_id, ":", name, NULL);
+			}
+		}
+		g_free (name);
+	}
+
+	if (target_id)
+	{
+		parent = g_hash_table_lookup (project->targets, target_id) ;
+		
+		g_message("open token %s", anjuta_token_get_value (next));
+		for (arg = next; arg != NULL; arg = anjuta_token_next (next))
+		{
+			gchar *value;
+			AmpSource *source;
+			gboolean last;
+
+			last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
+			g_message("next token %s", anjuta_token_get_value (next));
+		
+			value = anjuta_token_evaluate (arg, next);
+		
+			/* Create source */
+			source = amp_source_new (parent_file, value);
+
+			if (parent == NULL)
+			{
+				/* Add in orphan list */
+				g_message ("add orphan %p", source);
+				orphan = g_list_prepend (orphan, source);
+			}
+			else
+			{
+				/* Add as target child */
+				GNode *node = g_node_new (source);
+				g_hash_table_insert (project->sources, g_file_get_uri (source->file), node);
+				g_node_append (parent, node);
+			}
+
+			g_free (value);
+			
+			if (last) break;
+		}
+		
+		if (parent == NULL)
+		{
+			gchar *orig_key;
+			GList *orig_sources;
+
+			g_message ("orphan_sources %p", orphan_sources);
+			if (g_hash_table_lookup_extended (orphan_sources, target_id, &orig_key, &orig_sources))
+			{
+				g_message ("lookup find %s key %s orphan %p",  target_id, orig_key, orig_sources);
+				g_hash_table_steal (orphan_sources, target_id);
+				orphan = g_list_concat (orphan, orig_sources);	
+				g_free (orig_key);
+			}
+			g_hash_table_insert (orphan_sources, target_id, orphan);
+			g_message ("insert %s %p", target_id, orphan);
+		}
+		else
+		{
+			g_free (target_id);
+		}
+	}
+
+	g_object_unref (parent_file);
 	anjuta_token_unref (open_tok);
 	anjuta_token_unref (next_tok);
 
@@ -1288,8 +1414,16 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNod
 }
 
 static void
+free_source_list (GList *source_list)
+{
+	g_list_foreach (source_list, amp_source_free, NULL);
+	g_list_free (source_list);
+}
+
+static void
 project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **config_files)
 {
+	GHashTable *orphan_sources = NULL;
 	gchar *filename = NULL;
 	AmpAmScanner *scanner;
 	AmpGroup *group;
@@ -1361,6 +1495,10 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	arg = group->makefile_sequence;
 	//anjuta_token_dump_range (arg, NULL);
 
+	/* Create hash table for sources list */
+	orphan_sources = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify)g_free, (GDestroyNotify)free_source_list);
+	g_message ("orphan_sources create %p %x", orphan_sources, *((int *)orphan_sources));
+	
 	for (anjuta_token_match (significant_tok, ANJUTA_SEARCH_OVER, arg, &arg); arg != NULL; arg = anjuta_token_next (arg))
 	{
 		g_message("significant %s", anjuta_token_get_value (arg));
@@ -1380,12 +1518,20 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 		case AM_TOKEN__JAVA:
 		case AM_TOKEN__SCRIPTS:
 		case AM_TOKEN__TEXINFOS:
-				arg = project_load_target (project, arg, node);
+				arg = project_load_target (project, arg, node, orphan_sources);
 				break;
 		case AM_TOKEN__SOURCES:
+				arg = project_load_sources (project, arg, node, orphan_sources);
 				break;
 		}
 	}
+
+	/* Free unused sources files */
+	for (elem = g_hash_table_get_keys (orphan_sources); elem != NULL; elem = g_list_next (elem))
+	{
+		g_message ("free key %s", elem->data);
+	}
+	g_hash_table_destroy (orphan_sources);
 }
 
 static gboolean
@@ -1791,8 +1937,10 @@ impl_get_group (GbfProject  *_project,
 								g_file_get_uri (((AmpGroup *)node)->file));
 				break;
 			case AMP_NODE_TARGET:
+				target_id  = canonicalize_automake_variable (((AmpTarget *)node)->name);
 				group->targets = g_list_prepend (group->targets,
-								 g_strconcat (id, ((AmpTarget *)node)->name, NULL));
+								 g_strconcat (id, ":", target_id, NULL));
+				g_free (target_id);
 				break;
 			default:
 				break;
@@ -2038,7 +2186,7 @@ impl_get_target (GbfProject  *_project,
 	/* add sources to the target */
 	g_node = g_node_first_child (g_node);
 	while (g_node) {
-		child_node = AMP_NODE (g_node);
+		child_node = AMP_SOURCE_NODE (g_node);
 		switch (child_node->node.type) {
 			case AMP_NODE_SOURCE:
 				target->sources = g_list_prepend (target->sources,
@@ -2348,7 +2496,7 @@ impl_get_source (GbfProject  *_project,
 	AmpProject *project;
 	GbfProjectTargetSource *source;
 	GNode *g_node;
-	AmpNode *node;
+	AmpSource *node;
 
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
@@ -2359,11 +2507,11 @@ impl_get_source (GbfProject  *_project,
 			   _("Source doesn't exist"));
 		return NULL;
 	}
-	node = AMP_NODE (g_node);
+	node = AMP_SOURCE_NODE (g_node);
 
 	source = g_new0 (GbfProjectTargetSource, 1);
-	source->id = g_strdup (node->id);
-	source->source_uri = g_strdup (node->uri);
+	source->id = g_file_get_uri (node->file);
+	source->source_uri = g_file_get_uri (node->file);
 	source->target_id = g_strdup (AMP_NODE (g_node->parent)->id);
 
 	return source;

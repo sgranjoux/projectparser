@@ -33,7 +33,7 @@ void list_target (GbfProject *project, const gchar *id, gint indent)
 	printf ("%*sT %s\n", indent + 4, "", target->name); 
 	for (node = g_list_first (target->sources); node != NULL; node = g_list_next (node))
 	{
-		GbfProjectTargetSource* source = gbf_project_get_source (project, id, NULL);
+		GbfProjectTargetSource* source = gbf_project_get_source (project, node->data, NULL);
 		
 		printf ("%*s%s\n", indent + 8, "", source->source_uri); 
 	}
