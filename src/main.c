@@ -20,6 +20,7 @@
 #include "config.h"
 
 #include "project.h"
+#include "anjuta-debug.h"
 
 #include <gio/gio.h>
 
@@ -136,8 +137,9 @@ main(int argc, char *argv[])
 	GOptionContext *context;
 	GError *error = NULL;
 
-	/* Initialize GLib */
+	/* Initialize program */
 	g_type_init ();
+	anjuta_debug_init ();
 
 	/* Parse options */
  	context = g_option_context_new ("list [args]");
