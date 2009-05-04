@@ -17,11 +17,51 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
+
 #include "project.h"
 
 #include <gio/gio.h>
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+
+static gchar* project_path = ".";
+static gchar* output_file = NULL;
+static FILE* output_stream = NULL;
+
+static GOptionEntry entries[] =
+{
+  { "project", 'p', 0, G_OPTION_ARG_FILENAME, &project_path, "Project directory (default current directory)", "project_directory" },
+  { "output", 'o', 0, G_OPTION_ARG_FILENAME, &output_file, "Output file (default stdout)", "output_file" },
+  { NULL }
+};
+
+#define INDENT 4
+
+void open_output (void)
+{
+	output_stream = output_file == NULL ? stdout : fopen (output_file, "wt");
+}
+
+void close_output (void)
+{
+	if (output_file != NULL) fclose (output_stream);
+	output_stream = NULL;
+}
+
+void print (const gchar *message, ...)
+{
+	va_list args;
+
+	if (output_stream == NULL) open_output();
+	
+	va_start (args, message);
+	vfprintf (output_stream, message, args);
+	va_end (args);
+	fputc('\n', output_stream);
+}
 
 void list_target (GbfProject *project, const gchar *id, gint indent)
 {
@@ -29,13 +69,15 @@ void list_target (GbfProject *project, const gchar *id, gint indent)
 	GList *node;
 
 	if (target == NULL) return;
-	
-	printf ("%*sT %s\n", indent + 4, "", target->name); 
+
+	indent++;
+	print ("%*sTARGET: %s", indent * INDENT, "", target->name); 
+	indent++;
 	for (node = g_list_first (target->sources); node != NULL; node = g_list_next (node))
 	{
 		GbfProjectTargetSource* source = gbf_project_get_source (project, node->data, NULL);
 		
-		printf ("%*s%s\n", indent + 8, "", source->source_uri); 
+		print ("%*sSOURCE: %s", indent * INDENT, "", source->source_uri); 
 	}
 }
 
@@ -45,62 +87,92 @@ void list_group (GbfProject *project, const gchar *id, gint indent)
 	GList *node;
 
 	if (group == NULL) return;
-	
-	printf ("%*sG %s\n", indent + 4, "", group->name); 
+
+	indent++;
+	print ("%*sGROUP: %s", indent * INDENT, "", group->name); 
 	for (node = g_list_first (group->groups); node != NULL; node = g_list_next (node))
 	{
-		list_group (project, (const gchar *)node->data, indent + 4);
+		list_group (project, (const gchar *)node->data, indent);
 	}
 	for (node = g_list_first (group->targets); node != NULL; node = g_list_next (node))
 	{
-		list_target (project, (const gchar *)node->data, indent + 4);
+		list_target (project, (const gchar *)node->data, indent);
 	}
 }
 
-int main()
+
+void list_module (GbfProject *project)
 {
-	GbfProject *project;
 	GList *modules;
 	GList *node;
-	GFile *project_root;
-	gchar *uri;
-
-	g_type_init ();
-
-	project = amp_project_new  ();
-
-	project_root = g_file_new_for_commandline_arg ("test/anjuta");
-	uri = g_file_get_uri (project_root);
-	gbf_project_load (project, uri, NULL);
-	g_free (uri);
-	g_object_unref (project_root);
-
-	printf ("get all modules\n");
- 	modules = gbf_project_get_config_modules (project, NULL);
+	
+	modules = gbf_project_get_config_modules (project, NULL);
 	for (node = modules; node != NULL; node = g_list_next (node))
 	{
 		GList *packages;
 		GList *pack;
 
-		printf ("  module: %s\n", (const gchar *)node->data);
+		print ("%*sMODULE: %s", INDENT, "", (const gchar *)node->data);
 		
 		packages = gbf_project_get_config_packages (project, (const gchar *)node->data, NULL);
 		for (pack = packages; pack != NULL; pack = g_list_next (pack))
 		{
-			printf ("    %s\n", (const gchar *)pack->data);
+			print ("%*sPACKAGE: %s", 2 * INDENT, "", (const gchar *)pack->data);
 		}
-
-		//g_list_foreach (packages, (GFunc)g_free, NULL);
 		g_list_free (packages);
 	}
-	//g_list_foreach (modules, (GFunc)g_free, NULL);
 	g_list_free (modules);
+}
 
-	printf ("\nget all groups\n");
-	list_group (project, "", 0);
+/* Automake parsing function
+ *---------------------------------------------------------------------------*/
 
-	printf ("unref project\n");
+int
+main(int argc, char *argv[])
+{
+	GbfProject *project;
+	GFile *project_file;
+	gchar *uri;
+	GOptionContext *context;
+	GError *error = NULL;
+
+	/* Initialize GLib */
+	g_type_init ();
+
+	/* Parse options */
+ 	context = g_option_context_new ("list [args]");
+  	g_option_context_add_main_entries (context, entries, GETTEXT_PACKAGE);
+	g_option_context_set_summary (context, "test new autotools project manger");
+	if (!g_option_context_parse (context, &argc, &argv, &error))
+    {
+		exit (1);
+    }
+	if (argc < 2)
+	{
+		printf ("PROJECT: %s", g_option_context_get_help (context, TRUE, NULL));
+		exit (1);
+	}
+
+	/* Create project */
+	project = amp_project_new ();
+	project_file = g_file_new_for_commandline_arg (project_path);
+	uri = g_file_get_uri (project_file);
+	print ("%s", uri);
+	gbf_project_load (project, uri, NULL);
+	g_free (uri);
+	g_object_unref (project_file);
+
+	/* Execute command */
+	if (g_ascii_strcasecmp (argv[1], "list") == 0)
+	{
+		list_module (project);
+
+		list_group (project, "", 0);
+	}
+
+	/* Free objects */
 	g_object_unref (project);
-
+	close_output ();
+	
 	return (0);
 }
