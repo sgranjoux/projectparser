@@ -91,7 +91,6 @@ struct _AmpProject {
 	GHashTable		*targets;
 	GHashTable		*sources;
 	GHashTable		*files;
-
 	
 	GHashTable	*modules;
 	
@@ -848,9 +847,11 @@ project_unload (AmpProject *project)
 	if (project->groups) g_hash_table_destroy (project->groups);
 	if (project->targets) g_hash_table_destroy (project->targets);
 	if (project->sources) g_hash_table_destroy (project->sources);
+	if (project->files) g_hash_table_destroy (project->files);
 	project->groups = NULL;
 	project->targets = NULL;
 	project->sources = NULL;
+	project->files = NULL;
 
 	amp_project_free_module_hash (project);
 }
@@ -1167,12 +1168,10 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		}
 
 		name = anjuta_token_evaluate (start, anjuta_token_previous (next));
-		DEBUG_PRINT ("group %s name %s", group_id, name);
 		split_automake_variable (name, &flags, &install, NULL);
 		g_free (name);
 	}
 
-	DEBUG_PRINT ("open token %s", anjuta_token_get_value (next));
 	for (arg = next; arg != NULL; arg = anjuta_token_next (next))
 	{
 		gchar *value;
@@ -1185,7 +1184,6 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		gchar *orig_key;
 
 		last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
-		DEBUG_PRINT ("next token %s", anjuta_token_get_value (next));
 		
 		value = anjuta_token_evaluate (arg, next);
 		canon_id = canonicalize_automake_variable (value);		
@@ -1274,7 +1272,6 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 	{
 		parent = g_hash_table_lookup (project->targets, target_id) ;
 		
-		DEBUG_PRINT ("open token %s", anjuta_token_get_value (next));
 		for (arg = next; arg != NULL; arg = anjuta_token_next (next))
 		{
 			gchar *value;
@@ -1282,7 +1279,6 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 			gboolean last;
 
 			last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
-			DEBUG_PRINT ("next token %s", anjuta_token_get_value (next));
 		
 			value = anjuta_token_evaluate (arg, next);
 		
@@ -1292,7 +1288,6 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 			if (parent == NULL)
 			{
 				/* Add in orphan list */
-				DEBUG_PRINT ("add orphan %p", source);
 				orphan = g_list_prepend (orphan, source);
 			}
 			else
@@ -1313,16 +1308,13 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 			gchar *orig_key;
 			GList *orig_sources;
 
-			DEBUG_PRINT ("orphan_sources %p", orphan_sources);
 			if (g_hash_table_lookup_extended (orphan_sources, target_id, &orig_key, &orig_sources))
 			{
-				DEBUG_PRINT ("lookup find %s key %s orphan %p",  target_id, orig_key, orig_sources);
 				g_hash_table_steal (orphan_sources, target_id);
 				orphan = g_list_concat (orphan, orig_sources);	
 				g_free (orig_key);
 			}
 			g_hash_table_insert (orphan_sources, target_id, orphan);
-			DEBUG_PRINT ("insert %s %p", target_id, orphan);
 		}
 		else
 		{
@@ -1378,6 +1370,16 @@ free_source_list (GList *source_list)
 {
 	g_list_foreach (source_list, amp_source_free, NULL);
 	g_list_free (source_list);
+}
+
+static void
+remove_config_file (gpointer data, GObject *object, gboolean is_last_ref)
+{
+	if (is_last_ref)
+	{
+		AmpProject *project = (AmpProject *)data;
+		g_hash_table_remove (project->files, anjuta_token_file_get_file (ANJUTA_TOKEN_FILE (object)));
+	}
 }
 
 static void
@@ -1444,10 +1446,11 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	DEBUG_PRINT ("Parse: %s", g_file_get_uri (file));
 	makefile = g_file_get_child (file, filename);
 	group->tfile = anjuta_token_file_new (makefile);
+	g_hash_table_insert (project->files, makefile, group->tfile);
+	g_object_add_toggle_ref (G_OBJECT (group->tfile), remove_config_file, project);
 	scanner = amp_am_scanner_new ();
 	amp_am_scanner_parse (scanner, group->tfile);
 	amp_am_scanner_free (scanner);
-	g_object_unref (makefile);
 	g_free (filename);
 
 	/* Find significant token */
@@ -1458,11 +1461,9 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 
 	/* Create hash table for sources list */
 	orphan_sources = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify)g_free, (GDestroyNotify)free_source_list);
-	DEBUG_PRINT ("orphan_sources create %p %x", orphan_sources, *((int *)orphan_sources));
 	
 	for (anjuta_token_match (significant_tok, ANJUTA_SEARCH_OVER, arg, &arg); arg != NULL; arg = anjuta_token_next (arg))
 	{
-		DEBUG_PRINT ("significant %s", anjuta_token_get_value (arg));
 		switch (anjuta_token_get_type (arg))
 		{
 		case AM_TOKEN_SUBDIRS:
@@ -1488,10 +1489,6 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	}
 
 	/* Free unused sources files */
-	for (elem = g_hash_table_get_keys (orphan_sources); elem != NULL; elem = g_list_next (elem))
-	{
-		DEBUG_PRINT ("free key %s", elem->data);
-	}
 	g_hash_table_destroy (orphan_sources);
 }
 
@@ -1530,6 +1527,8 @@ project_reload (AmpProject *project, GError **error)
 		
 	/* Parse configure */	
 	project->configure_file = anjuta_token_file_new (configure_file);
+	g_hash_table_insert (project->files, configure_file, project->configure_file);
+	g_object_add_toggle_ref (G_OBJECT (project->configure_file), remove_config_file, project);
 	g_object_unref (configure_file);
 	scanner = amp_ac_scanner_new ();
 	ok = amp_ac_scanner_parse (scanner, project->configure_file);
@@ -1541,7 +1540,8 @@ project_reload (AmpProject *project, GError **error)
 	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	project->targets = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	project->sources = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-
+	project->files = g_hash_table_new_full (g_file_hash, g_file_equal, g_object_unref, g_object_unref);
+	
 	amp_project_new_module_hash (project);
 	project_reload_packages (project);
 	

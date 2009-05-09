@@ -140,7 +140,7 @@ main(int argc, char *argv[])
 	/* Initialize program */
 	g_type_init ();
 	
-	anjuta_debug_init (TRUE);
+	anjuta_debug_init (FALSE);
 
 	/* Parse options */
  	context = g_option_context_new ("list [args]");
