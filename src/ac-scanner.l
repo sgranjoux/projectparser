@@ -25,6 +25,8 @@
 #include "ac-scanner.h"
 #include "ac-parser.h"
 
+#include "libanjuta/anjuta-debug.h"
+
 /* Eliminate warning */
 #define YY_NO_UNPUT 1 
 
@@ -151,7 +153,7 @@ NUMBER      [0-9][0-9.]*
 
 <INITIAL>PKG_CHECK_MODULES\( {
     AnjutaToken *token;
-    g_message ("PKG_CHECK_MODULES %.*s", yyleng, yytext);
+    DEBUG_PRINT ("PKG_CHECK_MODULES %.*s", yyleng, yytext);
     yy_push_state (ARGUMENT, yyscanner);
     token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_OPEN);
     yylval->range.first = token;

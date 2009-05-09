@@ -396,13 +396,6 @@ split_automake_variable (gchar *name, gint *flags, gchar **module, gchar **prima
 
 	if (!g_regex_match (regex, name, G_REGEX_MATCH_ANCHORED, &match_info)) return FALSE;
 
-	g_message ("match : ==%s==", g_match_info_fetch (match_info, 0));
-	g_message ("match 1: ==%s==", g_match_info_fetch (match_info, 1));
-	g_message ("match 2: ==%s==", g_match_info_fetch (match_info, 2));
-	g_message ("match 3: ==%s==", g_match_info_fetch (match_info, 3));
-	g_message ("match 4: ==%s==", g_match_info_fetch (match_info, 4));
-	g_message ("match 5: ==%s==", g_match_info_fetch (match_info, 5));
-	
 	if (flags)
 	{
 		*flags = 0;
@@ -653,8 +646,6 @@ amp_source_new (GFile *parent, const gchar *name)
 static void
 amp_source_free (AmpSource *source)
 {
-	g_message ("free %p", source);
-	g_message ("free source %s", g_file_get_uri (source->file));
     g_object_unref (source->file);
     g_slice_free (AmpSource, source);
 }
@@ -877,7 +868,7 @@ project_reload_packages   (AmpProject *project)
 	close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
 
 
-	g_message("reload package");
+	DEBUG_PRINT ("reload package");
 	
     sequence = anjuta_token_file_first (project->configure_file);
 	for (;;)
@@ -1127,8 +1118,8 @@ project_reload_group (AmpProject *project, AmpGroup *group)
 	file = g_file_get_child (group->file, makefile_am);
 	g_free (makefile_am);
 
-	g_message ("Parse %s", g_file_get_uri (file));
 	/* Parse makefile.am */	
+	DEBUG_PRINT ("Parse %s", g_file_get_uri (file));
 	makefile = anjuta_token_file_new (file);
 	scanner = amp_am_scanner_new ();
 	amp_am_scanner_parse (scanner, makefile);
@@ -1206,12 +1197,12 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		}
 
 		name = anjuta_token_evaluate (start, anjuta_token_previous (next));
-		g_message ("group %s name %s", group_id, name);
+		DEBUG_PRINT ("group %s name %s", group_id, name);
 		split_automake_variable (name, &flags, &install, NULL);
 		g_free (name);
 	}
 
-	g_message("open token %s", anjuta_token_get_value (next));
+	DEBUG_PRINT ("open token %s", anjuta_token_get_value (next));
 	for (arg = next; arg != NULL; arg = anjuta_token_next (next))
 	{
 		gchar *value;
@@ -1224,7 +1215,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		gchar *orig_key;
 
 		last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
-		g_message("next token %s", anjuta_token_get_value (next));
+		DEBUG_PRINT ("next token %s", anjuta_token_get_value (next));
 		
 		value = anjuta_token_evaluate (arg, next);
 		canon_id = canonicalize_automake_variable (value);		
@@ -1313,7 +1304,7 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 	{
 		parent = g_hash_table_lookup (project->targets, target_id) ;
 		
-		g_message("open token %s", anjuta_token_get_value (next));
+		DEBUG_PRINT ("open token %s", anjuta_token_get_value (next));
 		for (arg = next; arg != NULL; arg = anjuta_token_next (next))
 		{
 			gchar *value;
@@ -1321,7 +1312,7 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 			gboolean last;
 
 			last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
-			g_message("next token %s", anjuta_token_get_value (next));
+			DEBUG_PRINT ("next token %s", anjuta_token_get_value (next));
 		
 			value = anjuta_token_evaluate (arg, next);
 		
@@ -1331,7 +1322,7 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 			if (parent == NULL)
 			{
 				/* Add in orphan list */
-				g_message ("add orphan %p", source);
+				DEBUG_PRINT ("add orphan %p", source);
 				orphan = g_list_prepend (orphan, source);
 			}
 			else
@@ -1352,16 +1343,16 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 			gchar *orig_key;
 			GList *orig_sources;
 
-			g_message ("orphan_sources %p", orphan_sources);
+			DEBUG_PRINT ("orphan_sources %p", orphan_sources);
 			if (g_hash_table_lookup_extended (orphan_sources, target_id, &orig_key, &orig_sources))
 			{
-				g_message ("lookup find %s key %s orphan %p",  target_id, orig_key, orig_sources);
+				DEBUG_PRINT ("lookup find %s key %s orphan %p",  target_id, orig_key, orig_sources);
 				g_hash_table_steal (orphan_sources, target_id);
 				orphan = g_list_concat (orphan, orig_sources);	
 				g_free (orig_key);
 			}
 			g_hash_table_insert (orphan_sources, target_id, orphan);
-			g_message ("insert %s %p", target_id, orphan);
+			DEBUG_PRINT ("insert %s %p", target_id, orphan);
 		}
 		else
 		{
@@ -1480,7 +1471,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	}
 
 	/* Parse makefile.am */	
-	g_message ("Parse: %s", g_file_get_uri (file));
+	DEBUG_PRINT ("Parse: %s", g_file_get_uri (file));
 	makefile = g_file_get_child (file, filename);
 	group->tfile = anjuta_token_file_new (makefile);
 	scanner = amp_am_scanner_new ();
@@ -1497,11 +1488,11 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 
 	/* Create hash table for sources list */
 	orphan_sources = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify)g_free, (GDestroyNotify)free_source_list);
-	g_message ("orphan_sources create %p %x", orphan_sources, *((int *)orphan_sources));
+	DEBUG_PRINT ("orphan_sources create %p %x", orphan_sources, *((int *)orphan_sources));
 	
 	for (anjuta_token_match (significant_tok, ANJUTA_SEARCH_OVER, arg, &arg); arg != NULL; arg = anjuta_token_next (arg))
 	{
-		g_message("significant %s", anjuta_token_get_value (arg));
+		DEBUG_PRINT ("significant %s", anjuta_token_get_value (arg));
 		switch (anjuta_token_get_type (arg))
 		{
 		case AM_TOKEN_SUBDIRS:
@@ -1529,7 +1520,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	/* Free unused sources files */
 	for (elem = g_hash_table_get_keys (orphan_sources); elem != NULL; elem = g_list_next (elem))
 	{
-		g_message ("free key %s", elem->data);
+		DEBUG_PRINT ("free key %s", elem->data);
 	}
 	g_hash_table_destroy (orphan_sources);
 }
@@ -1547,7 +1538,7 @@ project_reload (AmpProject *project, GError **error)
 	root_file = g_object_ref (project->root_file);
 	project_unload (project);
 	project->root_file = root_file;
-	g_message ("reload project %p root file %p", project, project->root_file);
+	DEBUG_PRINT ("reload project %p root file %p", project, project->root_file);
 
 	/* Find configure file */
 	if (file_type (root_file, "configure.ac") == G_FILE_TYPE_REGULAR)

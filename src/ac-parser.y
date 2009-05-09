@@ -23,6 +23,8 @@
 
 #define YYDEBUG 1
 
+#include "libanjuta/anjuta-debug.h"
+
 //static void amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s);
 
 //amp_ac_yydebug = 1;
@@ -121,7 +123,7 @@ pkg_check_modules:
 		;
 
 obsolete_ac_output:
-		PM_TOKEN_OBSOLETE_AC_OUTPUT space_list_strip list_optional_optional {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT); g_message ("obsolete AC_OUTPUT");}
+		PM_TOKEN_OBSOLETE_AC_OUTPUT space_list_strip list_optional_optional {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT); DEBUG_PRINT ("obsolete AC_OUTPUT");}
 		;
 
 ac_output:
