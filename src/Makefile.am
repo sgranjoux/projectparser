@@ -19,8 +19,6 @@ bin_PROGRAMS = projectparser
 
 projectparser_SOURCES = \
 	main.c \
-	tokens.c \
-	tokens.h \
 	am-project.c \
 	am-project.h \
 	am-scanner.l \

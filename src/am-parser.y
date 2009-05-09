@@ -18,8 +18,6 @@
  */
 %{
 
-#include <tokens.h>
-
 #include <am-scanner.h>
 
 #include <stdlib.h>

@@ -20,7 +20,7 @@
 #ifndef _AC_SCANNER_H_
 #define _AC_SCANNER_H_
 
-#include <tokens.h>
+#include "libanjuta/anjuta-token.h"
 
 
 #include <glib.h>

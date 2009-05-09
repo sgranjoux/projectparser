@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
 /*
- * tokens.c
+ * anjuta-token.c
  * Copyright (C) Sébastien Granjoux 2009 <seb.sfo@free.fr>
  * 
  * This program is free software: you can redistribute it and/or modify it
@@ -17,7 +17,7 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "tokens.h"
+#include "anjuta-token.h"
 
 #include <stdio.h>
 #include <string.h>

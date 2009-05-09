@@ -18,10 +18,10 @@
  */
 %{
 
-#include <tokens.h>
+//#include <tokens.h>
 
 #include <stdlib.h>
-//#include "ac-scanner.h"
+#include "ac-scanner.h"
 //#include "ac-parser.h"
 
 #define YYDEBUG 1

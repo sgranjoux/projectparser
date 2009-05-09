@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
 /*
- * tokens.h
+ * anjuta-token.h
  * Copyright (C) Sébastien Granjoux 2009 <seb.sfo@free.fr>
  * 
  * This program is free software: you can redistribute it and/or modify it
@@ -17,8 +17,8 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _TOKENS_H_
-#define _TOKENS_H_
+#ifndef _ANJUTA_TOKEN_H_
+#define _ANJUTA_TOKEN_H_
 
 #include <gio/gio.h>
 #include <glib.h>
