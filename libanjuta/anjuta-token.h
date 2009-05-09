@@ -99,7 +99,19 @@ gint anjuta_token_get_type (AnjutaToken *token);
 gint anjuta_token_get_flags (AnjutaToken *token);
 gchar* anjuta_token_get_value (AnjutaToken *token);
 
+
+
+#define ANJUTA_TOKEN_FILE_TYPE                     (anjuta_token_file_get_type ())
+#define ANJUTA_TOKEN_FILE(obj)                      (G_TYPE_CHECK_INSTANCE_CAST ((obj), ANJUTA_TOKEN_FILE_TYPE, AnjutaTokenFile))
+#define ANJUTA_TOKEN_FILE_CLASS(klass)        (G_TYPE_CHECK_CLASS_CAST ((klass), ANJUTA_TOKEN_FILE_TYPE, AnjutaTokenFileClass))
+#define IS_ANJUTA_TOKEN_FILE(obj)                  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), ANJUTA_TOKEN_FILE_TYPE))
+#define IS_ANJUTA_TOKEN_FILE_CLASS(klass)    (G_TYPE_CHECK_CLASS_TYPE ((klass), ANJUTA_TOKEN_FILE_TYPE))
+#define GET_ANJUTA_TOKEN_FILE_CLASS(obj)    (G_TYPE_INSTANCE_GET_CLASS ((obj), ANJUTA_TOKEN_FILE_TYPE, AnjutaTokenFileClass))
+
 typedef struct _AnjutaTokenFile AnjutaTokenFile;
+typedef struct _AnjutaTokenFileClass AnjutaTokenFileClass;
+
+GType anjuta_token_file_get_type (void);
 
 AnjutaTokenFile *anjuta_token_file_new (GFile *file);
 void anjuta_token_file_free (AnjutaTokenFile *file);

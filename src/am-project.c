@@ -87,10 +87,12 @@ struct _AmpProject {
 								 * the tree is the root group. */
 
 	/* shortcut hash tables, mapping id -> GNode from the tree above */
-	GHashTable         *groups;
-	GHashTable         *targets;
-	GHashTable         *sources;
+	GHashTable		*groups;
+	GHashTable		*targets;
+	GHashTable		*sources;
+	GHashTable		*files;
 
+	
 	GHashTable	*modules;
 	
 	/* project files monitors */
@@ -596,7 +598,7 @@ amp_group_new (GFile *file, const gchar *makefile)
 static void
 amp_group_free (AmpGroup *group)
 {
-	if (group->tfile) anjuta_token_file_free (group->tfile);
+	if (group->tfile) g_object_unref (G_OBJECT (group->tfile));
 	g_object_unref (group->file);
     g_slice_free (AmpGroup, group);
 }
@@ -836,7 +838,7 @@ project_unload (AmpProject *project)
 	project_node_destroy (project, project->root_node);
 	project->root_node = NULL;
 
-	if (project->configure_file)	anjuta_token_file_free (project->configure_file);
+	if (project->configure_file)	g_object_unref (G_OBJECT (project->configure_file));
 	project->configure_file = NULL;
 
 	if (project->root_file) g_object_unref (project->root_file);
@@ -1104,38 +1106,6 @@ project_list_config_files (AmpProject *project)
 	anjuta_token_free (close_tok);
 
 	return config_files;
-}
-
-static void
-project_reload_group (AmpProject *project, AmpGroup *group)
-{
-	AmpAmScanner *scanner;
-	AnjutaTokenFile *makefile;
-	GFile *file;
-	gchar *makefile_am;
-	
-	makefile_am = g_strconcat (group->makefile, ".am", NULL);
-	file = g_file_get_child (group->file, makefile_am);
-	g_free (makefile_am);
-
-	/* Parse makefile.am */	
-	DEBUG_PRINT ("Parse %s", g_file_get_uri (file));
-	makefile = anjuta_token_file_new (file);
-	scanner = amp_am_scanner_new ();
-	amp_am_scanner_parse (scanner, makefile);
-	amp_am_scanner_free (scanner);
-	anjuta_token_file_free (file);
-}
-
-static void
-foreach_group_reload (gpointer key, GNode *node, AmpProject *project)
-{
-	AmpGroup *group = AMP_GROUP_NODE (node);
-
-	if (group->makefile != NULL)
-	{
-		project_reload_group (project, group);
-	}
 }
 
 static AnjutaToken*
@@ -1581,11 +1551,15 @@ project_reload (AmpProject *project, GError **error)
 	g_list_foreach (config_files, (GFunc)amp_config_file_free, NULL);
 	g_list_free (config_files);
 	
-	//g_hash_table_foreach (project->groups, (GHFunc)foreach_group_reload, project);
-	//foreach_group_reload ("", g_hash_table_lookup (project->groups, ""), project);
-	
 	return ok;
 }
+
+static gboolean
+project_save (AmpProject *project, GError **error)
+{
+	g_return_val_if_fail (project != NULL, FALSE);
+}
+
 
 static void
 project_data_init (AmpProject *project)

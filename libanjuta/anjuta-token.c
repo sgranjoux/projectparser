@@ -19,6 +19,8 @@
 
 #include "anjuta-token.h"
 
+#include <glib-object.h>
+
 #include <stdio.h>
 #include <string.h>
 
@@ -316,6 +318,8 @@ anjuta_token_free (AnjutaToken *token)
 
 struct _AnjutaTokenFile
 {
+	GObject parent;
+	
 	GFile* file;
 	
 	gsize length;
@@ -324,6 +328,13 @@ struct _AnjutaTokenFile
 	AnjutaToken *first;
 	AnjutaToken *last;
 };
+
+struct _AnjutaTokenFileClass
+{
+	GObjectClass parent_class;
+};
+
+static GObjectClass *parent_class = NULL;
 
 /* Public functions
  *---------------------------------------------------------------------------*/
@@ -378,23 +389,18 @@ anjuta_token_file_get_file (AnjutaTokenFile *file)
 	return file->file;
 }
 
-/* Constructor & Destructor
+/* GObject functions
  *---------------------------------------------------------------------------*/
 
-AnjutaTokenFile *
-anjuta_token_file_new (GFile *gfile)
-{
-	AnjutaTokenFile *file = g_slice_new0 (AnjutaTokenFile);
-	
-	file->file = g_object_ref (gfile);
+/* dispose is the first destruction step. It is used to unref object created
+ * with instance_init in order to break reference counting cycles. This
+ * function could be called several times. All function should still work
+ * after this call. It has to called its parents.*/
 
-	return file;
-};
-
-void
-anjuta_token_file_free (AnjutaTokenFile *file)
+static void
+anjuta_token_file_dispose (GObject *object)
 {
-	g_return_if_fail (file != NULL);
+	AnjutaTokenFile *file = ANJUTA_TOKEN_FILE (object);
 
 	while (file->first)
 	{
@@ -404,9 +410,77 @@ anjuta_token_file_free (AnjutaTokenFile *file)
 		file->first = next;
 	};
 
-	g_free (file->content);
+	if (file->content) g_free (file->content);
+	file->content = NULL;
 	
-	g_object_unref (file->file);
+	if (file->file) g_object_unref (file->file);
+	file->file = NULL;
+
+	G_OBJECT_CLASS (parent_class)->dispose (object);
+}
+
+/* instance_init is the constructor. All functions should work after this
+ * call. */
+
+static void
+anjuta_token_file_instance_init (AnjutaTokenFile *file)
+{
+	file->file = NULL;
+}
+
+/* class_init intialize the class itself not the instance */
+
+static void
+anjuta_token_file_class_init (AnjutaTokenFileClass * klass)
+{
+	GObjectClass *gobject_class;
+
+	g_return_if_fail (klass != NULL);
 	
-	g_slice_free (AnjutaTokenFile, file);
+	parent_class = G_OBJECT_CLASS (g_type_class_peek_parent (klass));
+	gobject_class = G_OBJECT_CLASS (klass);
+	
+	gobject_class->dispose = anjuta_token_file_dispose;
+}
+
+GType
+anjuta_token_file_get_type (void)
+{
+	static GType type = 0;
+
+	if (!type)
+	{
+		static const GTypeInfo type_info = 
+		{
+			sizeof (AnjutaTokenFileClass),
+			(GBaseInitFunc) NULL,
+			(GBaseFinalizeFunc) NULL,
+			(GClassInitFunc) anjuta_token_file_class_init,
+			(GClassFinalizeFunc) NULL,
+			NULL,           /* class_data */
+			sizeof (AnjutaTokenFile),
+			0,              /* n_preallocs */
+			(GInstanceInitFunc) anjuta_token_file_instance_init,
+			NULL            /* value_table */
+		};
+
+		type = g_type_register_static (G_TYPE_OBJECT,
+		                            "AnjutaTokenFile", &type_info, 0);
+	}
+	
+	return type;
+}
+
+
+/* Constructor & Destructor
+ *---------------------------------------------------------------------------*/
+
+AnjutaTokenFile *
+anjuta_token_file_new (GFile *gfile)
+{
+	AnjutaTokenFile *file = g_object_new (ANJUTA_TOKEN_FILE_TYPE, NULL);
+	
+	file->file =  gfile ? g_object_ref (gfile) : NULL;
+
+	return file;
 };
