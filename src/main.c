@@ -19,8 +19,8 @@
 
 #include "config.h"
 
-#include "project.h"
-#include "anjuta-debug.h"
+#include "am-project.h"
+#include "libanjuta/anjuta-debug.h"
 
 #include <gio/gio.h>
 
@@ -133,13 +133,14 @@ main(int argc, char *argv[])
 {
 	GbfProject *project;
 	GFile *project_file;
-	gchar *uri;
+	gchar *path;
 	GOptionContext *context;
 	GError *error = NULL;
 
 	/* Initialize program */
 	g_type_init ();
-	anjuta_debug_init ();
+	
+	anjuta_debug_init (TRUE);
 
 	/* Parse options */
  	context = g_option_context_new ("list [args]");
@@ -158,10 +159,10 @@ main(int argc, char *argv[])
 	/* Create project */
 	project = amp_project_new ();
 	project_file = g_file_new_for_commandline_arg (project_path);
-	uri = g_file_get_uri (project_file);
-	print ("%s", uri);
-	gbf_project_load (project, uri, NULL);
-	g_free (uri);
+	path = g_file_get_path (project_file);
+	print ("%s", path);
+	gbf_project_load (project, path, NULL);
+	g_free (path);
 	g_object_unref (project_file);
 
 	/* Execute command */
@@ -175,6 +176,8 @@ main(int argc, char *argv[])
 	/* Free objects */
 	g_object_unref (project);
 	close_output ();
+
+	DEBUG_PRINT ("Hello in debug print");
 	
 	return (0);
 }

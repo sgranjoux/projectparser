@@ -1,5 +1,5 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4; coding: utf-8 -*- */
-/* project.c
+/* am-project.c
  *
  * Copyright (C) 2009  Sébastien Granjoux
  *
@@ -24,6 +24,8 @@
 #include <config.h>
 #endif
 
+#include <libanjuta/anjuta-debug.h>
+
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -34,7 +36,7 @@
 #include <glib/gi18n.h>
 #include <gio/gio.h>
 #include <glib.h>
-#include "project.h"
+#include "am-project.h"
 #include "ac-scanner.h"
 #include "am-scanner.h"
 //#include "am-config.h"
@@ -1794,7 +1796,7 @@ impl_probe (GbfProject  *_project,
 	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), FALSE);
 
-	file = g_file_new_for_uri (uri);
+	file = g_file_new_for_path (uri);
 
 	dir = (file_type (file, NULL) == G_FILE_TYPE_DIRECTORY);
 	if (!dir)
@@ -1838,7 +1840,7 @@ impl_load (GbfProject  *_project,
 		return;
 	
 	/* now try loading the project */
-	project->root_file = g_file_new_for_uri (uri);
+	project->root_file = g_file_new_for_path (uri);
 	if (!project_reload (project, error))
 	{
 		g_object_unref (project->root_file);
@@ -1899,7 +1901,7 @@ impl_get_group (GbfProject  *_project,
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
 	project = AMP_PROJECT (_project);
-	if ((id == NULL) || (*id == '\0'))
+	if ((id == NULL) || (*id == '\0') || ((id[0] == '/') && (id[1] == '\0')))
 	{
 		gchar *id = g_file_get_uri (project->root_file);
 		g_node = g_hash_table_lookup (project->groups, id);

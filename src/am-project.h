@@ -1,5 +1,5 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4; coding: utf-8 -*- */
-/* project.h
+/* am-project.h
  *
  * Copyright (C) 2009  Sébastien Granjoux
  *
@@ -19,11 +19,11 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#ifndef _AMP_PROJECT_H_
-#define _AMP_PROJECT_H_
+#ifndef _AM_PROJECT_H_
+#define _AM_PROJECT_H_
 
 #include <glib-object.h>
-#include "gbf-project.h"
+#include "libanjuta/gbf-project.h"
 
 G_BEGIN_DECLS
 
@@ -58,4 +58,4 @@ void am_project_set_target_config (AmProject *project, const gchar *target_id, G
 
 G_END_DECLS
 
-#endif /* _AMP_PROJECT_H_ */
+#endif /* _AM_PROJECT_H_ */

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 ## Created by Anjuta
 
-SUBDIRS = src po
+SUBDIRS = src libanjuta po
 
 projectparserdocdir = ${prefix}/doc/projectparser
 projectparserdoc_DATA = \

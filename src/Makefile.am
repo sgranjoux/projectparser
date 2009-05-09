@@ -3,9 +3,11 @@
 ## Created by Anjuta
 
 AM_CPPFLAGS = \
+	-DDEBUG \
 	-DPACKAGE_LOCALE_DIR=\""$(prefix)/$(DATADIRNAME)/locale"\" \
 	-DPACKAGE_SRC_DIR=\""$(srcdir)"\" \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
+	-I$(srcdir)/.. \
 	$(GLIB_CFLAGS) \
 	$(GTK_CFLAGS)
 
@@ -19,22 +21,19 @@ projectparser_SOURCES = \
 	main.c \
 	tokens.c \
 	tokens.h \
-	gbf-project.c \
-	gbf-project.h \
-	project.c \
-	project.h \
+	am-project.c \
+	am-project.h \
 	am-scanner.l \
 	am-parser.y \
 	am-scanner.h \
 	ac-scanner.l \
 	ac-parser.y \
-	ac-scanner.h \
-	anjuta-debug.c \
-	anjuta-debug.h
+	ac-scanner.h
 
 projectparser_LDFLAGS = 
 
 projectparser_LDADD = \
+	../libanjuta/libanjuta.a \
 	$(GLIB_LIBS) \
 	$(GTK_LIBS)
 

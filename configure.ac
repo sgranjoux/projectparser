@@ -38,5 +38,6 @@ PKG_CHECK_MODULES(GTK, gtk+-2.0 >= $GTK_REQUIRED)
 AC_OUTPUT([
 Makefile
 src/Makefile
+libanjuta/Makefile
 po/Makefile.in
 ])
