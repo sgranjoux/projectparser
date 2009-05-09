@@ -79,8 +79,7 @@ struct _AmpProject {
 	GFile			*root_file;
 
 	/* project data */
-	GFile			*configure_file;		/* configure.in file */
-	AnjutaToken 	*configure_sequence;	
+	AnjutaTokenFile		*configure_file;		/* configure.in file */
 	
 	GNode              *root_node;         	/* tree containing project data;
 								 * each GNode's data is a
@@ -129,7 +128,7 @@ struct _AmpGroup {
 	AmpNode node;
     gchar *makefile;
 	GFile *file;
-	AnjutaToken *makefile_sequence;
+	AnjutaTokenFile *tfile;
 };
 
 typedef enum _AmpTargetFlag
@@ -604,8 +603,7 @@ amp_group_new (GFile *file, const gchar *makefile)
 static void
 amp_group_free (AmpGroup *group)
 {
-	if (group->makefile_sequence) anjuta_token_foreach (group->makefile_sequence, (GFunc)anjuta_token_unref, NULL);
-    g_free (group->makefile);
+	if (group->tfile) anjuta_token_file_free (group->tfile);
 	g_object_unref (group->file);
     g_slice_free (AmpGroup, group);
 }
@@ -758,7 +756,7 @@ monitors_setup (AmpProject *project)
 	project->monitors = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
 						   (GDestroyNotify) g_file_monitor_cancel);
 
-	monitor_add (project, project->configure_file);
+	monitor_add (project, anjuta_token_file_get_file (project->configure_file));
 	if (project->groups)
 		g_hash_table_foreach (project->groups, group_hash_foreach_monitor, project);
 }
@@ -847,10 +845,7 @@ project_unload (AmpProject *project)
 	project_node_destroy (project, project->root_node);
 	project->root_node = NULL;
 
-	if (project->configure_sequence) anjuta_token_foreach (project->configure_sequence, (GFunc)anjuta_token_unref, NULL);
-	project->configure_sequence = NULL;
-	
-	if (project->configure_file)	g_object_unref (project->configure_file);
+	if (project->configure_file)	anjuta_token_file_free (project->configure_file);
 	project->configure_file = NULL;
 
 	if (project->root_file) g_object_unref (project->root_file);
@@ -884,7 +879,7 @@ project_reload_packages   (AmpProject *project)
 
 	g_message("reload package");
 	
-	sequence = project->configure_sequence;
+    sequence = anjuta_token_file_first (project->configure_file);
 	for (;;)
 	{
 		AnjutaToken *module;
@@ -964,9 +959,9 @@ project_reload_packages   (AmpProject *project)
 		if (next == NULL) break;
 		sequence = anjuta_token_next (next);
 	}
-	anjuta_token_unref (pkg_check_tok);
-	anjuta_token_unref (next_tok);
-	anjuta_token_unref (close_tok);
+	anjuta_token_free (pkg_check_tok);
+	anjuta_token_free (next_tok);
+	anjuta_token_free (close_tok);
 }
 
 static void
@@ -1067,8 +1062,8 @@ amp_project_add_config_files (AmpProject *project, AnjutaToken *list, GList **co
 		if (anjuta_token_get_flags (next) & ANJUTA_TOKEN_CLOSE) break;
 	}
 
-	anjuta_token_unref (open_tok);
-	anjuta_token_unref (next_tok);
+	anjuta_token_free (open_tok);
+	anjuta_token_free (next_tok);
 	
 	return next;
 }							   
@@ -1086,7 +1081,7 @@ project_list_config_files (AmpProject *project)
 	config_files_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "AC_CONFIG_FILES(");
 	close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
 
-	sequence = project->configure_sequence;
+    sequence = anjuta_token_file_first (project->configure_file);
 
 	for (anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence); sequence != NULL; sequence = anjuta_token_next (sequence))
 	{
@@ -1099,10 +1094,10 @@ project_list_config_files (AmpProject *project)
 	if (config_files == NULL)
 	{
 		/* Search the old AC_OUTPUT macro */
-	    anjuta_token_unref (config_files_tok);
+	    anjuta_token_free(config_files_tok);
 	    config_files_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "AC_OUTPUT(");
 		
-	    sequence = project->configure_sequence;
+	    sequence = anjuta_token_file_first (project->configure_file);
 
 		for (anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence); sequence != NULL; sequence = anjuta_token_next (sequence))
 		{	
@@ -1114,8 +1109,8 @@ project_list_config_files (AmpProject *project)
 	}
 	
 	
-	anjuta_token_unref (config_files_tok);
-	anjuta_token_unref (close_tok);
+	anjuta_token_free (config_files_tok);
+	anjuta_token_free (close_tok);
 
 	return config_files;
 }
@@ -1124,7 +1119,7 @@ static void
 project_reload_group (AmpProject *project, AmpGroup *group)
 {
 	AmpAmScanner *scanner;
-	AnjutaToken *makefile;
+	AnjutaTokenFile *makefile;
 	GFile *file;
 	gchar *makefile_am;
 	
@@ -1134,9 +1129,11 @@ project_reload_group (AmpProject *project, AmpGroup *group)
 
 	g_message ("Parse %s", g_file_get_uri (file));
 	/* Parse makefile.am */	
+	makefile = anjuta_token_file_new (file);
 	scanner = amp_am_scanner_new ();
-	makefile = amp_am_scanner_parse (scanner, file);
+	amp_am_scanner_parse (scanner, makefile);
 	amp_am_scanner_free (scanner);
+	anjuta_token_file_free (file);
 }
 
 static void
@@ -1269,8 +1266,8 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 	}
 
 	g_free (group_id);
-	anjuta_token_unref (open_tok);
-	anjuta_token_unref (next_tok);
+	anjuta_token_free (open_tok);
+	anjuta_token_free (next_tok);
 
 	return next;
 }
@@ -1373,8 +1370,8 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 	}
 
 	g_object_unref (parent_file);
-	anjuta_token_unref (open_tok);
-	anjuta_token_unref (next_tok);
+	anjuta_token_free (open_tok);
+	anjuta_token_free (next_tok);
 
 	return next;
 }
@@ -1409,8 +1406,8 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNod
 		if (last) break;
 	}
 
-	anjuta_token_unref (open_tok);
-	anjuta_token_unref (next_tok);
+	anjuta_token_free (open_tok);
+	anjuta_token_free (next_tok);
 
 	return next;
 }
@@ -1485,8 +1482,9 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	/* Parse makefile.am */	
 	g_message ("Parse: %s", g_file_get_uri (file));
 	makefile = g_file_get_child (file, filename);
+	group->tfile = anjuta_token_file_new (makefile);
 	scanner = amp_am_scanner_new ();
-	group->makefile_sequence = amp_am_scanner_parse (scanner, makefile);
+	amp_am_scanner_parse (scanner, group->tfile);
 	amp_am_scanner_free (scanner);
 	g_object_unref (makefile);
 	g_free (filename);
@@ -1494,7 +1492,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	/* Find significant token */
 	significant_tok = anjuta_token_new_static (ANJUTA_TOKEN_SIGNIFICANT, NULL);
 	
-	arg = group->makefile_sequence;
+	arg = anjuta_token_file_first (group->tfile);
 	//anjuta_token_dump_range (arg, NULL);
 
 	/* Create hash table for sources list */
@@ -1542,6 +1540,8 @@ project_reload (AmpProject *project, GError **error)
 	AmpAcScanner *scanner;
 	GFile *root_file;
 	GList *config_files;
+	GFile *configure_file;
+	gboolean ok;
 
 	/* Unload current project */
 	root_file = g_object_ref (project->root_file);
@@ -1552,11 +1552,11 @@ project_reload (AmpProject *project, GError **error)
 	/* Find configure file */
 	if (file_type (root_file, "configure.ac") == G_FILE_TYPE_REGULAR)
 	{
-		project->configure_file = g_file_get_child (root_file, "configure.ac");
+		configure_file = g_file_get_child (root_file, "configure.ac");
 	}
 	else if (file_type (root_file, "configure.in") == G_FILE_TYPE_REGULAR)
 	{
-		project->configure_file = g_file_get_child (root_file, "configure.in");
+		configure_file = g_file_get_child (root_file, "configure.in");
 	}
 	else
 	{
@@ -1568,8 +1568,10 @@ project_reload (AmpProject *project, GError **error)
 	}
 		
 	/* Parse configure */	
+	project->configure_file = anjuta_token_file_new (configure_file);
+	g_object_unref (configure_file);
 	scanner = amp_ac_scanner_new ();
-	project->configure_sequence = amp_ac_scanner_parse (scanner, project->configure_file);
+	ok = amp_ac_scanner_parse (scanner, project->configure_file);
 	amp_ac_scanner_free (scanner);
 		     
 	monitors_setup (project);
@@ -1591,7 +1593,7 @@ project_reload (AmpProject *project, GError **error)
 	//g_hash_table_foreach (project->groups, (GHFunc)foreach_group_reload, project);
 	//foreach_group_reload ("", g_hash_table_lookup (project->groups, ""), project);
 	
-	return project->configure_sequence != NULL;
+	return ok;
 }
 
 static void
@@ -1604,8 +1606,6 @@ project_data_init (AmpProject *project)
 	project->root_file = NULL;
 	project->configure_file = NULL;
 	project->root_node = NULL;
-	project->configure_sequence = NULL;
-	
 }
 
 #if 0
@@ -2855,9 +2855,9 @@ impl_get_config_modules   (GbfProject *_project, GError **error)
 		}
 		sequence = anjuta_token_next (sequence);
 	}
-	anjuta_token_unref (pkg_check_tok);
-	anjuta_token_unref (next_tok);
-	anjuta_token_unref (close_tok);
+	anjuta_token_free (pkg_check_tok);
+	anjuta_token_free (next_tok);
+	anjuta_token_free (close_tok);
 	
 	modules = g_list_reverse (modules);
 	

@@ -27,6 +27,8 @@
 typedef void (*AnjutaTokenFreeFunc) (AnjutaToken *token); 
 typedef gboolean (*AnjutaTokenCompareFunc) (AnjutaToken *toka, AnjutaToken *tokb); 
 
+typedef struct _AnjutaTokenVTable AnjutaTokenVTable;
+
 struct _AnjutaTokenVTable
 {
 	AnjutaTokenFreeFunc free;
@@ -76,27 +78,6 @@ anjuta_token_string_compare (AnjutaToken *toka, AnjutaToken *tokb)
 }
 
 static AnjutaTokenVTable anjuta_token_string_vtable = {anjuta_token_string_free, anjuta_token_string_compare};
-
-/* File token
- *---------------------------------------------------------------------------*/
-
-static void
-anjuta_token_file_free (AnjutaToken *token)
-{
-	g_object_unref (G_OBJECT (token->value));
-	g_slice_free (AnjutaToken, token);
-}
-
-static gboolean
-anjuta_token_file_compare (AnjutaToken *toka, AnjutaToken *tokb)
-{
-	if (tokb->value == NULL) return TRUE;
-	if (toka->value == NULL) return FALSE;
-	
-	return g_file_equal (G_FILE (toka->value), G_FILE (tokb->value));
-}
-
-static AnjutaTokenVTable anjuta_token_file_vtable = {anjuta_token_file_free, anjuta_token_file_compare};
 
 /* Common token functions
  *---------------------------------------------------------------------------*/
@@ -246,12 +227,6 @@ anjuta_token_clear_flags (AnjutaToken *token, gint flags)
 	token->flags &= ~flags;	
 }
 
-const gchar *
-anjuta_token_file_get_content (AnjutaTokenFile *token)
-{
-	return token->pos;
-}
-
 gint
 anjuta_token_get_type (AnjutaToken *token)
 {
@@ -329,39 +304,109 @@ AnjutaToken *anjuta_token_new_static (AnjutaTokenType type, const char *value)
 }
 
 
-AnjutaToken *
-anjuta_token_new_file (GFile *file, GError **error)
-{
-	AnjutaToken *token = NULL;
-	gchar *content;
-	gsize length;
-	
-	if (g_file_load_contents (file, NULL, &content, &length, NULL, error))
-	{
-		token = g_slice_new0 (AnjutaToken);
-		token->vtable = &anjuta_token_file_vtable;
-		token->type = ANJUTA_TOKEN_FILE;
-		token->flags =  ANJUTA_TOKEN_IRRELEVANT;
-		token->pos = content;
-		token->length = length;
-		token->value = g_object_ref (file);
-	}
-
-	return token;
-};
-
 void
-anjuta_token_unref (AnjutaToken *token)
+anjuta_token_free (AnjutaToken *token)
 {
-	switch (token->flags)
-	{
-		case ANJUTA_TOKEN_FILE:
-			g_object_unref (G_OBJECT (token->value));
-			break;
-		default:
-			break;
-	}
-
 	g_slice_free (AnjutaToken, token);
 }
 
+
+/* Token file objects
+ *---------------------------------------------------------------------------*/
+
+struct _AnjutaTokenFile
+{
+	GFile* file;
+	
+	gsize length;
+	gchar *content;
+	
+	AnjutaToken *first;
+	AnjutaToken *last;
+};
+
+/* Public functions
+ *---------------------------------------------------------------------------*/
+
+const gchar *
+anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error)
+{
+	if (!file->content)
+	{
+		gchar *content;
+		gsize length;
+	
+		if (g_file_load_contents (file->file, NULL, &content, &length, NULL, error))
+		{
+			file->content = content;
+			file->length = length;
+		}
+	}
+	
+	return file->content;
+}
+
+void
+anjuta_token_file_append (AnjutaTokenFile *file, AnjutaToken *token)
+{
+	if (file->last == NULL)
+	{
+		file->first = token;
+	}
+	else
+	{
+		anjuta_token_insert_after (file->last, token);
+	}
+	file->last = token;
+}
+
+AnjutaToken*
+anjuta_token_file_first (AnjutaTokenFile *file)
+{
+	return file->first;
+}
+
+AnjutaToken*
+anjuta_token_file_last (AnjutaTokenFile *file)
+{
+	return file->last;
+}
+
+GFile*
+anjuta_token_file_get_file (AnjutaTokenFile *file)
+{
+	return file->file;
+}
+
+/* Constructor & Destructor
+ *---------------------------------------------------------------------------*/
+
+AnjutaTokenFile *
+anjuta_token_file_new (GFile *gfile)
+{
+	AnjutaTokenFile *file = g_slice_new0 (AnjutaTokenFile);
+	
+	file->file = g_object_ref (gfile);
+
+	return file;
+};
+
+void
+anjuta_token_file_free (AnjutaTokenFile *file)
+{
+	g_return_if_fail (file != NULL);
+
+	while (file->first)
+	{
+		AnjutaToken *next = anjuta_token_next (file->first);
+
+		anjuta_token_free (file->first);
+		file->first = next;
+	};
+
+	g_free (file->content);
+	
+	g_object_unref (file->file);
+	
+	g_slice_free (AnjutaTokenFile, file);
+};

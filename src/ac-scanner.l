@@ -238,11 +238,10 @@ NUMBER      [0-9][0-9.]*
      
 struct _AmpAcScanner
 {
-    AnjutaToken *last;
     const gchar *pos;
     yyscan_t scanner;
     YY_BUFFER_STATE	 buffer;
-    AnjutaToken *first;
+    AnjutaTokenFile *file;
 };
 
 /* Private functions
@@ -254,8 +253,7 @@ amp_ac_scanner_append_token (AmpAcScanner *scanner, gint token)
     AnjutaToken *frag;
             
     frag = anjuta_token_new_fragment (token, scanner->pos, yyget_leng (scanner->scanner));
-    anjuta_token_insert_after (scanner->last, frag);
-    scanner->last = frag;
+    anjuta_token_file_append (scanner->file, frag);
     scanner->pos += yyget_leng (scanner->scanner);
     
     return frag;
@@ -264,13 +262,13 @@ amp_ac_scanner_append_token (AmpAcScanner *scanner, gint token)
 static gint
 amp_ac_scanner_last_token (AmpAcScanner *scanner)
 {
-    return anjuta_token_get_type (scanner->last);
+    return anjuta_token_get_type (anjuta_token_file_last (scanner->file));
 }
 
 static gint
 amp_ac_scanner_last_flags (AmpAcScanner *scanner)
 {
-    return anjuta_token_get_flags (scanner->last);
+    return anjuta_token_get_flags (anjuta_token_file_last (scanner->file));
 }
     
 static void
@@ -301,41 +299,18 @@ amp_update_location (YYLTYPE *loc, const gchar *text, gint length)
 /* Public functions
  *---------------------------------------------------------------------------*/
 
-AnjutaToken *
-amp_ac_scanner_parse (AmpAcScanner *scanner, GFile *file)
-{
-	AnjutaToken *config = NULL;
-
-    if (amp_ac_scanner_read (scanner, file))
-    {
-        if (amp_ac_yyparse (scanner->scanner) == 0)
-        {
-            config = amp_ac_scanner_get_parse_tree (scanner);
-        }
-    }
-
-    return config;
-}
-
 gboolean
-amp_ac_scanner_read (AmpAcScanner *scanner, GFile *file)
+amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file)
 {
     if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
 
-	scanner->first = anjuta_token_new_file (file, NULL);
-	if (scanner->first == NULL) return FALSE;
+	scanner->file = file;
+	if (scanner->file == NULL) return FALSE;
 
-    scanner->last = scanner->first;
-    scanner->pos = anjuta_token_file_get_content (scanner->first);
+    scanner->pos = anjuta_token_file_get_content (scanner->file, NULL);
     scanner->buffer = yy_scan_string (scanner->pos, scanner->scanner);
 	
-    return TRUE;
-}
-
-AnjutaToken*
-amp_ac_scanner_get_parse_tree (AmpAcScanner *scanner)
-{
-    return scanner->first;
+	return amp_ac_yyparse (scanner->scanner) == 0;
 }
 
 /* Constructor & Destructor

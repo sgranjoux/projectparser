@@ -25,8 +25,6 @@
 
 G_BEGIN_DECLS
 
-typedef struct _AnjutaTokenVTable AnjutaTokenVTable;
-
 typedef enum
 {
 	ANJUTA_TOKEN_NONE 							= 0,
@@ -62,15 +60,7 @@ typedef enum
 	
 } AnjutaTokenType;
 
-enum AnjutaTokenSearchFlag
-{
-	ANJUTA_SEARCH_OVER	  = 0,
-	ANJUTA_SEARCH_INTO		= 1 << 0,
-	ANJUTA_SEARCH_ALL	   = 1 << 1
-};
-
 typedef struct _AnjutaToken AnjutaToken;
-typedef struct _AnjutaToken AnjutaTokenFile;
 
 typedef struct _AnjutaTokenRange
 {
@@ -78,13 +68,18 @@ typedef struct _AnjutaTokenRange
 	AnjutaToken *last;
 } AnjutaTokenRange;
 
-AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const char *value);
-AnjutaToken *anjuta_token_new_static (AnjutaTokenType type, const char *value);
+enum AnjutaTokenSearchFlag
+{
+	ANJUTA_SEARCH_OVER	  = 0,
+	ANJUTA_SEARCH_INTO		= 1 << 0,
+	ANJUTA_SEARCH_ALL	   = 1 << 1
+};
+
+AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const gchar *value);
+AnjutaToken *anjuta_token_new_static (AnjutaTokenType type, const gchar *value);
 AnjutaToken *anjuta_token_new_fragment (AnjutaTokenType type, const gchar *pos, gsize length);
 
-AnjutaToken *anjuta_token_new_file (GFile *file, GError **error);
-
-void anjuta_token_unref (AnjutaToken *token);
+void anjuta_token_free (AnjutaToken *token);
 
 void anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
 void anjuta_token_foreach (AnjutaToken *token, GFunc func, gpointer user_data);
@@ -100,13 +95,21 @@ AnjutaToken *anjuta_token_next (AnjutaToken *token);
 AnjutaToken *anjuta_token_previous (AnjutaToken *token);
 gboolean anjuta_token_compare (AnjutaToken *tokena, AnjutaToken *tokenb);
 
-const gchar* anjuta_token_file_get_content (AnjutaTokenFile *tAnjutaTokenoken);
 gint anjuta_token_get_type (AnjutaToken *token);
 gint anjuta_token_get_flags (AnjutaToken *token);
 gchar* anjuta_token_get_value (AnjutaToken *token);
 
-void pm_token_dump (AnjutaToken *token);
-void pm_token_dump_range (AnjutaToken *start, AnjutaToken *end);
+typedef struct _AnjutaTokenFile AnjutaTokenFile;
+
+AnjutaTokenFile *anjuta_token_file_new (GFile *file);
+void anjuta_token_file_free (AnjutaTokenFile *file);
+
+const gchar* anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error);
+
+void anjuta_token_file_append (AnjutaTokenFile *file, AnjutaToken *token);
+AnjutaToken* anjuta_token_file_first (AnjutaTokenFile *file);
+AnjutaToken* anjuta_token_file_last (AnjutaTokenFile *file);
+GFile *anjuta_token_file_get_file (AnjutaTokenFile *file);
 
 G_END_DECLS
 

@@ -35,9 +35,7 @@ typedef struct _AmpAcScanner AmpAcScanner;
 AmpAcScanner *amp_ac_scanner_new (void);
 void amp_ac_scanner_free (AmpAcScanner *scanner);
 
-AnjutaToken *amp_ac_scanner_parse (AmpAcScanner *scanner, GFile *file);
-gboolean amp_ac_scanner_read (AmpAcScanner *scanner, GFile *file);
-AnjutaToken* amp_ac_scanner_get_parse_tree (AmpAcScanner *scanner);
+gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file);
 
 G_END_DECLS
 
