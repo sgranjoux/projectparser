@@ -27,6 +27,7 @@
 #include <libanjuta/anjuta-debug.h>
 
 #include <string.h>
+#include <memory.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -212,6 +213,55 @@ static void            amp_project_get_property  (GObject           *object,
 
 /* Helper functions
  *---------------------------------------------------------------------------*/
+
+/* Work even if file is not a descendant of parent */
+static gchar*
+get_relative_path (GFile *parent, GFile *file)
+{
+	gchar *relative;
+
+	relative = g_file_get_relative_path (parent, file);
+	if (relative == NULL)
+	{
+		if (g_file_equal (parent, file))
+		{
+			relative = g_strdup ("");
+		}
+		else
+		{
+			GFile *grand_parent = g_file_get_parent (parent);
+			gint level;
+			gchar *grand_relative;
+			gchar *ptr;
+			gsize len;
+			
+			
+			for (level = 1;  !g_file_has_prefix (file, grand_parent); level++)
+			{
+				GFile *next = g_file_get_parent (grand_parent);
+				
+				g_object_unref (grand_parent);
+				grand_parent = next;
+			}
+
+			grand_relative = g_file_get_relative_path (grand_parent, file);
+			g_object_unref (grand_parent);
+
+			len = strlen (grand_relative);
+			relative = g_new (gchar, len + level * 3 + 1);
+			ptr = relative;
+			for (; level; level--)
+			{
+				memcpy(ptr, ".." G_DIR_SEPARATOR_S, 3);
+				ptr += 3;
+			}
+			memcpy (ptr, grand_relative, len + 1);
+			g_free (grand_relative);
+		}
+	}
+
+	return relative;
+}
 
 static GFileType
 file_type (GFile *file, const gchar *filename)
@@ -3025,41 +3075,55 @@ amp_project_save (AmpProject *project, GError **error)
 gboolean
 amp_project_move (AmpProject *project, const gchar *path)
 {
-	GFile	*old_root_file = project->root_file;
+	GFile	*old_root_file;
 	GFile *new_file;
 	gchar *relative;
 	GHashTableIter iter;
 	gchar *key;
 	GNode *value;
-		
-	g_hash_table_remove_all (project->files);
+	AnjutaTokenFile *tfile;
+	GHashTable* old_hash;
 
 	/* Change project root directory */
+	old_root_file = project->root_file;
 	project->root_file = g_file_new_for_path (path);
-	relative = g_file_get_relative_path (old_root_file, anjuta_token_file_get_file (project->configure_file));
-	new_file = g_file_resolve_relative_path (project->root_file, relative);
-	g_free (relative);
-	anjuta_token_file_move (project->configure_file, new_file);
-	g_hash_table_insert (project->files, new_file, project->configure_file);
 
 	/* Change project root directory in groups */
-	g_hash_table_iter_init (&iter, project->groups);
+	old_hash = project->groups;
+	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	g_hash_table_iter_init (&iter, old_hash);
 	while (g_hash_table_iter_next (&iter, &key, &value))
 	{
 		AmpGroup *group = (AmpGroup *)value->data;
 
-		relative = g_file_get_relative_path (old_root_file, group->file);
+		relative = get_relative_path (old_root_file, group->file);
 		new_file = g_file_resolve_relative_path (project->root_file, relative);
 		g_free (relative);
 		g_object_unref (group->file);
 		group->file = new_file;
 
-		relative = g_file_get_relative_path (old_root_file, anjuta_token_file_get_file (group->tfile));
+		g_hash_table_insert (project->groups, g_file_get_uri (new_file), value);
+	}
+	g_hash_table_destroy (old_hash);
+
+	/* Change all files */
+	old_hash = project->files;
+	project->files = g_hash_table_new_full (g_file_hash, g_file_equal, g_object_unref, g_object_unref);
+	g_hash_table_iter_init (&iter, old_hash);
+	while (g_hash_table_iter_next (&iter, &key, &tfile))
+	{
+		relative = get_relative_path (old_root_file, anjuta_token_file_get_file (tfile));
 		new_file = g_file_resolve_relative_path (project->root_file, relative);
 		g_free (relative);
-		anjuta_token_file_move (group->tfile, new_file);
-		g_hash_table_insert (project->files, new_file, group->tfile);
+		anjuta_token_file_move (tfile, new_file);
+		
+		g_hash_table_insert (project->files, new_file, tfile);
+		g_object_unref (key);
 	}
+	g_hash_table_steal_all (old_hash);
+	g_hash_table_destroy (old_hash);
+	
+	g_object_unref (old_root_file);
 
 	return TRUE;
 }
