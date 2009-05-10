@@ -56,7 +56,9 @@ typedef enum
 	ANJUTA_TOKEN_PRIVATE_FLAGS 			= 0x00FF << 24,
 	
 	ANJUTA_TOKEN_CASE_INSENSITIVE 		= 1 << 24,
-	ANJUTA_TOKEN_STATIC 							= 1 << 25
+	ANJUTA_TOKEN_STATIC 							= 1 << 25,
+	ANJUTA_TOKEN_REMOVED						= 1 << 26,
+	ANJUTA_TOKEN_ADDED							= 1 << 27
 	
 } AnjutaTokenType;
 
@@ -118,6 +120,7 @@ void anjuta_token_file_free (AnjutaTokenFile *file);
 
 const gchar* anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error);
 void anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file);
+gboolean anjute_token_file_save (AnjutaTokenFile *file, GError **error);
 
 void anjuta_token_file_append (AnjutaTokenFile *file, AnjutaToken *token);
 AnjutaToken* anjuta_token_file_first (AnjutaTokenFile *file);

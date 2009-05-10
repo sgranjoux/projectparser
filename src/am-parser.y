@@ -127,10 +127,10 @@ am_variable:
 	AM_VARIABLE space_list_value {
 		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
 	}
-	| AM_VARIABLE optional_space EQUAL optional_space
+	| AM_VARIABLE optional_space equal_token optional_space
 	;
 				
-space_list_value: optional_space EQUAL optional_space value_list optional_space {
+space_list_value: optional_space equal_token optional_space value_list optional_space {
         anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
 	anjuta_token_set_flags ($4.first, ANJUTA_TOKEN_OPEN);
 	anjuta_token_set_flags ($4.last, ANJUTA_TOKEN_CLOSE);

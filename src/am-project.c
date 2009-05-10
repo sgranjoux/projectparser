@@ -3067,7 +3067,18 @@ amp_project_get_property (GObject    *object,
 gboolean
 amp_project_save (AmpProject *project, GError **error)
 {
+	gchar *key;
+	AnjutaTokenFile *tfile;
+	GHashTableIter iter;
+
 	g_return_val_if_fail (project != NULL, FALSE);
+
+	g_hash_table_iter_init (&iter, project->files);
+	while (g_hash_table_iter_next (&iter, &key, &tfile))
+	{
+		GError *error = NULL;
+		anjuta_token_file_save (tfile, &error);
+	}
 
 	return TRUE;
 }

@@ -51,8 +51,57 @@ struct _AnjutaToken
 	guint ref_count;	
 };
 
-/* Public functions
+/* Helpers functions
  *---------------------------------------------------------------------------*/
+
+/* Create a directories, including parents if necessary. This function
+ * exists in GLIB 2.18, but we need only 2.16 currently.
+ * */
+
+static gboolean
+make_directory_with_parents (GFile *file,
+							   GCancellable *cancellable,
+							   GError **error)
+{
+	GError *path_error = NULL;
+	GList *children = NULL;
+
+	for (;;)
+	{
+		if (g_file_make_directory (file, cancellable, &path_error))
+		{
+			/* Making child directory succeed */
+			if (children == NULL)
+			{
+				/* All directories have been created */
+				return TRUE;
+			}
+			else
+			{
+				/* Get next child directory */
+				g_object_unref (file);
+				file = (GFile *)children->data;
+				children = g_list_delete_link (children, children);
+			}
+		}
+		else if (g_error_matches (path_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+		{
+			g_clear_error (&path_error);
+			children = g_list_prepend (children, file);
+			file = g_file_get_parent (file);
+		}
+		else
+		{
+			g_object_unref (file);
+			g_list_foreach (children, (GFunc)g_object_unref, NULL);
+			g_list_free (children);
+			g_propagate_error (error, path_error);
+			
+			return FALSE;
+		}
+	}				
+}
+
 
 /* String token
  *---------------------------------------------------------------------------*/
@@ -355,6 +404,63 @@ anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error)
 	}
 	
 	return file->content;
+}
+
+gboolean
+anjuta_token_file_save (AnjutaTokenFile *file, GError **error)
+{
+	AnjutaToken *tok;
+	GFileOutputStream *stream;
+	gboolean ok;
+	GError *err = NULL;
+
+	stream = g_file_replace (file->file, NULL, FALSE, G_FILE_CREATE_NONE, NULL, &err);
+	if (stream == NULL)
+	{
+		if (g_error_matches (err, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+		{
+			/* Perhaps parent directory is missing, try to create it */
+			GFile *parent = g_file_get_parent (file->file);
+			
+			if (make_directory_with_parents (parent, NULL, NULL))
+			{
+				g_object_unref (parent);
+				g_clear_error (&err);
+				stream = g_file_replace (file->file, NULL, FALSE, G_FILE_CREATE_NONE, NULL, error);
+				if (stream == NULL) return FALSE;
+			}
+			else
+			{
+				g_object_unref (parent);
+				g_propagate_error (error, err);
+
+				return FALSE;
+			}
+		}
+		else
+		{
+			g_propagate_error (error, err);
+			return FALSE;
+		}
+	}
+
+	for (tok = file->first; tok != NULL; tok = anjuta_token_next (tok))
+	{
+		if (!(anjuta_token_get_flags (tok) & ANJUTA_TOKEN_REMOVED) && (tok->length))
+		{
+			if (g_output_stream_write (G_OUTPUT_STREAM (stream), tok->pos, tok->length * sizeof (char), NULL, error) < 0)
+			{
+				g_object_unref (stream);
+
+				return FALSE;
+			}
+		}
+	}
+	
+	ok = g_output_stream_close (G_OUTPUT_STREAM (stream), NULL, error);
+	g_object_unref (stream);
+
+	return ok;
 }
 
 void
