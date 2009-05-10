@@ -134,6 +134,7 @@ main(int argc, char *argv[])
 	GbfProject *project;
 	GFile *project_file;
 	gchar *path;
+	char **command;
 	GOptionContext *context;
 	GError *error = NULL;
 
@@ -165,12 +166,27 @@ main(int argc, char *argv[])
 	g_free (path);
 	g_object_unref (project_file);
 
-	/* Execute command */
-	if (g_ascii_strcasecmp (argv[1], "list") == 0)
+	/* Execute commands */
+	for (command = &argv[1]; *command != NULL; command++)
 	{
-		list_module (project);
+		if (g_ascii_strcasecmp (*command, "list") == 0)
+		{
+			list_module (project);
 
-		list_group (project, "", 0);
+			list_group (project, "", 0);
+		}
+		else if (g_ascii_strcasecmp (*command, "move") == 0)
+		{
+			amp_project_move (project, *(++command));
+		}
+		else if (g_ascii_strcasecmp (*command, "save") == 0)
+		{
+			amp_project_save (project, NULL);
+		}
+		else
+		{
+			printf ("Error: unknown command %s", *command);
+		}
 	}
 
 	/* Free objects */

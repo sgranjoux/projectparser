@@ -358,6 +358,13 @@ anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error)
 }
 
 void
+anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file)
+{
+	if (file->file) g_object_unref (file->file);
+	file->file = new_file != NULL ? g_object_ref (new_file) : NULL;
+}
+
+void
 anjuta_token_file_append (AnjutaTokenFile *file, AnjutaToken *token)
 {
 	if (file->last == NULL)

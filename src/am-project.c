@@ -1554,13 +1554,6 @@ project_reload (AmpProject *project, GError **error)
 	return ok;
 }
 
-static gboolean
-project_save (AmpProject *project, GError **error)
-{
-	g_return_val_if_fail (project != NULL, FALSE);
-}
-
-
 static void
 project_data_init (AmpProject *project)
 {
@@ -3021,8 +3014,55 @@ amp_project_get_property (GObject    *object,
 /* Public functions
  *---------------------------------------------------------------------------*/
 
-/* Public functions
- *---------------------------------------------------------------------------*/
+gboolean
+amp_project_save (AmpProject *project, GError **error)
+{
+	g_return_val_if_fail (project != NULL, FALSE);
+
+	return TRUE;
+}
+
+gboolean
+amp_project_move (AmpProject *project, const gchar *path)
+{
+	GFile	*old_root_file = project->root_file;
+	GFile *new_file;
+	gchar *relative;
+	GHashTableIter iter;
+	gchar *key;
+	GNode *value;
+		
+	g_hash_table_remove_all (project->files);
+
+	/* Change project root directory */
+	project->root_file = g_file_new_for_path (path);
+	relative = g_file_get_relative_path (old_root_file, anjuta_token_file_get_file (project->configure_file));
+	new_file = g_file_resolve_relative_path (project->root_file, relative);
+	g_free (relative);
+	anjuta_token_file_move (project->configure_file, new_file);
+	g_hash_table_insert (project->files, new_file, project->configure_file);
+
+	/* Change project root directory in groups */
+	g_hash_table_iter_init (&iter, project->groups);
+	while (g_hash_table_iter_next (&iter, &key, &value))
+	{
+		AmpGroup *group = (AmpGroup *)value->data;
+
+		relative = g_file_get_relative_path (old_root_file, group->file);
+		new_file = g_file_resolve_relative_path (project->root_file, relative);
+		g_free (relative);
+		g_object_unref (group->file);
+		group->file = new_file;
+
+		relative = g_file_get_relative_path (old_root_file, anjuta_token_file_get_file (group->tfile));
+		new_file = g_file_resolve_relative_path (project->root_file, relative);
+		g_free (relative);
+		anjuta_token_file_move (group->tfile, new_file);
+		g_hash_table_insert (project->files, new_file, group->tfile);
+	}
+
+	return TRUE;
+}
 
 GbfProject *
 amp_project_new (void)

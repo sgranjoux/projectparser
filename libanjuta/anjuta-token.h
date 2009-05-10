@@ -117,6 +117,7 @@ AnjutaTokenFile *anjuta_token_file_new (GFile *file);
 void anjuta_token_file_free (AnjutaTokenFile *file);
 
 const gchar* anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error);
+void anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file);
 
 void anjuta_token_file_append (AnjutaTokenFile *file, AnjutaToken *token);
 AnjutaToken* anjuta_token_file_first (AnjutaTokenFile *file);
