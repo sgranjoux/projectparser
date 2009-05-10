@@ -1507,6 +1507,12 @@ project_reload (AmpProject *project, GError **error)
 	project->root_file = root_file;
 	DEBUG_PRINT ("reload project %p root file %p", project, project->root_file);
 
+	/* shortcut hash tables */
+	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	project->targets = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	project->sources = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	project->files = g_hash_table_new_full (g_file_hash, g_file_equal, g_object_unref, g_object_unref);
+	
 	/* Find configure file */
 	if (file_type (root_file, "configure.ac") == G_FILE_TYPE_REGULAR)
 	{
@@ -1524,7 +1530,7 @@ project_reload (AmpProject *project, GError **error)
 
 		return FALSE;
 	}
-		
+	
 	/* Parse configure */	
 	project->configure_file = anjuta_token_file_new (configure_file);
 	g_hash_table_insert (project->files, configure_file, project->configure_file);
@@ -1536,12 +1542,6 @@ project_reload (AmpProject *project, GError **error)
 		     
 	monitors_setup (project);
 
-	/* shortcut hash tables */
-	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	project->targets = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	project->sources = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	project->files = g_hash_table_new_full (g_file_hash, g_file_equal, g_object_unref, g_object_unref);
-	
 	amp_project_new_module_hash (project);
 	project_reload_packages (project);
 	
