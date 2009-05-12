@@ -228,6 +228,36 @@ anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, Anjut
 	return FALSE;
 }
 
+gboolean
+anjuta_token_remove (AnjutaToken *token, AnjutaToken *end)
+{
+	AnjutaToken *prev = anjuta_token_previous (token);
+	
+	if (end->flags & ANJUTA_TOKEN_CLOSE)
+	{
+		if (prev->flags & ANJUTA_TOKEN_NEXT)
+		{
+			/* Remove last element, remove last next, keep end token */
+			token = prev;
+			end = anjuta_token_previous (end);
+		}
+		else if (prev->flags & ANJUTA_TOKEN_OPEN)
+		{
+			/* Remove all element, remove start token too */
+			token = prev;
+		}
+	}
+	
+	for (; (token != NULL) && (token != end); token = anjuta_token_next (token))
+	{
+		token->flags & ANJUTA_TOKEN_REMOVED;
+	}
+
+	return TRUE;
+}
+
+
+
 AnjutaToken *
 anjuta_token_next (AnjutaToken *token)
 {

@@ -148,6 +148,7 @@ struct _AmpTargetData {
 	gchar *type;
 	gchar *install;
 	gint flags;
+	AnjutaToken *token;
 };
 
 typedef GNode AmpSource;
@@ -157,6 +158,7 @@ typedef struct _AmpSourceData AmpSourceData;
 struct _AmpSourceData {
 	AmpNodeData node;
 	GFile *file;
+	AnjutaTokenRange token;
 };
 
 typedef struct _AmpConfigFile AmpConfigFile;
@@ -1313,6 +1315,8 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 		
 			/* Create source */
 			source = amp_source_new (parent_file, value);
+			AMP_SOURCE_DATA(source)->token.first = arg;
+			AMP_SOURCE_DATA(source)->token.last = next;
 
 			if (parent == NULL)
 			{
@@ -2743,44 +2747,21 @@ impl_remove_source (GbfProject  *_project,
 {
 	AmpProject *project;
 	GNode *g_node;
-	//xmlDocPtr doc;
-	
-	g_return_if_fail (AMP_IS_PROJECT (_project));
+	AmpSourceData *source;
+	GNode **buffer;
+	gsize dummy;
+
+	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
 	project = AMP_PROJECT (_project);
+	buffer = (GNode **)g_base64_decode (id, &dummy);
+	g_node = *buffer;
+	g_free (buffer);
+
+	source = AMP_SOURCE_DATA (g_node);
 	
-#if 0
-	/* Find the source */
-	g_node = g_hash_table_lookup (project->sources, id);
-	if (g_node == NULL) {
-		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Source doesn't exist"));
-		return;
-	}
-
-	/* Create the update xml */
-	doc = xml_new_change_doc (project);
-	if (!xml_write_remove_source (project, doc, g_node)) {
-		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
-			   _("Source couldn't be removed"));
-		xmlFreeDoc (doc);
-		return;
-	}
-
-	DEBUG ({
-		xmlSetDocCompressMode (doc, 0);
-		xmlSaveFile ("/tmp/remove-source.xml", doc);
-	});
-
-	/* Update the project */
-	/* FIXME: should get and process the change set to verify that
-	 * the source has been removed? */
-	if (!project_update (project, doc, NULL, error)) {
-		error_set (error, PROJECT_ERROR_PROJECT_MALFORMED,
-			   _("Unable to update project"));
-	}
-	xmlFreeDoc (doc);
-#endif
+	anjuta_token_remove (source->token.first, source->token.last);
+	g_node_destroy (g_node);
 }
 
 static GtkWidget *
@@ -3118,6 +3099,15 @@ amp_project_move (AmpProject *project, const gchar *path)
 	g_object_unref (old_root_file);
 
 	return TRUE;
+}
+
+gchar *
+amp_project_get_node_id (AmpProject *project, const gchar *path)
+{
+	GNode *node = project->root_node;
+
+
+	return NULL;
 }
 
 GbfProject *

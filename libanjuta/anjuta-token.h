@@ -86,6 +86,7 @@ void anjuta_token_free (AnjutaToken *token);
 void anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
 void anjuta_token_foreach (AnjutaToken *token, GFunc func, gpointer user_data);
 gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end);
+gboolean anjuta_token_remove (AnjutaToken *token, AnjutaToken *end);
 
 void anjuta_token_set_type (AnjutaToken *token, gint type);
 void anjuta_token_set_flags (AnjutaToken *token, gint flags);
@@ -96,6 +97,7 @@ gchar *anjuta_token_evaluate (AnjutaToken *start, AnjutaToken *end);
 AnjutaToken *anjuta_token_next (AnjutaToken *token);
 AnjutaToken *anjuta_token_previous (AnjutaToken *token);
 gboolean anjuta_token_compare (AnjutaToken *tokena, AnjutaToken *tokenb);
+
 
 gint anjuta_token_get_type (AnjutaToken *token);
 gint anjuta_token_get_flags (AnjutaToken *token);

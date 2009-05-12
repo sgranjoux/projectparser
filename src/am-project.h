@@ -42,6 +42,8 @@ GbfProject   *amp_project_new      (void);
 gboolean amp_project_move (AmpProject *project, const gchar *path);
 gboolean amp_project_save (AmpProject *project, GError **error);
 
+gchar * amp_project_get_node_id (AmpProject *project, const gchar *path);
+
 /* FIXME: The config infrastructure should probably be made part of GbfProject
  * so that other backend implementations could use them directly and we don't
  * have to create separate configuration widgets. But then different back end
