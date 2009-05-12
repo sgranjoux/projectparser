@@ -78,7 +78,6 @@ struct _AmpProject {
 	/* shortcut hash tables, mapping id -> GNode from the tree above */
 	GHashTable		*groups;
 	GHashTable		*targets;
-	GHashTable		*sources;
 	GHashTable		*files;
 	
 	GHashTable	*modules;
@@ -881,11 +880,9 @@ project_unload (AmpProject *project)
 	/* shortcut hash tables */
 	if (project->groups) g_hash_table_destroy (project->groups);
 	if (project->targets) g_hash_table_destroy (project->targets);
-	if (project->sources) g_hash_table_destroy (project->sources);
 	if (project->files) g_hash_table_destroy (project->files);
 	project->groups = NULL;
 	project->targets = NULL;
-	project->sources = NULL;
 	project->files = NULL;
 
 	amp_project_free_module_hash (project);
@@ -1245,7 +1242,6 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 			{
 				AmpSource *source = src->data;
 
-				g_hash_table_insert (project->sources, g_file_get_uri (((AmpSourceData *)sources->data)->file), source);
 				g_node_prepend (target, source);
 			}
 			g_free (orig_key);
@@ -1326,7 +1322,6 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 			else
 			{
 				/* Add as target child */
-				g_hash_table_insert (project->sources, g_file_get_uri (AMP_SOURCE_DATA (source)->file), source);
 				g_node_append (parent, source);
 			}
 
@@ -1541,7 +1536,6 @@ project_reload (AmpProject *project, GError **error)
 	/* shortcut hash tables */
 	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	project->targets = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	project->sources = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	project->files = g_hash_table_new_full (g_file_hash, g_file_equal, g_object_unref, g_object_unref);
 	
 	/* Find configure file */
@@ -2175,7 +2169,8 @@ impl_get_target (GbfProject  *_project,
 		switch (child_node->node.type) {
 			case AMP_NODE_SOURCE:
 				target->sources = g_list_prepend (target->sources,
-								  g_file_get_uri (child_node->file));
+								  g_base64_encode ((guchar *)&g_node, sizeof (g_node)));
+				//DEBUG_PRINT ("sources id %p  \"%s\"", child_node, (const gchar *)target->sources->data);
 				break;
 			default:
 				break;
@@ -2482,16 +2477,17 @@ impl_get_source (GbfProject  *_project,
 	GbfProjectTargetSource *source;
 	GNode *g_node;
 	AmpSource *node;
+	GNode **buffer;
+	gsize dummy;
 
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
 	project = AMP_PROJECT (_project);
-	g_node = g_hash_table_lookup (project->sources, id);
-	if (g_node == NULL) {
-		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Source doesn't exist"));
-		return NULL;
-	}
+	buffer = (GNode **)g_base64_decode (id, &dummy);
+	g_node = *buffer;
+	g_free (buffer);
+	//DEBUG_PRINT (" get sources id \"%s\" %p", id, g_node);
+	
 	source = g_new0 (GbfProjectTargetSource, 1);
 	source->id = g_file_get_uri (AMP_SOURCE_DATA (g_node)->file);
 	source->source_uri = g_file_get_uri (AMP_SOURCE_DATA (g_node)->file);
@@ -2500,26 +2496,40 @@ impl_get_source (GbfProject  *_project,
 	return source;
 }
 
-static void
-foreach_source (gpointer key, gpointer value, gpointer data)
+static gboolean
+foreach_source (GNode *node, GHashTable *hash)
 {
-	GList **sources = data;
+	AmpSourceData *source = AMP_SOURCE_DATA (node);
+	
+	if (source->node.type == AMP_NODE_SOURCE)
+	{
+		gchar *id = g_base64_encode ((guchar *)&node, sizeof (node));
+		g_hash_table_insert (hash, source->file, id);
+	}
 
-	*sources = g_list_prepend (*sources, g_strdup (key));
+	return FALSE;
 }
 
+/* List all sources, removing duplicate */
 static GList *
 impl_get_all_sources (GbfProject *_project,
 		      GError    **error)
 {
 	AmpProject *project;
-	GList *sources = NULL;
+	GHashTable *hash;
+	GList *sources;
+	
 
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
 	project = AMP_PROJECT (_project);
-	g_hash_table_foreach (project->sources, foreach_source, &sources);
 
+	hash = g_hash_table_new_full (g_file_hash, g_file_equal, NULL, g_free);
+	g_node_traverse (project->root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, foreach_source, hash);
+	sources = g_hash_table_get_values (hash);
+	g_hash_table_steal_all (hash);
+	g_hash_table_destroy (hash);
+	
 	return sources;
 }
 
@@ -2739,6 +2749,7 @@ impl_remove_source (GbfProject  *_project,
 
 	project = AMP_PROJECT (_project);
 	
+#if 0
 	/* Find the source */
 	g_node = g_hash_table_lookup (project->sources, id);
 	if (g_node == NULL) {
@@ -2748,7 +2759,6 @@ impl_remove_source (GbfProject  *_project,
 	}
 
 	/* Create the update xml */
-#if 0
 	doc = xml_new_change_doc (project);
 	if (!xml_write_remove_source (project, doc, g_node)) {
 		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
