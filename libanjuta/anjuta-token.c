@@ -19,6 +19,8 @@
 
 #include "anjuta-token.h"
 
+#include "anjuta-debug.h"
+
 #include <glib-object.h>
 
 #include <stdio.h>
@@ -248,9 +250,11 @@ anjuta_token_remove (AnjutaToken *token, AnjutaToken *end)
 		}
 	}
 	
-	for (; (token != NULL) && (token != end); token = anjuta_token_next (token))
+	for (;token != NULL;)
 	{
-		token->flags & ANJUTA_TOKEN_REMOVED;
+		token->flags |= ANJUTA_TOKEN_REMOVED;
+		if (token == end) break;
+		token = anjuta_token_next (token);
 	}
 
 	return TRUE;
@@ -476,6 +480,10 @@ anjuta_token_file_save (AnjutaTokenFile *file, GError **error)
 
 	for (tok = file->first; tok != NULL; tok = anjuta_token_next (tok))
 	{
+		if (anjuta_token_get_flags (tok) & ANJUTA_TOKEN_REMOVED)
+		{
+			DEBUG_PRINT ("get token with removed flags");
+		}
 		if (!(anjuta_token_get_flags (tok) & ANJUTA_TOKEN_REMOVED) && (tok->length))
 		{
 			if (g_output_stream_write (G_OUTPUT_STREAM (stream), tok->pos, tok->length * sizeof (char), NULL, error) < 0)

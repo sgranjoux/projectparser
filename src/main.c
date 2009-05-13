@@ -183,6 +183,12 @@ main(int argc, char *argv[])
 		{
 			amp_project_save (project, NULL);
 		}
+		else if (g_ascii_strcasecmp (*command, "remove") == 0)
+		{
+			gchar *id = amp_project_get_node_id (project, *(++command));
+			gbf_project_remove_source ((GbfProject *)project, id, NULL);
+			g_free (id);
+		}
 		else
 		{
 			printf ("Error: unknown command %s", *command);

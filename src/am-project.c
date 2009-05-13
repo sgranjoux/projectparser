@@ -819,6 +819,31 @@ monitors_setup (AmpProject *project)
  * ---------------- Data structures managment
  */
 
+static void
+amp_dump_node (GNode *g_node)
+{
+	gchar *name = NULL;
+	
+	switch (AMP_NODE_DATA (g_node)->type) {
+		case AMP_NODE_GROUP:
+			name = g_file_get_uri (AMP_GROUP_DATA (g_node)->file);
+			DEBUG_PRINT ("GROUP: %s", name);
+			break;
+		case AMP_NODE_TARGET:
+			name = g_strdup (AMP_TARGET_DATA (g_node)->name);
+			DEBUG_PRINT ("TARGET: %s", name);
+			break;
+		case AMP_NODE_SOURCE:
+			name = g_file_get_uri (AMP_SOURCE_DATA (g_node)->file);
+			DEBUG_PRINT ("SOURCE: %s", name);
+			break;
+		default:
+			g_assert_not_reached ();
+			break;
+	}
+	g_free (name);
+}
+
 static gboolean 
 foreach_node_destroy (GNode    *g_node,
 		      gpointer  data)
@@ -2758,6 +2783,9 @@ impl_remove_source (GbfProject  *_project,
 	g_node = *buffer;
 	g_free (buffer);
 
+	amp_dump_node (g_node);
+	if (AMP_NODE_DATA (g_node)->type != AMP_NODE_SOURCE) return;
+	
 	source = AMP_SOURCE_DATA (g_node);
 	
 	anjuta_token_remove (source->token.first, source->token.last);
@@ -3104,10 +3132,41 @@ amp_project_move (AmpProject *project, const gchar *path)
 gchar *
 amp_project_get_node_id (AmpProject *project, const gchar *path)
 {
-	GNode *node = project->root_node;
+	GNode *node = NULL;
 
+	if (path != NULL)
+	{
+		for (; *path != '\0';)
+		{
+			gchar *end;
+			guint child = g_ascii_strtoull (path, &end, 10);
 
-	return NULL;
+			if (end == path)
+			{
+				/* error */
+				return NULL;
+			}
+
+			if (node == NULL)
+			{
+				if (child == 0) node = project->root_node;
+			}
+			else
+			{
+				node = g_node_nth_child (node, child);
+			}
+			if (node == NULL)
+			{
+				/* no node */
+				return NULL;
+			}
+
+			if (*end == '\0') break;
+			path = end + 1;
+		}
+	}
+
+	return g_base64_encode ((guchar *)&node, sizeof (node));
 }
 
 GbfProject *
