@@ -28,13 +28,11 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
-static gchar* project_path = ".";
 static gchar* output_file = NULL;
 static FILE* output_stream = NULL;
 
 static GOptionEntry entries[] =
 {
-  { "project", 'p', 0, G_OPTION_ARG_FILENAME, &project_path, "Project directory (default current directory)", "project_directory" },
   { "output", 'o', 0, G_OPTION_ARG_FILENAME, &output_file, "Output file (default stdout)", "output_file" },
   { NULL }
 };
@@ -132,8 +130,6 @@ int
 main(int argc, char *argv[])
 {
 	GbfProject *project;
-	GFile *project_file;
-	gchar *path;
 	char **command;
 	GOptionContext *context;
 	GError *error = NULL;
@@ -159,17 +155,21 @@ main(int argc, char *argv[])
 
 	/* Create project */
 	project = amp_project_new ();
-	project_file = g_file_new_for_commandline_arg (project_path);
-	path = g_file_get_path (project_file);
-	print ("%s", path);
-	gbf_project_load (project, path, NULL);
-	g_free (path);
-	g_object_unref (project_file);
 
 	/* Execute commands */
 	for (command = &argv[1]; *command != NULL; command++)
 	{
-		if (g_ascii_strcasecmp (*command, "list") == 0)
+		if (g_ascii_strcasecmp (*command, "load") == 0)
+		{
+			GFile *file = g_file_new_for_commandline_arg (*(++command));
+			gchar *path;
+
+			path = g_file_get_path (file);
+			gbf_project_load (project, path, NULL);
+			g_free (path);
+			g_object_unref (file);
+		}
+		else if (g_ascii_strcasecmp (*command, "list") == 0)
 		{
 			list_module (project);
 
@@ -177,16 +177,16 @@ main(int argc, char *argv[])
 		}
 		else if (g_ascii_strcasecmp (*command, "move") == 0)
 		{
-			amp_project_move (project, *(++command));
+			amp_project_move (AMP_PROJECT (project), *(++command));
 		}
 		else if (g_ascii_strcasecmp (*command, "save") == 0)
 		{
-			amp_project_save (project, NULL);
+			amp_project_save (AMP_PROJECT (project), NULL);
 		}
 		else if (g_ascii_strcasecmp (*command, "remove") == 0)
 		{
-			gchar *id = amp_project_get_node_id (project, *(++command));
-			gbf_project_remove_source ((GbfProject *)project, id, NULL);
+			gchar *id = amp_project_get_node_id (AMP_PROJECT (project), *(++command));
+			gbf_project_remove_source (project, id, NULL);
 			g_free (id);
 		}
 		else
