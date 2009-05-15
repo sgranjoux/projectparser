@@ -77,7 +77,6 @@ struct _AmpProject {
 
 	/* shortcut hash tables, mapping id -> GNode from the tree above */
 	GHashTable		*groups;
-	GHashTable		*targets;
 	GHashTable		*files;
 	
 	GHashTable	*modules;
@@ -149,6 +148,7 @@ struct _AmpTargetData {
 	gchar *install;
 	gint flags;
 	AnjutaToken *token;
+	AnjutaToken *args;
 };
 
 typedef GNode AmpSource;
@@ -704,7 +704,7 @@ amp_source_new (GFile *parent, const gchar *name)
 static void
 amp_source_free (AmpSource *node)
 {
-    AmpSourceData *source = (AmpTargetData *)node->data;
+    AmpSourceData *source = (AmpSourceData *)node->data;
 	
     g_object_unref (source->file);
     g_slice_free (AmpSourceData, source);
@@ -854,7 +854,6 @@ foreach_node_destroy (GNode    *g_node,
 			amp_group_free (g_node);
 			break;
 		case AMP_NODE_TARGET:
-			//g_hash_table_remove (project->targets, AMP_NODE (g_node)->id);
 			amp_target_free (g_node);
 			break;
 		case AMP_NODE_SOURCE:
@@ -906,10 +905,8 @@ project_unload (AmpProject *project)
 	
 	/* shortcut hash tables */
 	if (project->groups) g_hash_table_destroy (project->groups);
-	if (project->targets) g_hash_table_destroy (project->targets);
 	if (project->files) g_hash_table_destroy (project->files);
 	project->groups = NULL;
-	project->targets = NULL;
 	project->files = NULL;
 
 	amp_project_free_module_hash (project);
@@ -1168,6 +1165,44 @@ project_list_config_files (AmpProject *project)
 	return config_files;
 }
 
+static gboolean
+find_target (GNode *node, gpointer data)
+{
+	if (AMP_NODE_DATA (node)->type == AMP_NODE_TARGET)
+	{
+		if (strcmp (AMP_TARGET_DATA (node)->name, *(gchar **)data) == 0)
+		{
+			/* Find target, return node value in pointer */
+			*(GNode **)data = node;
+
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+static gboolean
+find_canonical_target (GNode *node, gpointer data)
+{
+	if (AMP_NODE_DATA (node)->type == AMP_NODE_TARGET)
+	{
+		gchar *canon_name = canonicalize_automake_variable (AMP_TARGET_DATA (node)->name);	
+		DEBUG_PRINT ("compare canon %s vs %s node %p", canon_name, *(gchar **)data, node);
+		if (strcmp (canon_name, *(gchar **)data) == 0)
+		{
+			/* Find target, return node value in pointer */
+			*(GNode **)data = node;
+			g_free (canon_name);
+
+			return TRUE;
+		}
+		g_free (canon_name);
+	}
+
+	return FALSE;
+}
+
 static AnjutaToken*
 project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHashTable *orphan_sources)
 {
@@ -1176,7 +1211,6 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 	AnjutaToken *next = NULL;
 	AnjutaToken *arg;
 	AmpGroupData *group = (AmpGroupData *)parent->data;
-	gchar *group_id = g_file_get_uri (group->file);
 	const gchar *type;
 	gchar *install;
 	gint flags;
@@ -1240,6 +1274,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		gboolean last;
 		GList *sources;
 		gchar *orig_key;
+		gpointer find;
 
 		last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
 		
@@ -1247,24 +1282,27 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		canon_id = canonicalize_automake_variable (value);		
 		
 		/* Check if target already exists */
-		target_id = g_strconcat (group_id, ":", canon_id, NULL);
-		if (g_hash_table_lookup (project->targets, target_id) != NULL)
+		find = value;
+		g_node_children_foreach (parent, G_TRAVERSE_ALL, find_target, &find);
+		if ((gchar *)find != value)
 		{
+			/* Find target */
+			g_free (canon_id);
 			g_free (value);
-			g_free (target_id);
+			if (last) break;
 			continue;
 		}
 
 		/* Create target */
 		target = amp_target_new (value, type, install, flags);
-		g_hash_table_insert (project->targets, target_id, target);
 		g_node_append (parent, target);
+		DEBUG_PRINT ("create target %p name %s", target, value);
 
 		/* Check if there are source availables */
-		if (g_hash_table_lookup_extended (orphan_sources, target_id, &orig_key, &sources))
+		if (g_hash_table_lookup_extended (orphan_sources, canon_id, &orig_key, &sources))
 		{
 			GList *src;
-			g_hash_table_steal (orphan_sources, target_id);
+			g_hash_table_steal (orphan_sources, canon_id);
 			for (src = sources; src != NULL; src = g_list_next (src))
 			{
 				AmpSource *source = src->data;
@@ -1274,13 +1312,13 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 			g_free (orig_key);
 			g_list_free (sources);
 		}
-	
+
+		g_free (canon_id);
 		g_free (value);
 		
 		if (last) break;
 	}
 
-	g_free (group_id);
 	anjuta_token_free (open_tok);
 	anjuta_token_free (next_tok);
 
@@ -1296,12 +1334,11 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 	AnjutaToken *arg;
 	AmpGroupData *group = (AmpGroupData *)parent->data;
 	GFile *parent_file = g_object_ref (group->file);
-	gchar *group_id = g_file_get_uri (group->file);
 	gchar *target_id = NULL;
 	GList *orphan = NULL;
 	gint flags;
-			gchar *orig_key;
-			GList *orig_sources;
+	gchar *orig_key;
+	GList *orig_sources;
 
 	
 	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
@@ -1309,24 +1346,25 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 
 	if (anjuta_token_match (open_tok, ANJUTA_SEARCH_INTO, start, &next))
 	{
-		gchar *name;
-
-		name = anjuta_token_evaluate (start, anjuta_token_previous (next));
-		if (name)
+		target_id = anjuta_token_evaluate (start, anjuta_token_previous (next));
+		if (target_id)
 		{
-			gchar *end = strrchr (name, '_');
+			gchar *end = strrchr (target_id, '_');
 			if (end)
 			{
 				*end = '\0';
-				target_id = g_strconcat (group_id, ":", name, NULL);
 			}
 		}
-		g_free (name);
 	}
 
 	if (target_id)
 	{
-		parent = g_hash_table_lookup (project->targets, target_id) ;
+		gpointer find;
+		
+		find = target_id;
+		DEBUG_PRINT ("search for canonical %s", target_id);
+		g_node_children_foreach (parent, G_TRAVERSE_ALL, find_canonical_target, &find);
+		parent = (gchar *)find != target_id ? (GNode *)find : NULL;
 		
 		for (arg = next; arg != NULL; arg = anjuta_token_next (next))
 		{
@@ -1350,6 +1388,7 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 			}
 			else
 			{
+				DEBUG_PRINT ("add target child %p", parent);
 				/* Add as target child */
 				g_node_append (parent, source);
 			}
@@ -1564,7 +1603,6 @@ project_reload (AmpProject *project, GError **error)
 
 	/* shortcut hash tables */
 	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	project->targets = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	project->files = g_hash_table_new_full (g_file_hash, g_file_equal, g_object_unref, g_object_unref);
 	
 	/* Find configure file */
@@ -1656,7 +1694,7 @@ amp_project_get_target_config (AmpProject *project, const gchar *target_id,
 {
 	AmpNode *node;
 	GNode *g_node;
-	
+
 	g_return_val_if_fail (IS_AMP_PROJECT (project), NULL);
 	g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 	
@@ -1950,7 +1988,7 @@ impl_get_group (GbfProject  *_project,
 			case AMP_NODE_TARGET:
 				target_id  = canonicalize_automake_variable (((AmpTargetData *)node)->name);
 				group->targets = g_list_prepend (group->targets,
-								 g_strconcat (id, ":", target_id, NULL));
+								 g_base64_encode ((guchar *)&g_node, sizeof (g_node)));
 				g_free (target_id);
 				break;
 			default:
@@ -2174,16 +2212,16 @@ impl_get_target (GbfProject  *_project,
 	GbfProjectTarget *target;
 	GNode *g_node;
 	AmpSourceData *child_node;
+	GNode **buffer;
+	gsize dummy;
 
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
 	project = AMP_PROJECT (_project);
-	g_node = g_hash_table_lookup (project->targets, id);
-	if (g_node == NULL) {
-		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Target doesn't exist"));
-		return NULL;
-	}
+	buffer = (GNode **)g_base64_decode (id, &dummy);
+	g_node = *buffer;
+	g_free (buffer);
+	
 	target = g_new0 (GbfProjectTarget, 1);
 	target->group_id = g_strdup (AMP_NODE_DATA (g_node->parent)->id);
 	target->id = g_strconcat (target->group_id, AMP_TARGET_DATA(g_node)->name, NULL);
@@ -2211,12 +2249,18 @@ impl_get_target (GbfProject  *_project,
 	return target;
 }
 
-static void
-foreach_target (gpointer key, gpointer value, gpointer data)
+static gboolean
+get_all_target (GNode *node, gpointer data)
 {
 	GList **targets = data;
 
-	*targets = g_list_prepend (*targets, g_strdup (key));
+	if (AMP_NODE_DATA (node)->type == AMP_NODE_TARGET)
+	{
+		gchar *id = g_base64_encode ((guchar *)&node, sizeof (node));
+		*targets = g_list_prepend (*targets, id);
+	}
+
+	return FALSE;
 }
 
 static GList *
@@ -2229,7 +2273,7 @@ impl_get_all_targets (GbfProject *_project,
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
 	project = AMP_PROJECT (_project);
-	g_hash_table_foreach (project->targets, foreach_target, &targets);
+	g_node_traverse (project->root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, get_all_target, &targets);
 
 	return targets;
 }
@@ -2399,6 +2443,7 @@ impl_remove_target (GbfProject  *_project,
 
 	project = AMP_PROJECT (_project);
 	
+#if 0
 	/* Find the target */
 	g_node = g_hash_table_lookup (project->targets, id);
 	if (g_node == NULL) {
@@ -2408,7 +2453,6 @@ impl_remove_target (GbfProject  *_project,
 	}
 
 	/* Create the update xml */
-#if 0
 	doc = xml_new_change_doc (project);
 	if (!xml_write_remove_target (project, doc, g_node)) {
 		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
@@ -2599,26 +2643,22 @@ impl_add_source (GbfProject  *_project,
 		 GError     **error)
 {
 	AmpProject *project;
-	GNode *g_node, *iter_node;
-	//xmlDocPtr doc;
-	gboolean abort_action = FALSE;
-	gchar *full_uri = NULL;
-	gchar *group_uri;
-	GSList *change_set = NULL;
-	//AmChange *change;
-	gchar *retval;
-	gchar *filename;
-	const gchar *ptr;
-	gboolean failed = FALSE;
+	GFile *file;
+	gchar *source_path;
+	
 	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	g_return_val_if_fail (uri != NULL, NULL);
 	g_return_val_if_fail (target_id != NULL, NULL);
 	
 	project = AMP_PROJECT (_project);
-	
-	filename = g_path_get_basename (uri);
 
+	file = g_file_new_for_path (uri);
+	//source_path = get_relative_path (..flle);
+	
+	
+	return NULL;
+	
 #if 0	
 	/* Validate target name */
 	ptr = filename;
@@ -2760,9 +2800,9 @@ impl_add_source (GbfProject  *_project,
 			   _("Newly added source file could not be identified"));
 	}
 	change_set_destroy (change_set);
-#endif
 	
 	return retval;
+#endif
 }
 
 static void 
@@ -2818,51 +2858,6 @@ impl_get_config_modules   (GbfProject *_project, GError **error)
 	project = AMP_PROJECT (_project);
 
 	return g_hash_table_get_keys (project->modules);
-	
-
-#if 0	
-	GList *modules = NULL;
-	AnjutaToken *pkg_check_tok;
-	AnjutaToken *next_tok;
-	AnjutaToken *close_tok;
-	AnjutaToken *sequence;
-	AmpProject *project;
-	
-	g_return_if_fail (AMP_IS_PROJECT (_project));
-	project = AMP_PROJECT (_project);
-
-
-	pkg_check_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD, "PKG_CHECK_MODULES(");
-	next_tok = anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_CLOSE, NULL);
-	close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
-	
-	sequence = project->configure_sequence;
-	for (;;)
-	{
-		AnjutaToken *module;
-		AnjutaToken *next;
-		gchar *value;
-		
-		if (!anjuta_token_match (pkg_check_tok, sequence, &module)) break;
-
-		module = anjuta_token_next (module);
-
-		if (anjuta_token_match (next_tok, module, &sequence))
-		{
-			value = anjuta_token_evaluate (module, sequence);
-			modules = g_list_prepend (modules, value);
-			anjuta_token_match (close_tok, sequence, &sequence);
-		}
-		sequence = anjuta_token_next (sequence);
-	}
-	anjuta_token_free (pkg_check_tok);
-	anjuta_token_free (next_tok);
-	anjuta_token_free (close_tok);
-	
-	modules = g_list_reverse (modules);
-	
-	return modules;
-#endif
 }
 
 static gboolean
@@ -2907,54 +2902,6 @@ impl_get_config_packages  (GbfProject *project,
 	}
 
 	return packages;
-#if 0	
-	//AmConfigMapping *config;
-	//AmConfigValue *module_info;
-	//AmConfigMapping *module_info_map;
-	GError* err = NULL;
-	GList* result = NULL;
-
-
-	config = amp_project_get_config (AMP_PROJECT(project), &err);
-	if (err) 
-	{
-		g_propagate_error (error, err);
-		return NULL;
-	}
-			
-	gchar *module_key = g_strconcat ("pkg_check_modules_",
-					 module,
-					 NULL);
-	
-	if ((module_info = am_config_mapping_lookup (config, module_key)) &&
-	    (module_info_map = am_config_value_get_mapping (module_info))) 
-	{
-		AmConfigValue *pkgs_val;
-		const gchar *packages;
-		
-		if ((pkgs_val = am_config_mapping_lookup (module_info_map, "packages")) &&
-		    (packages = am_config_value_get_string (pkgs_val))) 
-		{
-			gchar **pkgs, **pkg;
-			pkgs = g_strsplit (packages, ", ", -1);
-			for (pkg = pkgs; *pkg != NULL; ++pkg) 
-			{
-				gchar* version;
-				if ((version = strchr (*pkg, ' ')))
-					*version = '\0';
-				if (package_is_valid (*pkg))
-				{
-					result = g_list_append (result, 
-								g_strdup (*pkg));
-				}
-			}			
-			g_strfreev (pkgs);
-		}		
-	}
-	g_free (module_key);
-
-	return result;
-#endif
 }
 
 static void
