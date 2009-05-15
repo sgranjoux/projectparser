@@ -83,7 +83,7 @@ AnjutaToken *anjuta_token_new_fragment (AnjutaTokenType type, const gchar *pos, 
 
 void anjuta_token_free (AnjutaToken *token);
 
-void anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
+AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
 void anjuta_token_foreach (AnjutaToken *token, GFunc func, gpointer user_data);
 gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end);
 gboolean anjuta_token_remove (AnjutaToken *token, AnjutaToken *end);

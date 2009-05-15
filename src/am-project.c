@@ -147,8 +147,7 @@ struct _AmpTargetData {
 	gchar *type;
 	gchar *install;
 	gint flags;
-	AnjutaToken *token;
-	AnjutaToken *args;
+	AnjutaTokenRange token;
 };
 
 typedef GNode AmpSource;
@@ -1295,6 +1294,8 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 
 		/* Create target */
 		target = amp_target_new (value, type, install, flags);
+		AMP_TARGET_DATA (target)->token.first = arg;
+		AMP_TARGET_DATA (target)->token.last = next;
 		g_node_append (parent, target);
 		DEBUG_PRINT ("create target %p name %s", target, value);
 
@@ -2645,164 +2646,78 @@ impl_add_source (GbfProject  *_project,
 	AmpProject *project;
 	GFile *file;
 	gchar *source_path;
-	
+	AmpGroup *group;
+	AmpTarget *target;
+	AmpSource *last;
+	AmpSource *source;
+	GNode **buffer;
+	gsize dummy;
+	AnjutaTokenRange token;
 	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	g_return_val_if_fail (uri != NULL, NULL);
 	g_return_val_if_fail (target_id != NULL, NULL);
 	
 	project = AMP_PROJECT (_project);
+	buffer = (GNode **)g_base64_decode (target_id, &dummy);
+	target = (AmpTarget *)*buffer;
+	g_free (buffer);
 
-	file = g_file_new_for_path (uri);
-	//source_path = get_relative_path (..flle);
-	
-	
-	return NULL;
-	
-#if 0	
-	/* Validate target name */
-	ptr = filename;
-	while (*ptr) {
-		if (!isalnum (*ptr) && *ptr != '.' && *ptr != '-' &&
-		    *ptr != '_')
-			failed = TRUE;
-		ptr++;
-	}
-	if (failed) {
-		error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
-			   _("Source file name can only contain alphanumeric, '_', '-' or '.' characters"));
-		g_free (filename);
-		return NULL;
-	}
-	
-	/* check target */
-	g_node = g_hash_table_lookup (project->targets, target_id);
-	if (g_node == NULL) {
-		error_set (error,GBF_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Target doesn't exist"));
-		return NULL;
-	}
+	group = (AmpGroup *)(target->parent);
 
-	/* if the uri is relative, resolve it against the target's
-	 * group directory; we need to compute the group's uri
-	 * first */
-	/*group_uri = uri_normalize (g_path_skip_root (AMP_NODE (g_node->parent)->id),
-				   project->project_root_uri);*/
-	
-	full_uri = uri_normalize (uri, group_uri);
-	
-	/* Check that the source uri is inside the project root */
-	/*if (!uri_is_parent (project->project_root_uri, full_uri)) {
-		GFile *src_file, *group_file, *dst_file;
-		GError *err = NULL;
-		
-		src_file = g_file_new_for_commandline_arg (uri);
-		group_file = g_file_new_for_commandline_arg (group_uri);
-		dst_file = g_file_get_child (group_file, filename);
-		g_object_unref (group_file);
-		
-		if (!g_file_copy (src_file, dst_file,
-			     G_FILE_COPY_NONE,
-			     NULL, NULL,
-			     NULL, &err))
-		{
-			if (err->code != G_IO_ERROR_EXISTS)
-			{
-				GbfProjectError gbf_err;
-				gchar *error_str = 
-					g_strdup_printf ("Failed to copy source file inside project: %s",
-							 err->message);
-				switch (err->code)
-				{
-				case G_IO_ERROR_NOT_FOUND:
-					gbf_err = GBF_PROJECT_ERROR_DOESNT_EXIST;
-					break;
-				default:
-					gbf_err = GBF_PROJECT_ERROR_GENERAL_FAILURE;
-					break;
-				}
-				error_set (error, gbf_err, error_str);
-				g_free (error_str);
-				g_error_free (err);
-				abort_action = TRUE;
-			}
-			else
-			{
-				g_free (full_uri);
-				full_uri = g_file_get_uri (dst_file);
-			}
-		}
-		g_object_unref (src_file);
-		g_object_unref (dst_file);		
+	/* Add token */
+	last = g_node_last_child (target);
+	if (last == NULL)
+	{
+		/* First child */
+		AnjutaToken *tok;
+		AnjutaToken *close_tok;
+		AnjutaToken *eol_tok;
+		gchar *target_var;
+		gchar *canon_name;
+
+
+		/* Search where the target is declared */
+		tok = AMP_TARGET_DATA (target)->token.last;
+		close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
+		eol_tok = anjuta_token_new_static (ANJUTA_TOKEN_EOL, NULL);
+		anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, tok, &tok);
+		anjuta_token_match (eol_tok, ANJUTA_SEARCH_OVER, tok, &tok);
+		anjuta_token_free (close_tok);
+		anjuta_token_free (eol_tok);
+
+		/* Add a _SOURCES variable just after */
+		canon_name = canonicalize_automake_variable (AMP_TARGET_DATA (target)->name);
+		target_var = g_strconcat (canon_name,  "_SOURCES", NULL);
+		g_free (canon_name);
+		tok = anjuta_token_insert_after (tok, anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, target_var));
+		g_free (target_var);
+		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " "));
+		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_ADDED, "="));
+		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " "));
+		token.first = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
+		tok = anjuta_token_insert_after (tok, token.first);
+		token.last = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
+		tok = anjuta_token_insert_after (tok, token.last);
+		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_EOL | ANJUTA_TOKEN_ADDED, "\n"));
 	}
-	
-	g_free (group_uri);
-	g_free (filename);*/
-	
-	/* check for source duplicates */
-	iter_node = g_node_first_child (g_node);
-	while (!abort_action && iter_node) {
-		AmpNode *node = AMP_NODE (iter_node);
-		
-		if (node->type == AMP_NODE_SOURCE &&
-		    uri_is_equal (full_uri, node->uri)) {
-			error_set (error, GBF_PROJECT_ERROR_ALREADY_EXISTS,
-				   _("Source file is already in given target"));
-			abort_action = TRUE;
-		}
-		iter_node = g_node_next_sibling (iter_node);
+	else
+	{
+		AnjutaToken *tok;
+
+		tok = AMP_SOURCE_DATA (last)->token.last;
+		token.first = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
+		tok = anjuta_token_insert_after (tok, token.first);
+		token.last = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
+		tok = anjuta_token_insert_after (tok, token.last);
 	}
 
-	/* have there been any errors? */
-	if (abort_action) {
-		g_free (full_uri);
-		return NULL;
-	}
-	
-	/* Create the update xml */
-	doc = xml_new_change_doc (project);
+	/* Add source node in project tree */
+	source = amp_source_new (AMP_GROUP_DATA (group)->file, uri);
+	AMP_SOURCE_DATA(source)->token = token;
+	g_node_append (target, source);
 
-	if (!xml_write_add_source (project, doc, g_node, full_uri)) {
-		error_set (error, PROJECT_ERROR_GENERAL_FAILURE,
-			   _("General failure in adding source file"));
-		abort_action = TRUE;
-	}
-
-	g_free (full_uri);
-	if (abort_action) {
-		xmlFreeDoc (doc);
-		return NULL;
-	}
-	
-	DEBUG ({
-		xmlSetDocCompressMode (doc, 0);
-		xmlSaveFile ("/tmp/add-source.xml", doc);
-	});
-
-	/* Update the project */
-	if (!project_update (project, doc, &change_set, error)) {
-		error_set (error, PROJECT_ERROR_PROJECT_MALFORMED,
-			   _("Unable to update project"));
-		xmlFreeDoc (doc);
-		return NULL;
-	}
-	xmlFreeDoc (doc);
-
-	/* get newly created source id */
-	retval = NULL;
-	DEBUG (change_set_debug_print (change_set));
-	change = change_set_find (change_set, AM_CHANGE_ADDED,
-				  AMP_NODE_SOURCE);
-	if (change) {
-		retval = g_strdup (change->id);
-	} else {
-		error_set (error, PROJECT_ERROR_GENERAL_FAILURE,
-			   _("Newly added source file could not be identified"));
-	}
-	change_set_destroy (change_set);
-	
-	return retval;
-#endif
+	return g_base64_encode ((guchar *)&source, sizeof (source));
 }
 
 static void 

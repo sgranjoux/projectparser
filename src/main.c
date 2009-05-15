@@ -189,6 +189,12 @@ main(int argc, char *argv[])
 			gbf_project_remove_source (project, id, NULL);
 			g_free (id);
 		}
+		else if (g_ascii_strcasecmp (*command, "add") == 0)
+		{
+			gchar *id = amp_project_get_node_id (AMP_PROJECT (project), *(++command));
+			gbf_project_add_source (project, id, *(++command), NULL);
+			g_free (id);
+		}
 		else
 		{
 			printf ("Error: unknown command %s", *command);

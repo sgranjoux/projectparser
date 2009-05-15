@@ -135,7 +135,7 @@ static AnjutaTokenVTable anjuta_token_string_vtable = {anjuta_token_string_free,
 /* Common token functions
  *---------------------------------------------------------------------------*/
 
-void
+AnjutaToken *
 anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling)
 {
 	AnjutaToken *last = sibling;
@@ -151,6 +151,8 @@ anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling)
 
 	token->next = sibling;
 	last->prev = token;
+
+	return sibling;
 }
 
 void
