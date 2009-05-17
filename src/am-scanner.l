@@ -24,6 +24,8 @@
 #include "am-scanner.h"
 #include "am-parser.h"
 
+#include "libanjuta/anjuta-debug.h"
+
 
 /* Eliminate warning */
 #define YY_NO_UNPUT 1 
@@ -280,26 +282,23 @@ amp_am_scanner_last_flags (AmpAmScanner *scanner)
 static void
 amp_update_location (YYLTYPE *loc, const gchar *text, gint length)
 {
+	const gchar *ptr;
+	const gchar *end = text + length;
+
     loc->first_line = loc->last_line;
-    loc->first_column = loc->last_column;
-    while (length)
-    {
-        const gchar *eol;
-        
-        for (eol = text; (eol != text + length) && (*eol != '\n'); eol++);
-        if (eol == text + length)
-        {
-            loc->last_column += length;
-            return;
-        }
-        else
-        {
-            loc->last_column = 0;
-            loc->last_line ++;
-            text = eol + 1;
-            length -= (eol - text);
-        }
-    }
+    loc->first_column = loc->last_column + 1;
+
+	for (ptr = text; ptr != end; ptr++)
+	{
+		if (*ptr == '\n')
+		{
+			loc->last_column = 0;
+			loc->last_line++;
+			length -= (ptr + 1 - text);
+		}
+	}
+
+	loc->last_column += length;
 }
 
 /* Public functions
