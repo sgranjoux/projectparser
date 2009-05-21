@@ -42,6 +42,7 @@
 static AnjutaToken* amp_am_scanner_append_token (AmpAmScanner *scanner, gint token);
 static gint amp_am_scanner_last_token (AmpAmScanner *scanner);
 static gint amp_am_scanner_last_flags (AmpAmScanner *scanner);
+static void amp_am_scanner_update_line_width (AmpAmScanner *scanner, YYLTYPE *loc);
 static void amp_update_location (YYLTYPE *loc, const gchar *text, gint length);
 
 %}
@@ -93,16 +94,19 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
 
 <INITIAL>\$\([^ \t\n\r:#=$)]+\) {
     yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE);   
+	amp_am_scanner_update_line_width (yyextra, yylloc);
     return VARIABLE;
 }
 
 <INITIAL>\$\{[^ \t\n\r:#=$}]+\} {
     yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE);   
+	amp_am_scanner_update_line_width (yyextra, yylloc);
     return VARIABLE;
 }
 
 <INITIAL>\$[^ \t\n\r\(\{] {
     yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE);   
+	amp_am_scanner_update_line_width (yyextra, yylloc);
     return VARIABLE;
 }
 
@@ -233,6 +237,7 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
 
 <INITIAL>{NAME} {
     yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_NAME);   
+	amp_am_scanner_update_line_width (yyextra, yylloc);
     return NAME;
 }
 
@@ -249,6 +254,7 @@ struct _AmpAmScanner
     yyscan_t scanner;
     YY_BUFFER_STATE	 buffer;
     AnjutaTokenFile *file;
+	guint line_width;
 };
 
 /* Private functions
@@ -278,7 +284,13 @@ amp_am_scanner_last_flags (AmpAmScanner *scanner)
 {
     return anjuta_token_get_flags (anjuta_token_file_last (scanner->file));
 }
-    
+
+static void
+amp_am_scanner_update_line_width (AmpAmScanner *scanner, YYLTYPE *loc)
+{
+	anjuta_token_file_update_line_width (scanner->file, loc->last_column);
+}
+
 static void
 amp_update_location (YYLTYPE *loc, const gchar *text, gint length)
 {
@@ -316,6 +328,12 @@ amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenFile *file)
     scanner->buffer = yy_scan_string (scanner->pos, scanner->scanner);
 	
 	return amp_am_yyparse (scanner->scanner) == 0;
+}
+
+guint
+amp_am_scanner_get_line_width (AmpAmScanner *scanner)
+{
+	return scanner->line_width;
 }
 
 /* Constructor & Destructor

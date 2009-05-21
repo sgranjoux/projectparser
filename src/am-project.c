@@ -288,6 +288,44 @@ file_type (GFile *file, const gchar *filename)
 	return type;
 }
 
+static AnjutaToken *
+find_list_start (AnjutaToken *item)
+{
+	AnjutaToken *open_tok;
+	AnjutaToken *start;
+	
+	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
+	
+	if (!anjuta_token_match (open_tok, ANJUTA_SEARCH_OVER | ANJUTA_SEARCH_BACKWARD, item, &start))
+	{
+		start = NULL;
+	}
+	
+	anjuta_token_free (open_tok);
+
+	return start;
+}
+
+gboolean
+remove_list_item (AnjutaToken *first, AnjutaToken *last)
+{
+	AnjutaToken *begin;
+	AnjutaTokenStyle *style;
+
+	DEBUG_PRINT ("remove list item");
+	begin = find_list_start (first);
+	if (begin == NULL) return FALSE;
+
+	style = anjuta_token_style_new (0);
+	anjuta_token_style_update (style, begin);
+	anjuta_token_style_free (style);
+	
+	anjuta_token_remove (first, last);
+
+	return TRUE;
+}
+
+
 /*
  * URI and path manipulation functions -----------------------------
  */
@@ -2742,8 +2780,9 @@ impl_remove_source (GbfProject  *_project,
 	if (AMP_NODE_DATA (g_node)->type != AMP_NODE_SOURCE) return;
 	
 	source = AMP_SOURCE_DATA (g_node);
+
+	remove_list_item (source->token.first, source->token.last);
 	
-	anjuta_token_remove (source->token.first, source->token.last);
 	g_node_destroy (g_node);
 }
 

@@ -74,8 +74,11 @@ enum AnjutaTokenSearchFlag
 {
 	ANJUTA_SEARCH_OVER	  = 0,
 	ANJUTA_SEARCH_INTO		= 1 << 0,
-	ANJUTA_SEARCH_ALL	   = 1 << 1
+	ANJUTA_SEARCH_ALL	   = 1 << 1,
+	ANJUTA_SEARCH_BACKWARD = 1 << 2
 };
+
+typedef struct _AnjutaTokenStyle AnjutaTokenStyle;
 
 AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const gchar *value);
 AnjutaToken *anjuta_token_new_static (AnjutaTokenType type, const gchar *value);
@@ -83,6 +86,8 @@ AnjutaToken *anjuta_token_new_fragment (AnjutaTokenType type, const gchar *pos, 
 
 void anjuta_token_free (AnjutaToken *token);
 
+AnjutaToken *anjuta_token_copy (AnjutaToken *token);
+AnjutaToken *anjuta_token_copy_range (AnjutaToken *token, AnjutaToken *end);
 AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
 void anjuta_token_foreach (AnjutaToken *token, GFunc func, gpointer user_data);
 gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end);
@@ -102,7 +107,14 @@ gboolean anjuta_token_compare (AnjutaToken *tokena, AnjutaToken *tokenb);
 gint anjuta_token_get_type (AnjutaToken *token);
 gint anjuta_token_get_flags (AnjutaToken *token);
 gchar* anjuta_token_get_value (AnjutaToken *token);
+gchar* anjuta_token_get_value_range (AnjutaToken *token, AnjutaToken *end);
 
+
+AnjutaTokenStyle *anjuta_token_style_new (guint line_width);
+void anjuta_token_style_free (AnjutaTokenStyle *style);
+
+void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *token);
+void anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *token);
 
 
 #define ANJUTA_TOKEN_FILE_TYPE                     (anjuta_token_file_get_type ())
@@ -125,9 +137,12 @@ void anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file);
 gboolean anjute_token_file_save (AnjutaTokenFile *file, GError **error);
 
 void anjuta_token_file_append (AnjutaTokenFile *file, AnjutaToken *token);
+void anjuta_token_update_line_width (AnjutaTokenFile *file, guint width);
+
 AnjutaToken* anjuta_token_file_first (AnjutaTokenFile *file);
 AnjutaToken* anjuta_token_file_last (AnjutaTokenFile *file);
 GFile *anjuta_token_file_get_file (AnjutaTokenFile *file);
+guint anjuta_token_file_get_line_width (AnjutaTokenFile *file);
 
 G_END_DECLS
 

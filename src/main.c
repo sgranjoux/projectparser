@@ -62,40 +62,51 @@ void print (const gchar *message, ...)
 	fputc('\n', output_stream);
 }
 
-void list_target (GbfProject *project, const gchar *id, gint indent)
+void list_target (GbfProject *project, const gchar *id, gint indent, const gchar *path)
 {
 	GbfProjectTarget* target = gbf_project_get_target (project, id, NULL);
 	GList *node;
+	guint count = 0;
 
 	if (target == NULL) return;
 
 	indent++;
-	print ("%*sTARGET: %s", indent * INDENT, "", target->name); 
+	print ("%*sTARGET (%s): %s", indent * INDENT, "", path, target->name); 
 	indent++;
 	for (node = g_list_first (target->sources); node != NULL; node = g_list_next (node))
 	{
 		GbfProjectTargetSource* source = gbf_project_get_source (project, node->data, NULL);
+		gchar *child_path = g_strdup_printf ("%s:%d", path, count);
 		
-		print ("%*sSOURCE: %s", indent * INDENT, "", source->source_uri); 
+		print ("%*sSOURCE (%s): %s", indent * INDENT, "", child_path, source->source_uri); 
+		g_free (child_path);
+		count++;
 	}
 }
 
-void list_group (GbfProject *project, const gchar *id, gint indent)
+void list_group (GbfProject *project, const gchar *id, gint indent, const gchar *path)
 {
 	GbfProjectGroup* group = gbf_project_get_group (project, id, NULL);
 	GList *node;
-
+	guint count = 0;
+	
 	if (group == NULL) return;
 
 	indent++;
-	print ("%*sGROUP: %s", indent * INDENT, "", group->name); 
+	print ("%*sGROUP (%s): %s", indent * INDENT, "", path, group->name); 
 	for (node = g_list_first (group->groups); node != NULL; node = g_list_next (node))
 	{
-		list_group (project, (const gchar *)node->data, indent);
+		gchar *child_path = g_strdup_printf ("%s:%d", path, count);
+		list_group (project, (const gchar *)node->data, indent, child_path);
+		g_free (child_path);
+		count++;
 	}
 	for (node = g_list_first (group->targets); node != NULL; node = g_list_next (node))
 	{
-		list_target (project, (const gchar *)node->data, indent);
+		gchar *child_path = g_strdup_printf ("%s:%d", path, count);
+		list_target (project, (const gchar *)node->data, indent, child_path);
+		g_free (child_path);
+		count++;
 	}
 }
 
@@ -173,7 +184,7 @@ main(int argc, char *argv[])
 		{
 			list_module (project);
 
-			list_group (project, "", 0);
+			list_group (project, "", 0, "0");
 		}
 		else if (g_ascii_strcasecmp (*command, "move") == 0)
 		{
