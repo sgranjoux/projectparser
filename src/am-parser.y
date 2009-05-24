@@ -130,16 +130,16 @@ am_variable:
 	| AM_VARIABLE optional_space equal_token optional_space
 	;
 				
-space_list_value: optional_space equal_token optional_space value_list optional_space {
+space_list_value: optional_space  equal_token   optional_space  value_list  optional_space {
         anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
-	anjuta_token_set_flags ($4.first, ANJUTA_TOKEN_OPEN);
+	anjuta_token_insert_after ($2, anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL));
 	anjuta_token_insert_after ($4.last, anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL));
 	}
 	;
 		
 value_list:
 	value
-	| value_list space value {
+	| value_list  space  value {
 		$$.first = $1.first;
 		$$.last = $3.last;
 		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
