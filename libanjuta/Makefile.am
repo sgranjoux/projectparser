@@ -16,7 +16,9 @@ noinst_LIBRARIES = libanjuta.a
 libanjuta_a_SOURCES = \
 	gbf-project.c \
 	gbf-project.h \
-	anjuta-token-old.c \
-	anjuta-token-old.h \
+	anjuta-token.c \
+	anjuta-token.h \
 	anjuta-debug.c \
-	anjuta-debug.h
+	anjuta-debug.h \
+	anjuta-token-old.c \
+	anjuta-token-old.h
