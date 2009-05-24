@@ -20,7 +20,7 @@
 #ifndef _AM_SCANNER_H_
 #define _AM_SCANNER_H_
 
-#include "libanjuta/anjuta-token.h"
+#include "libanjuta/anjuta-token-old.h"
 
 #include <glib.h>
 #include <gio/gio.h>
@@ -32,11 +32,11 @@ typedef struct _AmpAmScanner AmpAmScanner;
 AmpAmScanner *amp_am_scanner_new (void);
 void amp_am_scanner_free (AmpAmScanner *scanner);
 
-gboolean amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenFile *file);
+gboolean amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenOldFile *file);
 
 typedef enum
 {
-	AM_TOKEN_SUBDIRS = ANJUTA_TOKEN_USER,
+	AM_TOKEN_SUBDIRS = ANJUTA_TOKEN_OLD_USER,
 	AM_TOKEN__DATA,
 	AM_TOKEN__HEADERS,
 	AM_TOKEN__LIBRARIES,

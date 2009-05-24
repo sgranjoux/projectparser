@@ -29,8 +29,8 @@
 /* Defining an union allow to use 2 protocol blocks (enclosed by %{ %}) which
  * is useful when redefining YYSTYPE. */
 %union {
-	AnjutaToken *token;
-	AnjutaTokenRange range;
+	AnjutaTokenOld *token;
+	AnjutaTokenOldRange range;
 }
 
 %token	<token> EOL	'\n'
@@ -125,15 +125,15 @@ commands:
 		
 am_variable:
 	AM_VARIABLE space_list_value {
-		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
+		anjuta_token_old_set_flags ($1, ANJUTA_TOKEN_OLD_SIGNIFICANT);
 	}
 	| AM_VARIABLE optional_space equal_token optional_space
 	;
 				
 space_list_value: optional_space  equal_token   optional_space  value_list  optional_space {
-        anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
-	anjuta_token_insert_after ($2, anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL));
-	anjuta_token_insert_after ($4.last, anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL));
+        anjuta_token_old_set_flags ($2, ANJUTA_TOKEN_OLD_IRRELEVANT);
+	anjuta_token_old_insert_after ($2, anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_OPEN, NULL));
+	anjuta_token_old_insert_after ($4.last, anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_CLOSE, NULL));
 	}
 	;
 		
@@ -142,7 +142,7 @@ value_list:
 	| value_list  space  value {
 		$$.first = $1.first;
 		$$.last = $3.last;
-		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
+		anjuta_token_old_set_flags ($2.first, ANJUTA_TOKEN_OLD_NEXT);
 	}
 	;
 
@@ -157,7 +157,7 @@ target_list2:
 	| target_list2 space target {
 		$$.first = $1.first;
 		$$.last = $3.last;
-		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
+		anjuta_token_old_set_flags ($2.first, ANJUTA_TOKEN_OLD_NEXT);
 	}
 	;
 		
@@ -174,7 +174,7 @@ prerequisite_list:
 	| prerequisite_list space prerequisite {
 		$$.first = $1.first;
 		$$.last = $3.last;
-		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
+		anjuta_token_old_set_flags ($2.first, ANJUTA_TOKEN_OLD_NEXT);
 	}
 	;
 
@@ -238,12 +238,12 @@ space:
 	space_token {
 		$$.first = $1;
 		$$.last = $1;
-		anjuta_token_set_flags ($1, ANJUTA_TOKEN_IRRELEVANT);
+		anjuta_token_old_set_flags ($1, ANJUTA_TOKEN_OLD_IRRELEVANT);
 	}
 	| space space_token	{
 		$$.first = $1.first;
 		$$.last = $2;
-		anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
+		anjuta_token_old_set_flags ($2, ANJUTA_TOKEN_OLD_IRRELEVANT);
 	}
 	;
 

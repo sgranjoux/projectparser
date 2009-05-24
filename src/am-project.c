@@ -68,7 +68,7 @@ struct _AmpProject {
 	GFile			*root_file;
 
 	/* project data */
-	AnjutaTokenFile		*configure_file;		/* configure.in file */
+	AnjutaTokenOldFile		*configure_file;		/* configure.in file */
 	
 	AmpGroup              *root_node;         	/* tree containing project data;
 								 * each GNode's data is a
@@ -106,7 +106,7 @@ typedef struct _AmpModule AmpModule;
 	
 struct _AmpModule {
     GList *packages;
-    AnjutaToken *module;
+    AnjutaTokenOld *module;
 };
 
 typedef struct _AmpNodeData AmpNodeData;
@@ -122,7 +122,7 @@ struct _AmpGroupData {
 	AmpNodeData node;
     gchar *makefile;
 	GFile *file;
-	AnjutaTokenFile *tfile;
+	AnjutaTokenOldFile *tfile;
 };
 
 typedef enum _AmpTargetFlag
@@ -147,7 +147,7 @@ struct _AmpTargetData {
 	gchar *type;
 	gchar *install;
 	gint flags;
-	AnjutaTokenRange token;
+	AnjutaTokenOldRange token;
 };
 
 typedef GNode AmpSource;
@@ -157,7 +157,7 @@ typedef struct _AmpSourceData AmpSourceData;
 struct _AmpSourceData {
 	AmpNodeData node;
 	GFile *file;
-	AnjutaTokenRange token;
+	AnjutaTokenOldRange token;
 };
 
 typedef struct _AmpConfigFile AmpConfigFile;
@@ -288,39 +288,39 @@ file_type (GFile *file, const gchar *filename)
 	return type;
 }
 
-static AnjutaToken *
-find_list_start (AnjutaToken *item)
+static AnjutaTokenOld *
+find_list_start (AnjutaTokenOld *item)
 {
-	AnjutaToken *open_tok;
-	AnjutaToken *start;
+	AnjutaTokenOld *open_tok;
+	AnjutaTokenOld *start;
 	
-	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
+	open_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_OPEN, NULL);
 	
-	if (!anjuta_token_match (open_tok, ANJUTA_SEARCH_OVER | ANJUTA_SEARCH_BACKWARD, item, &start))
+	if (!anjuta_token_old_match (open_tok, ANJUTA_SEARCH_OVER | ANJUTA_SEARCH_BACKWARD, item, &start))
 	{
 		start = NULL;
 	}
 	
-	anjuta_token_free (open_tok);
+	anjuta_token_old_free (open_tok);
 
 	return start;
 }
 
 gboolean
-remove_list_item (AnjutaToken *first, AnjutaToken *last)
+remove_list_item (AnjutaTokenOld *first, AnjutaTokenOld *last)
 {
-	AnjutaToken *begin;
-	AnjutaTokenStyle *style;
+	AnjutaTokenOld *begin;
+	AnjutaTokenOldStyle *style;
 
 	DEBUG_PRINT ("remove list item");
 	begin = find_list_start (first);
 	if (begin == NULL) return FALSE;
 
-	style = anjuta_token_style_new (0);
-	anjuta_token_style_update (style, begin);
-	anjuta_token_style_free (style);
+	style = anjuta_token_old_style_new (0);
+	anjuta_token_old_style_update (style, begin);
+	anjuta_token_old_style_free (style);
 	
-	anjuta_token_remove (first, last);
+	anjuta_token_old_remove (first, last);
 
 	return TRUE;
 }
@@ -614,7 +614,7 @@ amp_package_free (AmpPackage *package)
  *---------------------------------------------------------------------------*/
 
 static AmpModule*
-amp_module_new (AnjutaToken *token)
+amp_module_new (AnjutaTokenOld *token)
 {
 	AmpModule *module;
 	
@@ -846,7 +846,7 @@ monitors_setup (AmpProject *project)
 	project->monitors = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
 						   (GDestroyNotify) g_file_monitor_cancel);
 
-	monitor_add (project, anjuta_token_file_get_file (project->configure_file));
+	monitor_add (project, anjuta_token_old_file_get_file (project->configure_file));
 	if (project->groups)
 		g_hash_table_foreach (project->groups, group_hash_foreach_monitor, project);
 }
@@ -952,36 +952,36 @@ project_unload (AmpProject *project)
 static void
 project_reload_packages   (AmpProject *project)
 {
-	AnjutaToken *pkg_check_tok;
-	AnjutaToken *next_tok;
-	AnjutaToken *close_tok;
-	AnjutaToken *open_tok;
-	AnjutaToken *sequence;
+	AnjutaTokenOld *pkg_check_tok;
+	AnjutaTokenOld *next_tok;
+	AnjutaTokenOld *close_tok;
+	AnjutaTokenOld *open_tok;
+	AnjutaTokenOld *sequence;
 	
-	pkg_check_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "PKG_CHECK_MODULES(");
-	next_tok = anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL);
-	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
-	close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
+	pkg_check_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_KEYWORD | ANJUTA_TOKEN_OLD_SIGNIFICANT, "PKG_CHECK_MODULES(");
+	next_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_NEXT, NULL);
+	open_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_OPEN, NULL);
+	close_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_CLOSE, NULL);
 
 
 	DEBUG_PRINT ("reload package");
 	
-    sequence = anjuta_token_file_first (project->configure_file);
+    sequence = anjuta_token_old_file_first (project->configure_file);
 	for (;;)
 	{
-		AnjutaToken *module;
-		AnjutaToken *arg;
-		AnjutaToken *next;
+		AnjutaTokenOld *module;
+		AnjutaTokenOld *arg;
+		AnjutaTokenOld *next;
 		gchar *value;
 		AmpModule *mod;
 		AmpPackage *pack;
 		gchar *compare;
 		
-		if (!anjuta_token_match (pkg_check_tok, ANJUTA_SEARCH_OVER, sequence, &module)) break;
+		if (!anjuta_token_old_match (pkg_check_tok, ANJUTA_SEARCH_OVER, sequence, &module)) break;
 
-		arg = anjuta_token_next (module);
-		anjuta_token_match (next_tok, ANJUTA_SEARCH_OVER, arg, &next);
-		value = anjuta_token_evaluate (arg, next);
+		arg = anjuta_token_old_next (module);
+		anjuta_token_old_match (next_tok, ANJUTA_SEARCH_OVER, arg, &next);
+		value = anjuta_token_old_evaluate (arg, next);
 		mod = amp_module_new (arg);
 		mod->packages = NULL;
 		g_hash_table_insert (project->modules, value, mod);
@@ -990,21 +990,21 @@ project_reload_packages   (AmpProject *project)
 
 		// Dump a few following tokens
 		gint i;
-		AnjutaToken *tok;
+		AnjutaTokenOld *tok;
 
 		tok = arg;
 		for (i = 0; i < 50; i++)
 		{
-			//g_message ("token %p %x flag %x value %s", tok, anjuta_token_get_type (tok), anjuta_token_get_flags (tok), anjuta_token_evaluate (tok, tok));
-			tok = anjuta_token_next (tok);
+			//g_message ("token %p %x flag %x value %s", tok, anjuta_token_old_get_type (tok), anjuta_token_old_get_flags (tok), anjuta_token_old_evaluate (tok, tok));
+			tok = anjuta_token_old_next (tok);
 		}
 		
 
-		//g_message ("next token %p %s", next, anjuta_token_evaluate (next, next));
-		arg = anjuta_token_next (next);
-		//g_message ("following token %p %s", arg, anjuta_token_evaluate (arg, arg));
-		anjuta_token_match (open_tok, ANJUTA_SEARCH_INTO, arg, &next);
-		//g_message ("open token %p %s", next, anjuta_token_evaluate (next, next));
+		//g_message ("next token %p %s", next, anjuta_token_old_evaluate (next, next));
+		arg = anjuta_token_old_next (next);
+		//g_message ("following token %p %s", arg, anjuta_token_old_evaluate (arg, arg));
+		anjuta_token_old_match (open_tok, ANJUTA_SEARCH_INTO, arg, &next);
+		//g_message ("open token %p %s", next, anjuta_token_old_evaluate (next, next));
 		arg = next;
 		pack = NULL;
 		compare = NULL;
@@ -1012,11 +1012,11 @@ project_reload_packages   (AmpProject *project)
 		{
 			gchar *value;
 			
-			anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
+			anjuta_token_old_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
 
 			//g_message ("next token %p", next);
 			if (next == NULL) break;
-			value = anjuta_token_evaluate (arg, next);
+			value = anjuta_token_old_evaluate (arg, next);
 			//g_message ("next value %s", value);
 
 			if ((pack != NULL) && (compare != NULL))
@@ -1025,7 +1025,7 @@ project_reload_packages   (AmpProject *project)
 				pack = NULL;
 				compare = NULL;
 			}
-			else if ((pack != NULL) && (anjuta_token_get_type (arg) == ANJUTA_TOKEN_OPERATOR))
+			else if ((pack != NULL) && (anjuta_token_old_get_type (arg) == ANJUTA_TOKEN_OLD_OPERATOR))
 			{
 				compare = value;
 			}
@@ -1036,19 +1036,19 @@ project_reload_packages   (AmpProject *project)
 				compare = NULL;
 			}
 			
-			if (anjuta_token_get_flags (next) & ANJUTA_TOKEN_CLOSE) break;
-			arg = anjuta_token_next (next);
+			if (anjuta_token_old_get_flags (next) & ANJUTA_TOKEN_OLD_CLOSE) break;
+			arg = anjuta_token_old_next (next);
 		}
 		mod->packages = g_list_reverse (mod->packages);
 
-		anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, anjuta_token_next (arg), &next);
+		anjuta_token_old_match (close_tok, ANJUTA_SEARCH_OVER, anjuta_token_old_next (arg), &next);
 		//g_message ("next %p", next);
 		if (next == NULL) break;
-		sequence = anjuta_token_next (next);
+		sequence = anjuta_token_old_next (next);
 	}
-	anjuta_token_free (pkg_check_tok);
-	anjuta_token_free (next_tok);
-	anjuta_token_free (close_tok);
+	anjuta_token_old_free (pkg_check_tok);
+	anjuta_token_old_free (next_tok);
+	anjuta_token_old_free (close_tok);
 }
 
 static void
@@ -1122,35 +1122,35 @@ amp_project_add_group (AmpProject *project, GFile *file, const gchar *makefile)
 }
 
 /* Add a GFile in the list for each makefile in the token list */
-AnjutaToken *
-amp_project_add_config_files (AmpProject *project, AnjutaToken *list, GList **config_files)
+AnjutaTokenOld *
+amp_project_add_config_files (AmpProject *project, AnjutaTokenOld *list, GList **config_files)
 {
-	AnjutaToken* arg;
-	AnjutaToken* next;
-	AnjutaToken *next_tok;
-	AnjutaToken *open_tok;
+	AnjutaTokenOld* arg;
+	AnjutaTokenOld* next;
+	AnjutaTokenOld *next_tok;
+	AnjutaTokenOld *open_tok;
 
 	//g_message ("add config project %p root file %p", project, project->root_file);	
-	next_tok = anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL);
-	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
+	next_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_NEXT, NULL);
+	open_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_OPEN, NULL);
 	
-	for (anjuta_token_match (open_tok, ANJUTA_SEARCH_INTO, list, &arg); arg != NULL; arg = anjuta_token_next (next))
+	for (anjuta_token_old_match (open_tok, ANJUTA_SEARCH_INTO, list, &arg); arg != NULL; arg = anjuta_token_old_next (next))
 	{
 		gchar *value;
 			
-		anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
+		anjuta_token_old_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
 		if (next == NULL) break;
 		
-		value = anjuta_token_evaluate (arg, next);
+		value = anjuta_token_old_evaluate (arg, next);
 		//g_message ("add config %s", value);
 		*config_files = g_list_prepend (*config_files, amp_config_file_new (value, project->root_file));
 		g_free (value);
 
-		if (anjuta_token_get_flags (next) & ANJUTA_TOKEN_CLOSE) break;
+		if (anjuta_token_old_get_flags (next) & ANJUTA_TOKEN_OLD_CLOSE) break;
 	}
 
-	anjuta_token_free (open_tok);
-	anjuta_token_free (next_tok);
+	anjuta_token_old_free (open_tok);
+	anjuta_token_old_free (next_tok);
 
 	return next;
 }							   
@@ -1158,46 +1158,46 @@ amp_project_add_config_files (AmpProject *project, AnjutaToken *list, GList **co
 static GList *
 project_list_config_files (AmpProject *project)
 {
-	AnjutaToken *config_files_tok;
-	AnjutaToken *close_tok;
-	AnjutaToken *sequence;
+	AnjutaTokenOld *config_files_tok;
+	AnjutaTokenOld *close_tok;
+	AnjutaTokenOld *sequence;
 	GList *config_files = NULL;
 	
 	//g_message ("load config project %p root file %p", project, project->root_file);	
 	/* Search the new AC_CONFIG_FILES macro */
-	config_files_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "AC_CONFIG_FILES(");
-	close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
+	config_files_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_KEYWORD | ANJUTA_TOKEN_OLD_SIGNIFICANT, "AC_CONFIG_FILES(");
+	close_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_CLOSE, NULL);
 
-    sequence = anjuta_token_file_first (project->configure_file);
+    sequence = anjuta_token_old_file_first (project->configure_file);
 
-	for (anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence); sequence != NULL; sequence = anjuta_token_next (sequence))
+	for (anjuta_token_old_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence); sequence != NULL; sequence = anjuta_token_old_next (sequence))
 	{
-		sequence = amp_project_add_config_files (project, anjuta_token_next (sequence), &config_files);
+		sequence = amp_project_add_config_files (project, anjuta_token_old_next (sequence), &config_files);
 		
-		anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, anjuta_token_next (sequence), &sequence);
+		anjuta_token_old_match (close_tok, ANJUTA_SEARCH_OVER, anjuta_token_old_next (sequence), &sequence);
 		if (sequence == NULL) break;
 	}
 	
 	if (config_files == NULL)
 	{
 		/* Search the old AC_OUTPUT macro */
-	    anjuta_token_free(config_files_tok);
-	    config_files_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "AC_OUTPUT(");
+	    anjuta_token_old_free(config_files_tok);
+	    config_files_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_KEYWORD | ANJUTA_TOKEN_OLD_SIGNIFICANT, "AC_OUTPUT(");
 		
-	    sequence = anjuta_token_file_first (project->configure_file);
+	    sequence = anjuta_token_old_file_first (project->configure_file);
 
-		for (anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence); sequence != NULL; sequence = anjuta_token_next (sequence))
+		for (anjuta_token_old_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence); sequence != NULL; sequence = anjuta_token_old_next (sequence))
 		{	
-			sequence = amp_project_add_config_files (project, anjuta_token_next (sequence), &config_files);
+			sequence = amp_project_add_config_files (project, anjuta_token_old_next (sequence), &config_files);
 		
-			anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, anjuta_token_next (sequence), &sequence);
+			anjuta_token_old_match (close_tok, ANJUTA_SEARCH_OVER, anjuta_token_old_next (sequence), &sequence);
 			if (sequence == NULL) break;
 		}
 	}
 	
 	
-	anjuta_token_free (config_files_tok);
-	anjuta_token_free (close_tok);
+	anjuta_token_old_free (config_files_tok);
+	anjuta_token_old_free (close_tok);
 
 	return config_files;
 }
@@ -1240,27 +1240,27 @@ find_canonical_target (GNode *node, gpointer data)
 	return FALSE;
 }
 
-static AnjutaToken*
-project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHashTable *orphan_sources)
+static AnjutaTokenOld*
+project_load_target (AmpProject *project, AnjutaTokenOld *start, GNode *parent, GHashTable *orphan_sources)
 {
-	AnjutaToken *open_tok;
-	AnjutaToken *next_tok;
-	AnjutaToken *next = NULL;
-	AnjutaToken *arg;
+	AnjutaTokenOld *open_tok;
+	AnjutaTokenOld *next_tok;
+	AnjutaTokenOld *next = NULL;
+	AnjutaTokenOld *arg;
 	AmpGroupData *group = (AmpGroupData *)parent->data;
 	const gchar *type;
 	gchar *install;
 	gint flags;
 
-	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
-	next_tok = anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL);
+	open_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_OPEN, NULL);
+	next_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_NEXT, NULL);
 
-	if (anjuta_token_match (open_tok, ANJUTA_SEARCH_INTO, start, &next))
+	if (anjuta_token_old_match (open_tok, ANJUTA_SEARCH_INTO, start, &next))
 	{
 		gchar *name;
 		gchar *primary;
 
-		switch (anjuta_token_get_type (start))
+		switch (anjuta_token_old_get_type (start))
 		{
 		case AM_TOKEN__DATA:
 				type = "data";
@@ -1297,12 +1297,12 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 				break;
 		}
 
-		name = anjuta_token_evaluate (start, anjuta_token_previous (next));
+		name = anjuta_token_old_evaluate (start, anjuta_token_old_previous (next));
 		split_automake_variable (name, &flags, &install, NULL);
 		g_free (name);
 	}
 
-	for (arg = next; arg != NULL; arg = anjuta_token_next (next))
+	for (arg = next; arg != NULL; arg = anjuta_token_old_next (next))
 	{
 		gchar *value;
 		gchar *target_id;
@@ -1313,9 +1313,9 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		gchar *orig_key;
 		gpointer find;
 
-		last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
+		last = !anjuta_token_old_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
 		
-		value = anjuta_token_evaluate (arg, next);
+		value = anjuta_token_old_evaluate (arg, next);
 		canon_id = canonicalize_automake_variable (value);		
 		
 		/* Check if target already exists */
@@ -1358,19 +1358,19 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		if (last) break;
 	}
 
-	anjuta_token_free (open_tok);
-	anjuta_token_free (next_tok);
+	anjuta_token_old_free (open_tok);
+	anjuta_token_old_free (next_tok);
 
 	return next;
 }
 
-static AnjutaToken*
-project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GHashTable *orphan_sources)
+static AnjutaTokenOld*
+project_load_sources (AmpProject *project, AnjutaTokenOld *start, GNode *parent, GHashTable *orphan_sources)
 {
-	AnjutaToken *open_tok;
-	AnjutaToken *next_tok;
-	AnjutaToken *next = NULL;
-	AnjutaToken *arg;
+	AnjutaTokenOld *open_tok;
+	AnjutaTokenOld *next_tok;
+	AnjutaTokenOld *next = NULL;
+	AnjutaTokenOld *arg;
 	AmpGroupData *group = (AmpGroupData *)parent->data;
 	GFile *parent_file = g_object_ref (group->file);
 	gchar *target_id = NULL;
@@ -1380,12 +1380,12 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 	GList *orig_sources;
 
 	
-	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
-	next_tok = anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL);
+	open_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_OPEN, NULL);
+	next_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_NEXT, NULL);
 
-	if (anjuta_token_match (open_tok, ANJUTA_SEARCH_INTO, start, &next))
+	if (anjuta_token_old_match (open_tok, ANJUTA_SEARCH_INTO, start, &next))
 	{
-		target_id = anjuta_token_evaluate (start, anjuta_token_previous (next));
+		target_id = anjuta_token_old_evaluate (start, anjuta_token_old_previous (next));
 		if (target_id)
 		{
 			gchar *end = strrchr (target_id, '_');
@@ -1405,15 +1405,15 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 		g_node_children_foreach (parent, G_TRAVERSE_ALL, find_canonical_target, &find);
 		parent = (gchar *)find != target_id ? (GNode *)find : NULL;
 		
-		for (arg = next; arg != NULL; arg = anjuta_token_next (next))
+		for (arg = next; arg != NULL; arg = anjuta_token_old_next (next))
 		{
 			gchar *value;
 			AmpSource *source;
 			gboolean last;
 
-			last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
+			last = !anjuta_token_old_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
 		
-			value = anjuta_token_evaluate (arg, next);
+			value = anjuta_token_old_evaluate (arg, next);
 		
 			/* Create source */
 			source = amp_source_new (parent_file, value);
@@ -1457,34 +1457,34 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 	}
 
 	g_object_unref (parent_file);
-	anjuta_token_free (open_tok);
-	anjuta_token_free (next_tok);
+	anjuta_token_old_free (open_tok);
+	anjuta_token_old_free (next_tok);
 
 	return next;
 }
 
 static void project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **config_files);
 
-static AnjutaToken*
-project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNode *node, GList **config_files)
+static AnjutaTokenOld*
+project_load_subdirs (AmpProject *project, AnjutaTokenOld *start, GFile *file, GNode *node, GList **config_files)
 {
-	AnjutaToken *open_tok;
-	AnjutaToken *next_tok;
-	AnjutaToken *next;
-	AnjutaToken *arg;
+	AnjutaTokenOld *open_tok;
+	AnjutaTokenOld *next_tok;
+	AnjutaTokenOld *next;
+	AnjutaTokenOld *arg;
 
 	//g_message ("find subdirs");
-	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
-	next_tok = anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL);
+	open_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_OPEN, NULL);
+	next_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_NEXT, NULL);
 
-	for (anjuta_token_match (open_tok, ANJUTA_SEARCH_INTO, start, &arg); arg != NULL; arg = anjuta_token_next (next))
+	for (anjuta_token_old_match (open_tok, ANJUTA_SEARCH_INTO, start, &arg); arg != NULL; arg = anjuta_token_old_next (next))
 	{
 		gchar *value;
 		GFile *subdir;
 		gboolean last;
 			
-		last = !anjuta_token_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
-		value = anjuta_token_evaluate (arg, next);
+		last = !anjuta_token_old_match (next_tok, ANJUTA_SEARCH_INTO, arg, &next);
+		value = anjuta_token_old_evaluate (arg, next);
 		subdir = g_file_resolve_relative_path (file, value);
 		project_load_makefile (project, subdir, node, config_files);
 		g_object_unref (subdir);
@@ -1493,8 +1493,8 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNod
 		if (last) break;
 	}
 
-	anjuta_token_free (open_tok);
-	anjuta_token_free (next_tok);
+	anjuta_token_old_free (open_tok);
+	anjuta_token_old_free (next_tok);
 
 	return next;
 }
@@ -1512,7 +1512,7 @@ remove_config_file (gpointer data, GObject *object, gboolean is_last_ref)
 	if (is_last_ref)
 	{
 		AmpProject *project = (AmpProject *)data;
-		g_hash_table_remove (project->files, anjuta_token_file_get_file (ANJUTA_TOKEN_FILE (object)));
+		g_hash_table_remove (project->files, anjuta_token_old_file_get_file (ANJUTA_TOKEN_OLD_FILE (object)));
 	}
 }
 
@@ -1525,8 +1525,8 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	AmpGroup *group;
 	GNode *node;
 	GList *elem;
-	AnjutaToken *significant_tok;
-	AnjutaToken *arg;
+	AnjutaTokenOld *significant_tok;
+	AnjutaTokenOld *arg;
 	GFile *makefile = NULL;
 	gchar *group_id;
 
@@ -1578,7 +1578,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	/* Parse makefile.am */	
 	DEBUG_PRINT ("Parse: %s", g_file_get_uri (file));
 	makefile = g_file_get_child (file, filename);
-	AMP_GROUP_DATA (group)->tfile = anjuta_token_file_new (makefile);
+	AMP_GROUP_DATA (group)->tfile = anjuta_token_old_file_new (makefile);
 	g_hash_table_insert (project->files, makefile, AMP_GROUP_DATA (group)->tfile);
 	g_object_add_toggle_ref (G_OBJECT (AMP_GROUP_DATA (group)->tfile), remove_config_file, project);
 	scanner = amp_am_scanner_new ();
@@ -1587,17 +1587,17 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	g_free (filename);
 
 	/* Find significant token */
-	significant_tok = anjuta_token_new_static (ANJUTA_TOKEN_SIGNIFICANT, NULL);
+	significant_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_SIGNIFICANT, NULL);
 	
-	arg = anjuta_token_file_first (AMP_GROUP_DATA (group)->tfile);
-	//anjuta_token_dump_range (arg, NULL);
+	arg = anjuta_token_old_file_first (AMP_GROUP_DATA (group)->tfile);
+	//anjuta_token_old_dump_range (arg, NULL);
 
 	/* Create hash table for sources list */
 	orphan_sources = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify)g_free, (GDestroyNotify)free_source_list);
 	
-	for (anjuta_token_match (significant_tok, ANJUTA_SEARCH_OVER, arg, &arg); arg != NULL; arg = anjuta_token_next (arg))
+	for (anjuta_token_old_match (significant_tok, ANJUTA_SEARCH_OVER, arg, &arg); arg != NULL; arg = anjuta_token_old_next (arg))
 	{
-		switch (anjuta_token_get_type (arg))
+		switch (anjuta_token_old_get_type (arg))
 		{
 		case AM_TOKEN_SUBDIRS:
 				arg = project_load_subdirs (project, arg, file, group, config_files);
@@ -1663,7 +1663,7 @@ project_reload (AmpProject *project, GError **error)
 	}
 	
 	/* Parse configure */	
-	project->configure_file = anjuta_token_file_new (configure_file);
+	project->configure_file = anjuta_token_old_file_new (configure_file);
 	g_hash_table_insert (project->files, configure_file, project->configure_file);
 	g_object_add_toggle_ref (G_OBJECT (project->configure_file), remove_config_file, project);
 	g_object_unref (configure_file);
@@ -2690,7 +2690,7 @@ impl_add_source (GbfProject  *_project,
 	AmpSource *source;
 	GNode **buffer;
 	gsize dummy;
-	AnjutaTokenRange token;
+	AnjutaTokenOldRange token;
 	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	g_return_val_if_fail (uri != NULL, NULL);
@@ -2708,46 +2708,46 @@ impl_add_source (GbfProject  *_project,
 	if (last == NULL)
 	{
 		/* First child */
-		AnjutaToken *tok;
-		AnjutaToken *close_tok;
-		AnjutaToken *eol_tok;
+		AnjutaTokenOld *tok;
+		AnjutaTokenOld *close_tok;
+		AnjutaTokenOld *eol_tok;
 		gchar *target_var;
 		gchar *canon_name;
 
 
 		/* Search where the target is declared */
 		tok = AMP_TARGET_DATA (target)->token.last;
-		close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
-		eol_tok = anjuta_token_new_static (ANJUTA_TOKEN_EOL, NULL);
-		anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, tok, &tok);
-		anjuta_token_match (eol_tok, ANJUTA_SEARCH_OVER, tok, &tok);
-		anjuta_token_free (close_tok);
-		anjuta_token_free (eol_tok);
+		close_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_CLOSE, NULL);
+		eol_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_EOL, NULL);
+		anjuta_token_old_match (close_tok, ANJUTA_SEARCH_OVER, tok, &tok);
+		anjuta_token_old_match (eol_tok, ANJUTA_SEARCH_OVER, tok, &tok);
+		anjuta_token_old_free (close_tok);
+		anjuta_token_old_free (eol_tok);
 
 		/* Add a _SOURCES variable just after */
 		canon_name = canonicalize_automake_variable (AMP_TARGET_DATA (target)->name);
 		target_var = g_strconcat (canon_name,  "_SOURCES", NULL);
 		g_free (canon_name);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, target_var));
+		tok = anjuta_token_old_insert_after (tok, anjuta_token_old_new_string (ANJUTA_TOKEN_OLD_NAME | ANJUTA_TOKEN_OLD_ADDED, target_var));
 		g_free (target_var);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " "));
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_ADDED, "="));
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " "));
-		token.first = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
-		tok = anjuta_token_insert_after (tok, token.first);
-		token.last = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
-		tok = anjuta_token_insert_after (tok, token.last);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_EOL | ANJUTA_TOKEN_ADDED, "\n"));
+		tok = anjuta_token_old_insert_after (tok, anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_SPACE | ANJUTA_TOKEN_OLD_IRRELEVANT | ANJUTA_TOKEN_OLD_ADDED, " "));
+		tok = anjuta_token_old_insert_after (tok, anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_OPERATOR | ANJUTA_TOKEN_OLD_ADDED, "="));
+		tok = anjuta_token_old_insert_after (tok, anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_SPACE | ANJUTA_TOKEN_OLD_IRRELEVANT | ANJUTA_TOKEN_OLD_ADDED, " "));
+		token.first = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_SPACE | ANJUTA_TOKEN_OLD_IRRELEVANT | ANJUTA_TOKEN_OLD_ADDED, " ");
+		tok = anjuta_token_old_insert_after (tok, token.first);
+		token.last = anjuta_token_old_new_string (ANJUTA_TOKEN_OLD_NAME | ANJUTA_TOKEN_OLD_ADDED, uri);
+		tok = anjuta_token_old_insert_after (tok, token.last);
+		tok = anjuta_token_old_insert_after (tok, anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_EOL | ANJUTA_TOKEN_OLD_ADDED, "\n"));
 	}
 	else
 	{
-		AnjutaToken *tok;
+		AnjutaTokenOld *tok;
 
 		tok = AMP_SOURCE_DATA (last)->token.last;
-		token.first = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
-		tok = anjuta_token_insert_after (tok, token.first);
-		token.last = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
-		tok = anjuta_token_insert_after (tok, token.last);
+		token.first = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_SPACE | ANJUTA_TOKEN_OLD_IRRELEVANT | ANJUTA_TOKEN_OLD_ADDED, " ");
+		tok = anjuta_token_old_insert_after (tok, token.first);
+		token.last = anjuta_token_old_new_string (ANJUTA_TOKEN_OLD_NAME | ANJUTA_TOKEN_OLD_ADDED, uri);
+		tok = anjuta_token_old_insert_after (tok, token.last);
 	}
 
 	/* Add source node in project tree */
@@ -2961,7 +2961,7 @@ gboolean
 amp_project_save (AmpProject *project, GError **error)
 {
 	gchar *key;
-	AnjutaTokenFile *tfile;
+	AnjutaTokenOldFile *tfile;
 	GHashTableIter iter;
 
 	g_return_val_if_fail (project != NULL, FALSE);
@@ -2970,7 +2970,7 @@ amp_project_save (AmpProject *project, GError **error)
 	while (g_hash_table_iter_next (&iter, &key, &tfile))
 	{
 		GError *error = NULL;
-		anjuta_token_file_save (tfile, &error);
+		anjuta_token_old_file_save (tfile, &error);
 	}
 
 	return TRUE;
@@ -2985,7 +2985,7 @@ amp_project_move (AmpProject *project, const gchar *path)
 	GHashTableIter iter;
 	gchar *key;
 	AmpGroup *group;
-	AnjutaTokenFile *tfile;
+	AnjutaTokenOldFile *tfile;
 	GHashTable* old_hash;
 
 	/* Change project root directory */
@@ -3014,10 +3014,10 @@ amp_project_move (AmpProject *project, const gchar *path)
 	g_hash_table_iter_init (&iter, old_hash);
 	while (g_hash_table_iter_next (&iter, &key, &tfile))
 	{
-		relative = get_relative_path (old_root_file, anjuta_token_file_get_file (tfile));
+		relative = get_relative_path (old_root_file, anjuta_token_old_file_get_file (tfile));
 		new_file = g_file_resolve_relative_path (project->root_file, relative);
 		g_free (relative);
-		anjuta_token_file_move (tfile, new_file);
+		anjuta_token_old_file_move (tfile, new_file);
 		
 		g_hash_table_insert (project->files, new_file, tfile);
 		g_object_unref (key);

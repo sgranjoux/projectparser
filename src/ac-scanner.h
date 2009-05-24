@@ -20,7 +20,7 @@
 #ifndef _AC_SCANNER_H_
 #define _AC_SCANNER_H_
 
-#include "libanjuta/anjuta-token.h"
+#include "libanjuta/anjuta-token-old.h"
 
 
 #include <glib.h>
@@ -28,14 +28,14 @@
 
 G_BEGIN_DECLS
 
-//#define YYSTYPE AnjutaTokenRange
+//#define YYSTYPE AnjutaTokenOldRange
 
 typedef struct _AmpAcScanner AmpAcScanner;
 
 AmpAcScanner *amp_ac_scanner_new (void);
 void amp_ac_scanner_free (AmpAcScanner *scanner);
 
-gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file);
+gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenOldFile *file);
 
 G_END_DECLS
 
