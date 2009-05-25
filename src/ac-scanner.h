@@ -20,7 +20,7 @@
 #ifndef _AC_SCANNER_H_
 #define _AC_SCANNER_H_
 
-#include "libanjuta/anjuta-token-old.h"
+#include "libanjuta/anjuta-token.h"
 
 
 #include <glib.h>
@@ -35,7 +35,7 @@ typedef struct _AmpAcScanner AmpAcScanner;
 AmpAcScanner *amp_ac_scanner_new (void);
 void amp_ac_scanner_free (AmpAcScanner *scanner);
 
-gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenOldFile *file);
+gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file);
 
 G_END_DECLS
 

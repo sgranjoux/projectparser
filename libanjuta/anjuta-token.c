@@ -26,32 +26,18 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef struct _AnjutaTokenData AnjutaTokenData;
 
-
-typedef void (*AnjutaTokenFreeFunc) (AnjutaToken *token); 
-typedef gboolean (*AnjutaTokenCompareFunc) (AnjutaToken *toka, AnjutaToken *tokb); 
-
-typedef struct _AnjutaTokenVTable AnjutaTokenVTable;
-
-struct _AnjutaTokenVTable
-{
-	AnjutaTokenFreeFunc free;
-	AnjutaTokenCompareFunc compare;
-};
-
-
-struct _AnjutaToken
+struct _AnjutaTokenData
 {
 	AnjutaTokenType type;	
 	gint flags;
 	gchar *pos;
 	gsize length;
-	gpointer value;
-	AnjutaTokenVTable *vtable;
-	AnjutaToken *next;
-	AnjutaToken *prev;
-	guint ref_count;	
 };
+
+#define ANJUTA_TOKEN_DATA(node)  ((node) != NULL ? (AnjutaTokenData *)((node)->data) : NULL)
+
 
 /* Helpers functions
  *---------------------------------------------------------------------------*/
@@ -104,129 +90,6 @@ make_directory_with_parents (GFile *file,
 	}				
 }
 
-
-/* String token
- *---------------------------------------------------------------------------*/
-
-static void
-anjuta_token_string_free (AnjutaToken *token)
-{
-	g_slice_free (AnjutaToken, token);
-}
-
-static gboolean
-anjuta_token_string_compare (AnjutaToken *toka, AnjutaToken *tokb)
-{
-	if (tokb->length == 0) return TRUE;
-	if (toka->length != tokb->length) return FALSE;
-	
-	if ((toka->flags & ANJUTA_TOKEN_CASE_INSENSITIVE)  && (tokb->flags & ANJUTA_TOKEN_CASE_INSENSITIVE))
-	{
-		return g_ascii_strncasecmp (toka->pos, tokb->pos, toka->length) == 0;
-	}
-	else
-	{
-		return strncmp (toka->pos, tokb->pos, toka->length) == 0;
-	}
-}
-
-static AnjutaTokenVTable anjuta_token_string_vtable = {anjuta_token_string_free, anjuta_token_string_compare};
-
-/* Common token functions
- *---------------------------------------------------------------------------*/
-
-AnjutaToken *
-anjuta_token_copy (AnjutaToken *model)
-{
-	AnjutaToken *token;
-
-	token = g_slice_new0 (AnjutaToken);
-	token->vtable = model->vtable;
-	token->type = model->type;
-	token->flags = model->flags;
-	token->pos = token->flags & ANJUTA_TOKEN_STATIC ? model->pos : g_strdup (model->pos);
-	token->length = model->length;
-
-	return token;
-}
-
-AnjutaToken *
-anjuta_token_copy_include_range (AnjutaToken *start, AnjutaToken *end)
-{
-	AnjutaToken *token = NULL;
-	AnjutaToken *last;
-
-
-	token = anjuta_token_copy (start);
-	last = token;
-	
-	while ((start != NULL) && (start != end))
-	{
-		start = anjuta_token_next (start);
-
-		last = anjuta_token_insert_after (last, anjuta_token_copy (start));
-	}
-
-	return token;
-}
-
-AnjutaToken *
-anjuta_token_copy_exclude_range (AnjutaToken *start, AnjutaToken *end)
-{
-
-	if ((start == end) || (start->next == end)) return NULL;
-
-	return anjuta_token_copy_include_range (anjuta_token_next (start), anjuta_token_previous (end));
-}
-
-AnjutaToken *
-anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling)
-{
-	AnjutaToken *last = sibling;
-
-	g_return_val_if_fail (token != NULL, NULL);
-	g_return_val_if_fail ((sibling != NULL) && (sibling->prev == NULL), NULL);
-	
-	/* Find end of sibling list */
-	while (last->next != NULL) last = last->next;
-
-	last->next = token->next;
-	if (last->next != NULL)	last->next->prev = last;
-
-	token->next = sibling;
-	last->prev = token;
-
-	return sibling;
-}
-
-void
-anjuta_token_dump (AnjutaToken *token)
-{
-	g_message ("%d: %.*s", token->type, token->length, token->pos);
-}
-
-void
-anjuta_token_dump_range (AnjutaToken *start, AnjutaToken *end)
-{
-	for (; start != NULL; start = start->next)
-	{
-		anjuta_token_dump(start);
-		if (start == end) break;
-	}
-}
-
-void
-anjuta_token_foreach (AnjutaToken *token, GFunc func, gpointer user_data)
-{
-	AnjutaToken *next = NULL;
-	
-	for (;token != NULL; token = next)
-	{
-		next = token->next;
-		func (token, user_data);
-	}
-}
-
 /* Return true and update end if the token is found.
  * If a close token is found, return FALSE but still update end */
 gboolean
@@ -240,9 +103,9 @@ anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, Anjut
 		AnjutaToken *toka;
 		AnjutaToken *tokb = token;
 
-		/*if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_SIGNIFICANT) g_message("match significant %p %s level %d", sequence, anjuta_token_evaluate (sequence, sequence), level);
+		if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_SIGNIFICANT) g_message("match significant %p %s level %d", sequence, anjuta_token_evaluate (sequence, sequence), level);
 		if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_OPEN) g_message("match %p open %s level %d", sequence, anjuta_token_evaluate (sequence, sequence), level);
-		if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_CLOSE) g_message("match %p close %s level %d", sequence, anjuta_token_evaluate (sequence, sequence), level);*/
+		if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_CLOSE) g_message("match %p close %s level %d", sequence, anjuta_token_evaluate (sequence, sequence), level);
 
 		if (level == 0)
 		{
@@ -259,7 +122,7 @@ anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, Anjut
 				}
 				else
 				{
-					if (!(toka->flags & ANJUTA_TOKEN_IRRELEVANT) || (toka == sequence))
+					if (!(anjuta_token_get_flags (toka) & ANJUTA_TOKEN_IRRELEVANT) || (toka == sequence))
 						break;
 				}
 			}
@@ -269,8 +132,8 @@ anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, Anjut
 		{
 			if (!recheck)
 			{
-				if (!(flags & ANJUTA_SEARCH_INTO) && (sequence->flags & ANJUTA_TOKEN_CLOSE)) level++;
-				if (sequence->flags & ANJUTA_TOKEN_OPEN)
+				if (!(flags & ANJUTA_SEARCH_INTO) && (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_CLOSE)) level++;
+				if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_OPEN)
 				{
 					level--;
 					/* Check the OPEN token */
@@ -292,8 +155,8 @@ anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, Anjut
 		{
 			if (!recheck)
 			{
-				if (!(flags & ANJUTA_SEARCH_INTO) && (sequence->flags & ANJUTA_TOKEN_OPEN)) level++;
-				if (sequence->flags & ANJUTA_TOKEN_CLOSE)
+				if (!(flags & ANJUTA_SEARCH_INTO) && (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_OPEN)) level++;
+				if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_CLOSE)
 				{
 					level--;
 					/* Check the CLOSE token */
@@ -319,6 +182,8 @@ anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, Anjut
 	return FALSE;
 }
 
+
+#if 0
 gboolean
 anjuta_token_remove (AnjutaToken *token, AnjutaToken *end)
 {
@@ -348,75 +213,139 @@ anjuta_token_remove (AnjutaToken *token, AnjutaToken *end)
 
 	return TRUE;
 }
-
-
-
-AnjutaToken *
-anjuta_token_next (AnjutaToken *token)
-{
-	return token == NULL ? NULL : token->next;
-}
-
-AnjutaToken *
-anjuta_token_previous (AnjutaToken *token)
-{
-	return token->prev;
-}
+#endif
 
 gboolean
 anjuta_token_compare (AnjutaToken *toka, AnjutaToken *tokb)
 {
-	if (tokb->type != ANJUTA_TOKEN_NONE)
-	{
-		if ((toka->vtable != tokb->vtable) ||
-			(toka->type != tokb->type) ||
-			!toka->vtable->compare (toka, tokb)) return FALSE;
-	}
+	AnjutaTokenData *data = ANJUTA_TOKEN_DATA (toka);
+	AnjutaTokenData *datb = ANJUTA_TOKEN_DATA (tokb);
 
-	// Check flags
-	if (tokb->flags & ANJUTA_TOKEN_PUBLIC_FLAGS)
+	if (datb != ANJUTA_TOKEN_NONE)
 	{
-		if ((toka->flags & tokb->flags & ANJUTA_TOKEN_PUBLIC_FLAGS) == 0)
+		if (datb->length != 0)
+		{
+			if (data->length != datb->length) return FALSE;
+		
+			if ((data->flags & ANJUTA_TOKEN_CASE_INSENSITIVE)  && (datb->flags & ANJUTA_TOKEN_CASE_INSENSITIVE))
+			{
+				if (g_ascii_strncasecmp (data->pos, datb->pos, data->length) != 0) return FALSE;
+			}
+			else
+			{
+				if (strncmp (data->pos, datb->pos, data->length) != 0) return FALSE;
+			}
+		}
+	}
+		
+	if (datb->flags & ANJUTA_TOKEN_PUBLIC_FLAGS)
+	{
+		if ((data->flags & datb->flags & ANJUTA_TOKEN_PUBLIC_FLAGS) == 0)
 			return FALSE;
 	}
 
 	return TRUE;
 }
 
+static AnjutaToken *
+anjuta_token_next_after_children (AnjutaToken *token)
+{
+	if (token->next != NULL)
+	{
+		return token->next;
+	}
+	else if (token->parent != NULL)
+	{
+		return anjuta_token_next_after_children (token->parent);
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+AnjutaToken *
+anjuta_token_next (AnjutaToken *token)
+{
+	if (token->children != NULL)
+	{
+		return token->children;
+	}
+	else if (token->next != NULL)
+	{
+		return token->next;
+	}
+	else if (token->parent != NULL)
+	{
+		return anjuta_token_next_after_children (token->parent);
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+AnjutaToken *
+anjuta_token_previous (AnjutaToken *token)
+{
+	if (token->prev != NULL)
+	{
+		return token->prev;
+	}
+	else
+	{
+		return token->parent;
+	}
+}
+
 void
 anjuta_token_set_type (AnjutaToken *token, gint type)
 {
-	token->type = type;	
+	ANJUTA_TOKEN_DATA (token)->type = type;
 }
 
 void
 anjuta_token_set_flags (AnjutaToken *token, gint flags)
 {
-	token->flags |= flags;	
+	ANJUTA_TOKEN_DATA (token)->flags |= flags;
 }
 
 void
 anjuta_token_clear_flags (AnjutaToken *token, gint flags)
 {
-	token->flags &= ~flags;	
+	ANJUTA_TOKEN_DATA (token)->flags &= ~flags;
 }
 
 gint
 anjuta_token_get_type (AnjutaToken *token)
 {
-	return token->type;
+	return ANJUTA_TOKEN_DATA (token)->type;
 }
 
 gint
 anjuta_token_get_flags (AnjutaToken *token)
 {
-	return token->flags;
+	return ANJUTA_TOKEN_DATA (token)->flags;
 }
 
 gchar *
 anjuta_token_get_value (AnjutaToken *token)
 {
-	return token && (token->pos != NULL) ? g_strndup (token->pos, token->length) : NULL;
+	AnjutaTokenData *data = ANJUTA_TOKEN_DATA (token);
+
+	return data && (data->pos != NULL) ? g_strndup (data->pos, data->length) : NULL;
+}
+
+const gchar *
+anjuta_token_get_string (AnjutaToken *token)
+{
+	return ANJUTA_TOKEN_DATA (token)->pos;
+}
+
+guint
+anjuta_token_get_length (AnjutaToken *token)
+{
+	return ANJUTA_TOKEN_DATA (token)->length;
 }
 
 gchar *
@@ -427,9 +356,9 @@ anjuta_token_evaluate (AnjutaToken *start, AnjutaToken *end)
 	for (;;)
 	{
 		if (start == NULL) break;
-		if (!(start->flags & ANJUTA_TOKEN_IRRELEVANT) && (start->pos != NULL))
+		if (!(anjuta_token_get_flags (start) & ANJUTA_TOKEN_IRRELEVANT) && (anjuta_token_get_string (start) != NULL))
 		{
-			g_string_append_len (value, start->pos, start->length);
+			g_string_append_len (value, anjuta_token_get_string (start), anjuta_token_get_length (start));
 		}
 		if (start == end) break;
 		
@@ -440,6 +369,7 @@ anjuta_token_evaluate (AnjutaToken *start, AnjutaToken *end)
 	return g_string_free (value, FALSE);
 }
 
+#if 0
 gchar *
 anjuta_token_get_value_range (AnjutaToken *start, AnjutaToken *end)
 {
@@ -460,131 +390,36 @@ anjuta_token_get_value_range (AnjutaToken *start, AnjutaToken *end)
 
 	return g_string_free (value, FALSE);
 }
-
-/* Read a List of token and return a list containings:
- * - the first token
- * - the beginning of the first item
- * - the end of the first item
- * - the beginning of the next item
- * - the end of the next item
- * ....
- * - the last token
- */
-GList *
-anjuta_token_split_list (AnjutaToken *list)
-{
-	AnjutaToken *next_tok;
-	AnjutaToken *open_tok;
-	AnjutaToken *arg;
-	GList *split_list = NULL;
-	gboolean match;
-
-	g_return_val_if_fail (list != NULL, NULL);
-
-	/* Look for the start of the list */
-	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
-	match = anjuta_token_match (open_tok, ANJUTA_SEARCH_INTO, list, &list);
-	anjuta_token_free (open_tok);
-	if (!match) return NULL;
-	split_list = g_list_prepend (split_list, list);
-
-	/* Look for all elements */
-	next_tok = anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL);
-	do
-	{
-		AnjutaToken *tok;
-		
-		/* Look for end of element */
-		tok = anjuta_token_next (list);
-		match = anjuta_token_match (next_tok, ANJUTA_SEARCH_OVER, tok, &arg);
-
-		/* Remove space at the beginning */
-		for (; tok != arg; tok = anjuta_token_next (tok))
-		{
-			switch (tok->type)
-			{
-				case ANJUTA_TOKEN_NONE:
-				case ANJUTA_TOKEN_SPACE:
-				case ANJUTA_TOKEN_COMMENT:
-					continue;
-				default:
-					break;
-			}
-
-			if (tok->flags & (ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_NEXT))
-			{
-				continue;
-			}
-			break;
-		}
-		split_list = g_list_prepend (split_list, tok);
-
-		/* Remove space at the end */
-		for (tok = anjuta_token_previous (arg); tok != list; tok = anjuta_token_previous (tok))
-		{
-			switch (tok->type)
-			{
-				case ANJUTA_TOKEN_NONE:
-				case ANJUTA_TOKEN_SPACE:
-				case ANJUTA_TOKEN_COMMENT:
-					continue;
-				default:
-					break;
-			}
-
-			if (tok->flags & (ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_NEXT))
-			{
-				continue;
-			}
-			break;
-		}
-		split_list = g_list_prepend (split_list, tok);
-
-		list = arg;
-	}
-	while (match);
-		
-	/* Add end marker */
-	split_list = g_list_prepend (split_list, list);
-
-	split_list = g_list_reverse (split_list);
-	
-	anjuta_token_free (next_tok);
-	
-	return split_list;
-}
-
+#endif
 
 /* Constructor & Destructor
  *---------------------------------------------------------------------------*/
 
 AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const char *value)
 {
-	AnjutaToken *token;
+	AnjutaTokenData *data;
 
-	token = g_slice_new0 (AnjutaToken);
-	token->vtable = &anjuta_token_string_vtable;
-	token->type = type  & ANJUTA_TOKEN_TYPE;
-	token->flags = type & ANJUTA_TOKEN_FLAGS;
-	token->pos = g_strdup (value);
-	token->length = strlen (value);
+	data = g_slice_new0 (AnjutaTokenData);
+	data->type = type  & ANJUTA_TOKEN_TYPE;
+	data->flags = type & ANJUTA_TOKEN_FLAGS;
+	data->pos = g_strdup (value);
+	data->length = strlen (value);
 
-	return token;
+	return g_node_new (data);
 }
 	
 AnjutaToken *
 anjuta_token_new_fragment (AnjutaTokenType type, const gchar *pos, gsize length)
 {
-	AnjutaToken *token;
+	AnjutaTokenData *data;
 
-	token = g_slice_new0 (AnjutaToken);
-	token->vtable = &anjuta_token_string_vtable;
-	token->type = type  & ANJUTA_TOKEN_TYPE;
-	token->flags = (type & ANJUTA_TOKEN_FLAGS) | ANJUTA_TOKEN_STATIC;
-	token->pos = (gchar *)pos;
-	token->length = length;
+	data = g_slice_new0 (AnjutaTokenData);
+	data->type = type  & ANJUTA_TOKEN_TYPE;
+	data->flags = (type & ANJUTA_TOKEN_FLAGS) | ANJUTA_TOKEN_STATIC;
+	data->pos = (gchar *)pos;
+	data->length = length;
 
-	return token;
+	return g_node_new (data);
 };
 
 AnjutaToken *anjuta_token_new_static (AnjutaTokenType type, const char *value)
@@ -593,26 +428,25 @@ AnjutaToken *anjuta_token_new_static (AnjutaTokenType type, const char *value)
 }
 
 
+static void
+free_token_data (GNode *node, gpointer data)
+{
+	g_slice_free (AnjutaTokenData, node->data);
+}
+
 void
 anjuta_token_free (AnjutaToken *token)
 {
 	if (token == NULL) return;
-	if (token->prev != NULL)	token->prev->next = NULL;
 
-	do
-	{
-		AnjutaToken *next;
-		
-		next = token->next;
-		g_slice_free (AnjutaToken, token);
-		token = next;
-	}
-	while (token != NULL);
+	g_node_children_foreach (token, G_TRAVERSE_ALL, free_token_data, NULL);
+	g_node_destroy (token);
 }
 
 /* Token style object
  *---------------------------------------------------------------------------*/
 
+#if 0
 typedef struct _AnjutaTokenStyleSeparator AnjutaTokenStyleSeparator;
 
 struct _AnjutaTokenStyleSeparator
@@ -785,6 +619,7 @@ anjuta_token_style_free (AnjutaTokenStyle *style)
 	anjuta_token_free (style->last);
 	g_slice_free (AnjutaTokenStyle, style);
 }
+#endif
 
 /* Token file objects
  *---------------------------------------------------------------------------*/
@@ -832,14 +667,42 @@ anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error)
 	return file->content;
 }
 
+typedef struct _AnjutaTokenFileSaveData AnjutaTokenFileSaveData;
+
+struct _AnjutaTokenFileSaveData
+{
+	GError **error;
+	GFileOutputStream *stream;
+	gboolean fail;
+};
+
+static gboolean
+save_node (GNode *token, AnjutaTokenFileSaveData *data)
+{
+	if (!(anjuta_token_get_flags (token) & ANJUTA_TOKEN_REMOVED))
+	{
+		if (!(anjuta_token_get_flags (token) & ANJUTA_TOKEN_REMOVED) && (anjuta_token_get_length (token)))
+		{
+			if (g_output_stream_write (G_OUTPUT_STREAM (data->stream), anjuta_token_get_string (token), anjuta_token_get_length (token) * sizeof (char), NULL, data->error) < 0)
+			{
+				data->fail = TRUE;
+
+				return TRUE;
+			}
+		}
+	}
+	
+	return FALSE;
+}
+
 gboolean
 anjuta_token_file_save (AnjutaTokenFile *file, GError **error)
 {
-	AnjutaToken *tok;
 	GFileOutputStream *stream;
 	gboolean ok;
 	GError *err = NULL;
-
+	AnjutaTokenFileSaveData data;
+	
 	stream = g_file_replace (file->file, NULL, FALSE, G_FILE_CREATE_NONE, NULL, &err);
 	if (stream == NULL)
 	{
@@ -870,27 +733,14 @@ anjuta_token_file_save (AnjutaTokenFile *file, GError **error)
 		}
 	}
 
-	for (tok = file->first; tok != NULL; tok = anjuta_token_next (tok))
-	{
-		if (anjuta_token_get_flags (tok) & ANJUTA_TOKEN_REMOVED)
-		{
-			DEBUG_PRINT ("get token with removed flags");
-		}
-		if (!(anjuta_token_get_flags (tok) & ANJUTA_TOKEN_REMOVED) && (tok->length))
-		{
-			if (g_output_stream_write (G_OUTPUT_STREAM (stream), tok->pos, tok->length * sizeof (char), NULL, error) < 0)
-			{
-				g_object_unref (stream);
-
-				return FALSE;
-			}
-		}
-	}
-	
-	ok = g_output_stream_close (G_OUTPUT_STREAM (stream), NULL, error);
+	data.error = error;
+	data.stream = stream;
+	data.fail = FALSE;
+	g_node_traverse (file->first, G_IN_ORDER, G_TRAVERSE_ALL, -1, (GNodeTraverseFunc)save_node, &data);
+	ok = g_output_stream_close (G_OUTPUT_STREAM (stream), NULL, NULL);
 	g_object_unref (stream);
-
-	return ok;
+	
+	return !data.fail;
 }
 
 void
@@ -907,9 +757,13 @@ anjuta_token_file_append (AnjutaTokenFile *file, AnjutaToken *token)
 	{
 		file->first = token;
 	}
+	else if (file->last == file->first)
+	{
+		g_node_insert_after (file->first, NULL, token);
+	}
 	else
 	{
-		anjuta_token_insert_after (file->last, token);
+		g_node_insert_after (file->first, file->last, token);
 	}
 	file->last = token;
 }

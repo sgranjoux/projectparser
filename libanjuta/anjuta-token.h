@@ -28,7 +28,7 @@ G_BEGIN_DECLS
 typedef enum
 {
 	ANJUTA_TOKEN_NONE 							= 0,
-	ANJUTA_TOKEN_EOL							= '\n',
+	ANJUTA_TOKEN_EOL								= '\n',
 
 	ANJUTA_TOKEN_TYPE 							= 0xFFFF,
 	
@@ -62,7 +62,7 @@ typedef enum
 	
 } AnjutaTokenType;
 
-typedef struct _AnjutaToken AnjutaToken;
+typedef GNode AnjutaToken;
 
 typedef struct _AnjutaTokenRange
 {
@@ -86,15 +86,15 @@ AnjutaToken *anjuta_token_new_fragment (AnjutaTokenType type, const gchar *pos, 
 
 void anjuta_token_free (AnjutaToken *token);
 
-AnjutaToken *anjuta_token_copy (AnjutaToken *token);
-AnjutaToken *anjuta_token_copy_include_range (AnjutaToken *token, AnjutaToken *end);
-AnjutaToken *anjuta_token_copy_exclude_range (AnjutaToken *token, AnjutaToken *end);
-AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
-void anjuta_token_foreach (AnjutaToken *token, GFunc func, gpointer user_data);
-gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end);
-gboolean anjuta_token_remove (AnjutaToken *token, AnjutaToken *end);
-gboolean anjuta_token_free_range (AnjutaToken *token, AnjutaToken *end);
-GList *anjuta_token_split_list (AnjutaToken *token);
+//AnjutaToken *anjuta_token_copy (AnjutaToken *token);
+//AnjutaToken *anjuta_token_copy_include_range (AnjutaToken *token, AnjutaToken *end);
+//AnjutaToken *anjuta_token_copy_exclude_range (AnjutaToken *token, AnjutaToken *end);
+//AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
+//void anjuta_token_foreach (AnjutaToken *token, GFunc func, gpointer user_data);
+//gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end);
+//gboolean anjuta_token_remove (AnjutaToken *token, AnjutaToken *end);
+//gboolean anjuta_token_free_range (AnjutaToken *token, AnjutaToken *end);
+//GList *anjuta_token_split_list (AnjutaToken *token);
 
 void anjuta_token_set_type (AnjutaToken *token, gint type);
 void anjuta_token_set_flags (AnjutaToken *token, gint flags);
@@ -109,8 +109,10 @@ gboolean anjuta_token_compare (AnjutaToken *tokena, AnjutaToken *tokenb);
 
 gint anjuta_token_get_type (AnjutaToken *token);
 gint anjuta_token_get_flags (AnjutaToken *token);
-gchar* anjuta_token_get_value (AnjutaToken *token);
-gchar* anjuta_token_get_value_range (AnjutaToken *token, AnjutaToken *end);
+gchar *anjuta_token_get_value (AnjutaToken *token);
+gchar *anjuta_token_get_value_range (AnjutaToken *token, AnjutaToken *end);
+const gchar *anjuta_token_get_string (AnjutaToken *token);
+guint anjuta_token_get_length (AnjutaToken *token);
 
 
 AnjutaTokenStyle *anjuta_token_style_new (guint line_width);

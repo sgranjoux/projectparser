@@ -31,7 +31,7 @@
 
 %}
 
-%union {AnjutaTokenOldRange range;}
+%union {AnjutaTokenRange range;}
 
 %token  PM_TOKEN_EOL '\n'
 
@@ -118,12 +118,12 @@ line:
 		;
 
 pkg_check_modules:
-		PM_TOKEN_PKG_CHECK_MODULES name_strip PM_TOKEN_COMMA space_list_strip list_empty_optional  {anjuta_token_old_set_flags ($1.first, ANJUTA_TOKEN_OLD_SIGNIFICANT); anjuta_token_old_set_flags ($2.first, ANJUTA_TOKEN_OLD_OPEN); anjuta_token_old_set_flags ($2.last, ANJUTA_TOKEN_OLD_CLOSE); anjuta_token_old_set_flags ($3.first, ANJUTA_TOKEN_OLD_IRRELEVANT);}
+		PM_TOKEN_PKG_CHECK_MODULES name_strip PM_TOKEN_COMMA space_list_strip list_empty_optional  {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT); anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_OPEN); anjuta_token_set_flags ($2.last, ANJUTA_TOKEN_CLOSE); anjuta_token_set_flags ($3.first, ANJUTA_TOKEN_IRRELEVANT);}
 		| PM_TOKEN_PKG_CHECK_MODULES name_strip PM_TOKEN_COMMA space_list_strip list_arg_optional
 		;
 
 obsolete_ac_output:
-		PM_TOKEN_OBSOLETE_AC_OUTPUT space_list_strip list_optional_optional {anjuta_token_old_set_flags ($1.first, ANJUTA_TOKEN_OLD_SIGNIFICANT); DEBUG_PRINT ("obsolete AC_OUTPUT");}
+		PM_TOKEN_OBSOLETE_AC_OUTPUT space_list_strip list_optional_optional {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT); DEBUG_PRINT ("obsolete AC_OUTPUT");}
 		;
 
 ac_output:
@@ -131,7 +131,7 @@ ac_output:
 		;
 								
 ac_config_files:
-		PM_TOKEN_AC_CONFIG_FILES space_list_strip list_optional_optional {anjuta_token_old_set_flags ($1.first, ANJUTA_TOKEN_OLD_SIGNIFICANT);}
+		PM_TOKEN_AC_CONFIG_FILES space_list_strip list_optional_optional {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT);}
 		;
 								
 list_empty_optional:
@@ -180,17 +180,17 @@ name:
 								
 								
 space_list_strip:
-		optional_space space_list optional_space {anjuta_token_old_set_flags ($2.first, ANJUTA_TOKEN_OLD_OPEN); anjuta_token_old_set_flags ($2.last, ANJUTA_TOKEN_OLD_CLOSE | ANJUTA_TOKEN_OLD_NEXT);}
+		optional_space space_list optional_space {anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_OPEN); anjuta_token_set_flags ($2.last, ANJUTA_TOKEN_CLOSE | ANJUTA_TOKEN_NEXT);}
 		;
             
 space_list:
 		name
-		| space_list PM_TOKEN_SPACE name {$$.first = $1.first; $$.last = $3.last; anjuta_token_old_set_flags ($2.first, ANJUTA_TOKEN_OLD_NEXT | ANJUTA_TOKEN_OLD_IRRELEVANT);}
+		| space_list PM_TOKEN_SPACE name {$$.first = $1.first; $$.last = $3.last; anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_IRRELEVANT);}
 		;
             
 optional_space:
 		/* empty */
-		| PM_TOKEN_SPACE { anjuta_token_old_set_flags ($1.first, ANJUTA_TOKEN_OLD_IRRELEVANT);}
+		| PM_TOKEN_SPACE { anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_IRRELEVANT);}
 		;
 
 arg:

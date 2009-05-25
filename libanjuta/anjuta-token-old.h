@@ -72,10 +72,10 @@ typedef struct _AnjutaTokenOldRange
 
 enum AnjutaTokenOldSearchFlag
 {
-	ANJUTA_SEARCH_OVER	  = 0,
-	ANJUTA_SEARCH_INTO		= 1 << 0,
-	ANJUTA_SEARCH_ALL	   = 1 << 1,
-	ANJUTA_SEARCH_BACKWARD = 1 << 2
+	ANJUTA_SEARCH_OLD_OVER	  = 0,
+	ANJUTA_SEARCH_OLD_INTO		= 1 << 0,
+	ANJUTA_SEARCH_OLD_ALL	   = 1 << 1,
+	ANJUTA_SEARCH_OLD_BACKWARD = 1 << 2
 };
 
 typedef struct _AnjutaTokenOldStyle AnjutaTokenOldStyle;
@@ -137,15 +137,15 @@ void anjuta_token_old_file_free (AnjutaTokenOldFile *file);
 
 const gchar* anjuta_token_old_file_get_content (AnjutaTokenOldFile *file, GError **error);
 void anjuta_token_old_file_move (AnjutaTokenOldFile *file, GFile *new_file);
-gboolean anjute_token_file_save (AnjutaTokenOldFile *file, GError **error);
+gboolean anjuta_token_old_file_save (AnjutaTokenOldFile *file, GError **error);
 
 void anjuta_token_old_file_append (AnjutaTokenOldFile *file, AnjutaTokenOld *token);
 void anjuta_token_old_update_line_width (AnjutaTokenOldFile *file, guint width);
 
 AnjutaTokenOld* anjuta_token_old_file_first (AnjutaTokenOldFile *file);
 AnjutaTokenOld* anjuta_token_old_file_last (AnjutaTokenOldFile *file);
-GFile *anjuta_token_file_get_file (AnjutaTokenOldFile *file);
-guint anjuta_token_file_get_line_width (AnjutaTokenOldFile *file);
+GFile *anjuta_token_old_file_get_file (AnjutaTokenOldFile *file);
+guint anjuta_token_old_file_get_line_width (AnjutaTokenOldFile *file);
 
 G_END_DECLS
 

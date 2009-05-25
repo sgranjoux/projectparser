@@ -235,7 +235,7 @@ anjuta_token_old_match (AnjutaTokenOld *token, gint flags, AnjutaTokenOld *seque
 	gint level = 0;
 	gboolean recheck = FALSE;
 	
-	for (; sequence != NULL; /*sequence = flags & ANJUTA_SEARCH_BACKWARD ? anjuta_token_old_previous (sequence) : anjuta_token_old_next (sequence)*/)
+	for (; sequence != NULL; /*sequence = flags & ANJUTA_SEARCH_OLD_BACKWARD ? anjuta_token_old_previous (sequence) : anjuta_token_old_next (sequence)*/)
 	{
 		AnjutaTokenOld *toka;
 		AnjutaTokenOld *tokb = token;
@@ -265,11 +265,11 @@ anjuta_token_old_match (AnjutaTokenOld *token, gint flags, AnjutaTokenOld *seque
 			}
 		}
 
-		if (flags & ANJUTA_SEARCH_BACKWARD)
+		if (flags & ANJUTA_SEARCH_OLD_BACKWARD)
 		{
 			if (!recheck)
 			{
-				if (!(flags & ANJUTA_SEARCH_INTO) && (sequence->flags & ANJUTA_TOKEN_OLD_CLOSE)) level++;
+				if (!(flags & ANJUTA_SEARCH_OLD_INTO) && (sequence->flags & ANJUTA_TOKEN_OLD_CLOSE)) level++;
 				if (sequence->flags & ANJUTA_TOKEN_OLD_OPEN)
 				{
 					level--;
@@ -292,7 +292,7 @@ anjuta_token_old_match (AnjutaTokenOld *token, gint flags, AnjutaTokenOld *seque
 		{
 			if (!recheck)
 			{
-				if (!(flags & ANJUTA_SEARCH_INTO) && (sequence->flags & ANJUTA_TOKEN_OLD_OPEN)) level++;
+				if (!(flags & ANJUTA_SEARCH_OLD_INTO) && (sequence->flags & ANJUTA_TOKEN_OLD_OPEN)) level++;
 				if (sequence->flags & ANJUTA_TOKEN_OLD_CLOSE)
 				{
 					level--;
@@ -483,7 +483,7 @@ anjuta_token_old_split_list (AnjutaTokenOld *list)
 
 	/* Look for the start of the list */
 	open_tok = anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_OPEN, NULL);
-	match = anjuta_token_old_match (open_tok, ANJUTA_SEARCH_INTO, list, &list);
+	match = anjuta_token_old_match (open_tok, ANJUTA_SEARCH_OLD_INTO, list, &list);
 	anjuta_token_old_free (open_tok);
 	if (!match) return NULL;
 	split_list = g_list_prepend (split_list, list);
@@ -496,7 +496,7 @@ anjuta_token_old_split_list (AnjutaTokenOld *list)
 		
 		/* Look for end of element */
 		tok = anjuta_token_old_next (list);
-		match = anjuta_token_old_match (next_tok, ANJUTA_SEARCH_OVER, tok, &arg);
+		match = anjuta_token_old_match (next_tok, ANJUTA_SEARCH_OLD_OVER, tok, &arg);
 
 		/* Remove space at the beginning */
 		for (; tok != arg; tok = anjuta_token_old_next (tok))
@@ -1014,7 +1014,7 @@ anjuta_token_old_file_get_type (void)
 		};
 
 		type = g_type_register_static (G_TYPE_OBJECT,
-		                            "AnjutaTokenFile", &type_info, 0);
+		                            "AnjutaTokenOldFile", &type_info, 0);
 	}
 	
 	return type;
