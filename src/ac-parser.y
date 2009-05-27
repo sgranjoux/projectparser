@@ -31,7 +31,10 @@
 
 %}
 
-%union {AnjutaTokenRange range;}
+%union {
+	AnjutaToken *token;
+	AnjutaTokenRange range;
+}
 
 %token  PM_TOKEN_EOL '\n'
 
@@ -68,7 +71,8 @@
 %token	<range> PM_TOKEN_AC_SUBST
 %token	<range> PM_TOKEN_AC_INIT
 
-%type <range> pkg_check_modules	obsolete_ac_output ac_config_files space_list_strip space_list optional_space name name_strip
+%type <range> pkg_check_modules	obsolete_ac_output ac_config_files space_list_strip space_list name name_strip
+%type <token> optional_space
 
 %defines
 
@@ -95,125 +99,135 @@ static void amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s);
 %%
 
 file:
-		statement
-		| file PM_TOKEN_EOL statement
-		;
-                
+	statement
+	| file PM_TOKEN_EOL statement
+	;
+   
 statement:
-		line_or_empty
-		| pkg_check_modules
-		| obsolete_ac_output
-		| ac_output
-		| ac_config_files
-		;
+	line_or_empty
+	| pkg_check_modules
+	| obsolete_ac_output
+	| ac_output
+	| ac_config_files
+	;
 
 line_or_empty:
-		/* empty */
-		| line
-		;
+	/* empty */
+	| line
+	;
 
 line:
-		token
-		| line token
-		;
+	token
+	| line token
+	;
 
 pkg_check_modules:
-		PM_TOKEN_PKG_CHECK_MODULES name_strip PM_TOKEN_COMMA space_list_strip list_empty_optional  {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT); anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_OPEN); anjuta_token_set_flags ($2.last, ANJUTA_TOKEN_CLOSE); anjuta_token_set_flags ($3.first, ANJUTA_TOKEN_IRRELEVANT);}
-		| PM_TOKEN_PKG_CHECK_MODULES name_strip PM_TOKEN_COMMA space_list_strip list_arg_optional
-		;
+	PM_TOKEN_PKG_CHECK_MODULES  name_strip  PM_TOKEN_COMMA  space_list_strip  list_empty_optional  {
+		anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT);
+		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_OPEN);
+		anjuta_token_set_flags ($2.last, ANJUTA_TOKEN_CLOSE);
+		anjuta_token_set_flags ($3.first, ANJUTA_TOKEN_IRRELEVANT);
+	}
+	| PM_TOKEN_PKG_CHECK_MODULES name_strip PM_TOKEN_COMMA space_list_strip list_arg_optional
+	;
 
 obsolete_ac_output:
-		PM_TOKEN_OBSOLETE_AC_OUTPUT space_list_strip list_optional_optional {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT); DEBUG_PRINT ("obsolete AC_OUTPUT");}
-		;
+	PM_TOKEN_OBSOLETE_AC_OUTPUT space_list_strip list_optional_optional {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT); DEBUG_PRINT ("obsolete AC_OUTPUT");}
+	;
 
 ac_output:
-		PM_TOKEN_AC_OUTPUT
-		;
-								
+	PM_TOKEN_AC_OUTPUT
+	;
+	
 ac_config_files:
-		PM_TOKEN_AC_CONFIG_FILES space_list_strip list_optional_optional {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT);}
-		;
-								
+	PM_TOKEN_AC_CONFIG_FILES space_list_strip list_optional_optional {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT);}
+	;
+	
 list_empty_optional:
-		PM_TOKEN_RIGHT_PAREN
-		| PM_TOKEN_COMMA optional_space PM_TOKEN_RIGHT_PAREN
-		| PM_TOKEN_COMMA optional_space PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
-		;
+	PM_TOKEN_RIGHT_PAREN
+	| PM_TOKEN_COMMA optional_space PM_TOKEN_RIGHT_PAREN
+	| PM_TOKEN_COMMA optional_space PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
+	;
 
 list_arg_optional:
-		PM_TOKEN_COMMA arg_string PM_TOKEN_RIGHT_PAREN
-		| PM_TOKEN_COMMA arg_string PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
-		;
+	PM_TOKEN_COMMA arg_string PM_TOKEN_RIGHT_PAREN
+	| PM_TOKEN_COMMA arg_string PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
+	;
 
 list_optional_optional:
-		PM_TOKEN_RIGHT_PAREN
-		| PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
-		| PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
-		;
+	PM_TOKEN_RIGHT_PAREN
+	| PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
+	| PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
+	;
 
 arg_string_or_empty:
-		/* empty */
-		| PM_TOKEN_SPACE
-		| arg_string
-		;
+	/* empty */
+	| PM_TOKEN_SPACE
+	| arg_string
+	;
 
 arg_string:
-		arg
-		| PM_TOKEN_SPACE arg
-		| arg_string arg
-		| arg_string PM_TOKEN_SPACE
-		;
+	arg
+	| PM_TOKEN_SPACE arg
+	| arg_string arg
+	| arg_string PM_TOKEN_SPACE
+	;
 
-								
 name_strip:
-		optional_space name optional_space
-		;            
+	optional_space name optional_space {
+		$$ = $2;
+	}
+	;            
 
 name: 
-		PM_TOKEN_NAME
-		| PM_TOKEN_MACRO
-		| PM_TOKEN_OPERATOR
-		| name PM_TOKEN_MACRO	 {$$.last = $2.last;}
-		| name PM_TOKEN_OPERATOR 	{$$.last = $2.last;}
-		| name PM_TOKEN_NAME 			{$$.last = $2.last;}
-		;
-								
-								
+	PM_TOKEN_NAME
+	| PM_TOKEN_MACRO
+	| PM_TOKEN_OPERATOR
+	| name PM_TOKEN_MACRO	 {$$.last = $2.last;}
+	| name PM_TOKEN_OPERATOR 	{$$.last = $2.last;}
+	| name PM_TOKEN_NAME 			{$$.last = $2.last;}
+	;
+	
+
 space_list_strip:
-		optional_space space_list optional_space {anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_OPEN); anjuta_token_set_flags ($2.last, ANJUTA_TOKEN_CLOSE | ANJUTA_TOKEN_NEXT);}
-		;
-            
+	optional_space space_list optional_space {anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_OPEN); anjuta_token_set_flags ($2.last, ANJUTA_TOKEN_CLOSE | ANJUTA_TOKEN_NEXT);}
+	;
+
 space_list:
-		name
-		| space_list PM_TOKEN_SPACE name {$$.first = $1.first; $$.last = $3.last; anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_IRRELEVANT);}
-		;
-            
+	name
+	| space_list PM_TOKEN_SPACE name {$$.first = $1.first; $$.last = $3.last; anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_IRRELEVANT);}
+	;
+
 optional_space:
-		/* empty */
-		| PM_TOKEN_SPACE { anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_IRRELEVANT);}
-		;
+	/* empty */ {
+		$$ = NULL;
+	}
+	| PM_TOKEN_SPACE {
+		anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_IRRELEVANT);
+	}
+	;
 
 arg:
-		PM_TOKEN_IDENTIFIER
-		| PM_TOKEN_OPERATOR
-		| PM_TOKEN_NUMBER
-		| PM_TOKEN_NAME
-		| PM_TOKEN_MACRO            
-		;
-            
+	PM_TOKEN_IDENTIFIER
+	| PM_TOKEN_OPERATOR
+	| PM_TOKEN_NUMBER
+	| PM_TOKEN_NAME
+	| PM_TOKEN_MACRO            
+	;
+
 token:
-		PM_TOKEN_SPACE
-		| PM_TOKEN_IDENTIFIER
-		| PM_TOKEN_OPERATOR
-		| PM_TOKEN_NUMBER
-		| PM_TOKEN_NAME
-		| PM_TOKEN_MACRO
-		| PM_TOKEN_COMMA
-		| PM_TOKEN_RIGHT_PAREN
-		;            
-                                
+	PM_TOKEN_SPACE
+	| PM_TOKEN_IDENTIFIER
+	| PM_TOKEN_OPERATOR
+	| PM_TOKEN_NUMBER
+	| PM_TOKEN_NAME
+	| PM_TOKEN_MACRO
+	| PM_TOKEN_COMMA
+	| PM_TOKEN_RIGHT_PAREN
+	;            
+
 %%
-     
+    
 static void
 amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s)
 {
