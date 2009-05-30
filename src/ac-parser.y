@@ -36,43 +36,43 @@
 	AnjutaTokenRange range;
 }
 
-%token  PM_TOKEN_EOL '\n'
+%token  EOL '\n'
 
-%token  <range> PM_TOKEN_SPACE ' '
+%token  <token> SPACE ' '
 
-%token  PM_TOKEN_HASH               '#'
-%token  PM_TOKEN_LEFT_PAREN     '('
-%token  PM_TOKEN_RIGHT_PAREN    ')'
-%token  PM_TOKEN_LEFT_CURLY		'{'
-%token  PM_TOKEN_RIGHT_CURLY    '}'
-%token  PM_TOKEN_LEFT_BRACE     '['
-%token  PM_TOKEN_RIGHT_BRACE    ']'
-%token  PM_TOKEN_EQUAL             '='
-%token  <range> PM_TOKEN_COMMA             ','
-%token  PM_TOKEN_LOWER              '<'
-%token  PM_TOKEN_GREATER           '>'
-%token  PM_TOKEN_LOWER_OR_EQUAL
-%token  PM_TOKEN_GREATER_OR_EQUAL	
+%token  HASH               '#'
+%token  LEFT_PAREN     '('
+%token  <token> RIGHT_PAREN    ')'
+%token  LEFT_CURLY		'{'
+%token  RIGHT_CURLY    '}'
+%token  LEFT_BRACE     '['
+%token  RIGHT_BRACE    ']'
+%token  EQUAL             '='
+%token  <token> COMMA             ','
+%token  LOWER              '<'
+%token  GREATER           '>'
+%token  LOWER_OR_EQUAL
+%token  GREATER_OR_EQUAL	
     
-%token  PM_TOKEN_COMMENT
-%token  <range> PM_TOKEN_NAME
-%token  PM_TOKEN_STRING
-%token  PM_TOKEN_KEYWORD
-%token  PM_TOKEN_TOPNAME
-%token  PM_TOKEN_IDENTIFIER
-%token  PM_TOKEN_NUMBER
-%token  <range> PM_TOKEN_MACRO
-%token  <range> PM_TOKEN_OPERATOR
+%token  COMMENT
+%token  <token> NAME
+%token  KEYWORD
+%token  TOPNAME
+%token  IDENTIFIER
+%token  NUMBER
+%token  <token> MACRO
+%token  <token> OPERATOR
 
-%token	<range> PM_TOKEN_PKG_CHECK_MODULES
-%token	<range> PM_TOKEN_OBSOLETE_AC_OUTPUT
-%token	<range> PM_TOKEN_AC_OUTPUT
-%token	<range> PM_TOKEN_AC_CONFIG_FILES
-%token	<range> PM_TOKEN_AC_SUBST
-%token	<range> PM_TOKEN_AC_INIT
+%token	<token> PKG_CHECK_MODULES
+%token	<token> OBSOLETE_AC_OUTPUT
+%token	<token> AC_OUTPUT
+%token	<token> AC_CONFIG_FILES
+%token	<token> AC_SUBST
+%token	<token> AC_INIT
 
-%type <range> pkg_check_modules	obsolete_ac_output ac_config_files space_list_strip space_list name name_strip
-%type <token> optional_space
+%type <token> pkg_check_modules obsolete_ac_output ac_config_files 
+%type <token> optional_space name space_list comma_separator
+%type <token> list_empty_optional list_arg_optional list_optional_optional
 
 %defines
 
@@ -100,7 +100,7 @@ static void amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s);
 
 file:
 	statement
-	| file PM_TOKEN_EOL statement
+	| file EOL statement
 	;
    
 statement:
@@ -122,108 +122,142 @@ line:
 	;
 
 pkg_check_modules:
-	PM_TOKEN_PKG_CHECK_MODULES  name_strip  PM_TOKEN_COMMA  space_list_strip  list_empty_optional  {
-		anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT);
-		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_OPEN);
-		anjuta_token_set_flags ($2.last, ANJUTA_TOKEN_CLOSE);
-		anjuta_token_set_flags ($3.first, ANJUTA_TOKEN_IRRELEVANT);
+	PKG_CHECK_MODULES  optional_space  name  comma_separator  space_list   list_empty_optional  {
+		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
+		if ($2 == NULL) anjuta_token_insert_after ($1, anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL));
+		anjuta_token_merge ($1, $6);
 	}
-	| PM_TOKEN_PKG_CHECK_MODULES name_strip PM_TOKEN_COMMA space_list_strip list_arg_optional
+	| PKG_CHECK_MODULES  optional_space name  comma_separator  space_list  list_arg_optional
 	;
 
 obsolete_ac_output:
-	PM_TOKEN_OBSOLETE_AC_OUTPUT space_list_strip list_optional_optional {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT); DEBUG_PRINT ("obsolete AC_OUTPUT");}
+	OBSOLETE_AC_OUTPUT  optional_space  space_list  list_optional_optional {
+		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT); 
+		if ($2 == NULL) anjuta_token_insert_after ($1, anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL));
+		anjuta_token_merge ($1, $4);
+	}
 	;
 
 ac_output:
-	PM_TOKEN_AC_OUTPUT
+	AC_OUTPUT
 	;
 	
 ac_config_files:
-	PM_TOKEN_AC_CONFIG_FILES space_list_strip list_optional_optional {anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_SIGNIFICANT);}
+	AC_CONFIG_FILES  optional_space space_list  list_optional_optional {
+		if ($2 == NULL) anjuta_token_insert_after ($1, anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL));
+		anjuta_token_merge ($1, $4);
+	}
 	;
 	
 list_empty_optional:
-	PM_TOKEN_RIGHT_PAREN
-	| PM_TOKEN_COMMA optional_space PM_TOKEN_RIGHT_PAREN
-	| PM_TOKEN_COMMA optional_space PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
+	optional_space  RIGHT_PAREN {
+		$$ = $1 == NULL ? $2 : anjuta_token_merge ($1, $2);
+	}
+	| optional_space  COMMA  optional_space  RIGHT_PAREN {
+		$$ = anjuta_token_merge ($1 != NULL ? $1 :  $2, $4);
+	}
+	| optional_space  COMMA  optional_space  COMMA  arg_string_or_empty  RIGHT_PAREN {
+		$$ = anjuta_token_merge ($1 != NULL ? $1 :  $2, $6);
+	}
 	;
 
 list_arg_optional:
-	PM_TOKEN_COMMA arg_string PM_TOKEN_RIGHT_PAREN
-	| PM_TOKEN_COMMA arg_string PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
+	optional_space  COMMA  arg_string  RIGHT_PAREN {
+		$$ = anjuta_token_merge ($1 != NULL ? $1 : $2, $4);
+	}
+	| optional_space  COMMA  arg_string  COMMA  arg_string_or_empty  RIGHT_PAREN {
+		$$ = anjuta_token_merge ($1 != NULL ? $1 :  $2, $6);
+	}
 	;
 
 list_optional_optional:
-	PM_TOKEN_RIGHT_PAREN
-	| PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
-	| PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_COMMA arg_string_or_empty PM_TOKEN_RIGHT_PAREN
+	optional_space RIGHT_PAREN {
+		$$ = $1 == NULL ? $2 : anjuta_token_merge ($1, $2);
+	}
+	| optional_space COMMA arg_string_or_empty RIGHT_PAREN {
+		$$ =anjuta_token_merge ($1 != NULL ? $1 : $2, $4);
+	}
+	| optional_space COMMA arg_string_or_empty COMMA arg_string_or_empty RIGHT_PAREN {
+		$$ = anjuta_token_merge ($1 != NULL ? $1 :  $2, $6);
+	}
 	;
 
 arg_string_or_empty:
 	/* empty */
-	| PM_TOKEN_SPACE
+	| SPACE
 	| arg_string
 	;
 
 arg_string:
 	arg
-	| PM_TOKEN_SPACE arg
+	| SPACE arg 
 	| arg_string arg
-	| arg_string PM_TOKEN_SPACE
+	| arg_string SPACE
 	;
 
-name_strip:
-	optional_space name optional_space {
-		$$ = $2;
+comma_separator:
+	optional_space COMMA optional_space {
+		$$ = anjuta_token_merge (
+			anjuta_token_insert_before ($1 != NULL ? $1 : $2,
+					anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL)),
+			$3 != NULL ? $3 : $2);
 	}
-	;            
+	;
 
 name: 
-	PM_TOKEN_NAME
-	| PM_TOKEN_MACRO
-	| PM_TOKEN_OPERATOR
-	| name PM_TOKEN_MACRO	 {$$.last = $2.last;}
-	| name PM_TOKEN_OPERATOR 	{$$.last = $2.last;}
-	| name PM_TOKEN_NAME 			{$$.last = $2.last;}
+	NAME
+	| MACRO
+	| OPERATOR
+	| name MACRO {
+		$$ = anjuta_token_merge ($1, $2);
+	}
+	| name OPERATOR {
+		$$ = anjuta_token_merge ($1, $2);
+	}
+	| name NAME {
+		$$ = anjuta_token_merge ($1, $2);
+	}
 	;
-	
 
-space_list_strip:
-	optional_space space_list optional_space {anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_OPEN); anjuta_token_set_flags ($2.last, ANJUTA_TOKEN_CLOSE | ANJUTA_TOKEN_NEXT);}
-	;
 
 space_list:
-	name
-	| space_list PM_TOKEN_SPACE name {$$.first = $1.first; $$.last = $3.last; anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_IRRELEVANT);}
+	name {
+		$$ = anjuta_token_merge (
+			anjuta_token_insert_before ($1,
+					anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL)),
+			$1);
+	}
+	| space_list SPACE name {
+		anjuta_token_merge ($1, $3);
+	}
 	;
 
 optional_space:
 	/* empty */ {
 		$$ = NULL;
 	}
-	| PM_TOKEN_SPACE {
-		anjuta_token_set_flags ($1.first, ANJUTA_TOKEN_IRRELEVANT);
+	| SPACE {
+		anjuta_token_set_flags ($1, ANJUTA_TOKEN_IRRELEVANT);
 	}
 	;
 
 arg:
-	PM_TOKEN_IDENTIFIER
-	| PM_TOKEN_OPERATOR
-	| PM_TOKEN_NUMBER
-	| PM_TOKEN_NAME
-	| PM_TOKEN_MACRO            
+	IDENTIFIER
+	| OPERATOR
+	| NUMBER
+	| NAME
+	| MACRO            
 	;
 
 token:
-	PM_TOKEN_SPACE
-	| PM_TOKEN_IDENTIFIER
-	| PM_TOKEN_OPERATOR
-	| PM_TOKEN_NUMBER
-	| PM_TOKEN_NAME
-	| PM_TOKEN_MACRO
-	| PM_TOKEN_COMMA
-	| PM_TOKEN_RIGHT_PAREN
+	SPACE
+	| IDENTIFIER
+	| OPERATOR
+	| NUMBER
+	| NAME
+	| MACRO
+	| COMMA
+	| RIGHT_PAREN
 	;            
 
 %%
