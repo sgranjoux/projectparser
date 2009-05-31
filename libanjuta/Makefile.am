@@ -19,6 +19,4 @@ libanjuta_a_SOURCES = \
 	anjuta-token.c \
 	anjuta-token.h \
 	anjuta-debug.c \
-	anjuta-debug.h \
-	anjuta-token-old.c \
-	anjuta-token-old.h
+	anjuta-debug.h

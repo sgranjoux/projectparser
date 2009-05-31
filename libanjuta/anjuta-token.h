@@ -150,7 +150,7 @@ void anjuta_token_file_free (AnjutaTokenFile *file);
 
 const gchar* anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error);
 void anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file);
-gboolean anjute_token_file_save (AnjutaTokenFile *file, GError **error);
+gboolean anjuta_token_file_save (AnjutaTokenFile *file, GError **error);
 
 void anjuta_token_file_append (AnjutaTokenFile *file, AnjutaToken *token);
 void anjuta_token_update_line_width (AnjutaTokenFile *file, guint width);

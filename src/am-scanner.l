@@ -39,7 +39,7 @@
 
 //#define YY_USER_INIT {yy_flex_debug = 1;}
  
-static AnjutaTokenOld* amp_am_scanner_append_token (AmpAmScanner *scanner, gint token);
+static AnjutaToken* amp_am_scanner_append_token (AmpAmScanner *scanner, gint token);
 static gint amp_am_scanner_last_token (AmpAmScanner *scanner);
 static gint amp_am_scanner_last_flags (AmpAmScanner *scanner);
 static void amp_am_scanner_update_line_width (AmpAmScanner *scanner, YYLTYPE *loc);
@@ -68,44 +68,44 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
 %%
 
 <INITIAL>\n {
-	yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_EOL);
+	yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_EOL);
 	return EOL;
 }
 
 <INITIAL>([ ]|\\\n)([ \t]|\\\n)* {
-	yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_SPACE);
+	yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);
 	return SPACE;
 }
 
 <INITIAL>([ \t])*#.*\n {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_COMMENT | ANJUTA_TOKEN_OLD_IRRELEVANT);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT | ANJUTA_TOKEN_IRRELEVANT);   
     return EOL;
 }
 
 <INITIAL>\t {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_SPACE);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);   
     return TAB;
 }
 
 <INITIAL>@{NAME}@ {
-	yylval->token = amp_am_scanner_append_token (yyextra, ANJUTA_TOKEN_OLD_MACRO);
+	yylval->token = amp_am_scanner_append_token (yyextra, ANJUTA_TOKEN_MACRO);
 	return MACRO;
 }
 
 <INITIAL>\$\([^ \t\n\r:#=$)]+\) {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_VARIABLE);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE);   
 	amp_am_scanner_update_line_width (yyextra, yylloc);
     return VARIABLE;
 }
 
 <INITIAL>\$\{[^ \t\n\r:#=$}]+\} {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_VARIABLE);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE);   
 	amp_am_scanner_update_line_width (yyextra, yylloc);
     return VARIABLE;
 }
 
 <INITIAL>\$[^ \t\n\r\(\{] {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_VARIABLE);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE);   
 	amp_am_scanner_update_line_width (yyextra, yylloc);
     return VARIABLE;
 }
@@ -116,57 +116,57 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
 }
 
 <INITIAL>:: {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return DOUBLE_COLON;
 }
 
 <INITIAL>; {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return SEMI_COLON;
 }
 
 <INITIAL>\| {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return ORDER;
 }
 
 <INITIAL>\= {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return EQUAL;
 }
 
 <INITIAL>:= {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return IMMEDIATE_EQUAL;
 }
 
 <INITIAL>\?= {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return CONDITIONAL_EQUAL;
 }
 
 <INITIAL>\+= {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return APPEND;
 }
 
 <INITIAL>\\[ ] {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return CHARACTER;
 }
 
 <INITIAL>\\: {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return CHARACTER;
 }
 
 <INITIAL>\\= {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return CHARACTER;
 }
 
 <INITIAL>\\# {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_OPERATOR);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
     return CHARACTER;
 }
 
@@ -236,7 +236,7 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
 }
 
 <INITIAL>{NAME} {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_OLD_NAME);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_NAME);   
 	amp_am_scanner_update_line_width (yyextra, yylloc);
     return NAME;
 }
@@ -253,20 +253,20 @@ struct _AmpAmScanner
     const gchar *pos;
     yyscan_t scanner;
     YY_BUFFER_STATE	 buffer;
-    AnjutaTokenOldFile *file;
+    AnjutaTokenFile *file;
 	guint line_width;
 };
 
 /* Private functions
  *---------------------------------------------------------------------------*/
 
-static AnjutaTokenOld*
+static AnjutaToken*
 amp_am_scanner_append_token (AmpAmScanner *scanner, gint token)
 {
-    AnjutaTokenOld *frag;
+    AnjutaToken *frag;
             
-    frag = anjuta_token_old_new_fragment (token, scanner->pos, yyget_leng (scanner->scanner));
-	anjuta_token_old_file_append (scanner->file, frag);
+    frag = anjuta_token_new_fragment (token, scanner->pos, yyget_leng (scanner->scanner));
+	anjuta_token_file_append (scanner->file, frag);
     scanner->pos += yyget_leng (scanner->scanner);
 	//anjuta_token_old_dump (frag);
     
@@ -276,19 +276,19 @@ amp_am_scanner_append_token (AmpAmScanner *scanner, gint token)
 static gint
 amp_am_scanner_last_token (AmpAmScanner *scanner)
 {
-    return anjuta_token_old_get_type (anjuta_token_old_file_last (scanner->file));
+    return anjuta_token_get_type (anjuta_token_file_last (scanner->file));
 }
 
 static gint
 amp_am_scanner_last_flags (AmpAmScanner *scanner)
 {
-    return anjuta_token_old_get_flags (anjuta_token_old_file_last (scanner->file));
+    return anjuta_token_get_flags (anjuta_token_file_last (scanner->file));
 }
 
 static void
 amp_am_scanner_update_line_width (AmpAmScanner *scanner, YYLTYPE *loc)
 {
-	anjuta_token_old_file_update_line_width (scanner->file, loc->last_column);
+	anjuta_token_file_update_line_width (scanner->file, loc->last_column);
 }
 
 static void
@@ -317,14 +317,14 @@ amp_update_location (YYLTYPE *loc, const gchar *text, gint length)
  *---------------------------------------------------------------------------*/
 
 gboolean
-amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenOldFile *file)
+amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenFile *file)
 {
     if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
 
 	scanner->file = file;
 	if (scanner->file== NULL) return FALSE;
 
-    scanner->pos = anjuta_token_old_file_get_content (scanner->file, NULL);
+    scanner->pos = anjuta_token_file_get_content (scanner->file, NULL);
     scanner->buffer = yy_scan_string (scanner->pos, scanner->scanner);
 	
 	return amp_am_yyparse (scanner->scanner) == 0;

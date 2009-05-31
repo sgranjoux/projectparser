@@ -29,8 +29,8 @@
 /* Defining an union allow to use 2 protocol blocks (enclosed by %{ %}) which
  * is useful when redefining YYSTYPE. */
 %union {
-	AnjutaTokenOld *token;
-	AnjutaTokenOldRange range;
+	AnjutaToken *token;
+	AnjutaTokenRange range;
 }
 
 %token	<token> EOL	'\n'
@@ -51,9 +51,10 @@
 %token	<token> AM_VARIABLE
 
 %type <token> head_token target_token value_token name_token space_token rule_token equal_token token automake_token prerequisite_token
-%type <range> am_variable
-%type <range> value head space prerequisite target depend rule variable commands head_with_space
-%type <range> value_list prerequisite_list target_list token_list target_list2
+%type <token> am_variable
+%type <token> value head space prerequisite target depend rule variable commands head_with_space
+%type <token> value_list prerequisite_list target_list token_list target_list2
+%type <token> optional_space space_list_value
 
 %defines
 
@@ -125,24 +126,35 @@ commands:
 		
 am_variable:
 	AM_VARIABLE space_list_value {
-		anjuta_token_old_set_flags ($1, ANJUTA_TOKEN_OLD_SIGNIFICANT);
+		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
+		anjuta_token_merge ($1, $2);
 	}
 	| AM_VARIABLE optional_space equal_token optional_space
 	;
 				
 space_list_value: optional_space  equal_token   optional_space  value_list  optional_space {
-        anjuta_token_old_set_flags ($2, ANJUTA_TOKEN_OLD_IRRELEVANT);
-	anjuta_token_old_insert_after ($2, anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_OPEN, NULL));
-	anjuta_token_old_insert_after ($4.last, anjuta_token_old_new_static (ANJUTA_TOKEN_OLD_CLOSE, NULL));
+		if (($1 != NULL) || ($3 != NULL))
+		{
+			anjuta_token_merge (
+					anjuta_token_insert_before ($1 != NULL ? $1 : $2,
+						anjuta_token_new_static (ANJUTA_TOKEN_NONE, NULL)),
+				$3 != NULL ? $3 : $2);	
+		}
+        anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
+		$$ = $5 != NULL ? $5 : $4;
 	}
 	;
 		
 value_list:
-	value
+	value {
+		$$ = anjuta_token_merge (
+			anjuta_token_insert_before ($1,
+					anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL)),
+			$1);
+	}
 	| value_list  space  value {
-		$$.first = $1.first;
-		$$.last = $3.last;
-		anjuta_token_old_set_flags ($2.first, ANJUTA_TOKEN_OLD_NEXT);
+		anjuta_token_set_flags ($2, ANJUTA_TOKEN_NEXT);
+		anjuta_token_merge ($1, $3);
 	}
 	;
 
@@ -154,34 +166,31 @@ target_list:
 
 target_list2:
 	target
-	| target_list2 space target {
-		$$.first = $1.first;
-		$$.last = $3.last;
-		anjuta_token_old_set_flags ($2.first, ANJUTA_TOKEN_OLD_NEXT);
+	| target_list2  space  target {
+		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
+		anjuta_token_merge ($1, $3);
 	}
 	;
 		
 token_list:
-	token {
-		$$.first = $1;
-		$$.last = $1;
-	}
+	token
 	| token_list token
 	;
 		
 prerequisite_list:
 	prerequisite
 	| prerequisite_list space prerequisite {
-		$$.first = $1.first;
-		$$.last = $3.last;
-		anjuta_token_old_set_flags ($2.first, ANJUTA_TOKEN_OLD_NEXT);
+		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
+		anjuta_token_merge ($1, $3);
 	}
 	;
 
 		
 
 optional_space:
-	/* empty */
+	/* empty */ {
+		$$ = NULL;
+	}
 	| space
 	;
 
@@ -191,59 +200,40 @@ head_with_space:
 	;
 		
 head:
-	head_token {
-		$$.first = $1;
-		$$.last = $1;
-	}
+	head_token
 	| head name_token {
-		$$.first = $1.first;
-		$$.last = $2;
+		anjuta_token_merge ($1, $2);
 	}
 	;
 
 target:
-	head_token {
-		$$.first = $1;
-		$$.last = $1;
-	}
+	head_token
 	| target target_token {
-		$$.first = $1.first;
-		$$.last = $2;
+		anjuta_token_merge ($1, $2);
 	}
 	;
 		
 value:
-	value_token {
-		$$.first = $1;
-		$$.last = $1;
-	}
+	value_token
 	| value value_token {
-		$$.first = $1.first;
-		$$.last = $2;
+		anjuta_token_merge ($1, $2);
 	}
 	;
 
 prerequisite:
-	prerequisite_token {
-		$$.first = $1;
-		$$.last = $1;
-	}
+	prerequisite_token
 	| prerequisite prerequisite_token {
-		$$.first = $1.first;
-		$$.last = $2;
+		anjuta_token_merge ($1, $2);
 	}
 	;
 		
 space:
 	space_token {
-		$$.first = $1;
-		$$.last = $1;
-		anjuta_token_old_set_flags ($1, ANJUTA_TOKEN_OLD_IRRELEVANT);
+		anjuta_token_set_flags ($1, ANJUTA_TOKEN_IRRELEVANT);
 	}
 	| space space_token	{
-		$$.first = $1.first;
-		$$.last = $2;
-		anjuta_token_old_set_flags ($2, ANJUTA_TOKEN_OLD_IRRELEVANT);
+		anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
+		anjuta_token_merge ($1, $2);
 	}
 	;
 

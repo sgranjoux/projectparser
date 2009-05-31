@@ -983,8 +983,13 @@ AnjutaTokenFile *
 anjuta_token_file_new (GFile *gfile)
 {
 	AnjutaTokenFile *file = g_object_new (ANJUTA_TOKEN_FILE_TYPE, NULL);
-	
-	file->file =  gfile ? g_object_ref (gfile) : NULL;
 
+	if (gfile)
+	{
+		file->file =  g_object_ref (gfile);
+		file->first = anjuta_token_new_static (ANJUTA_TOKEN_FILE, NULL);
+		file->last = file->first;
+	}
+	
 	return file;
 };
