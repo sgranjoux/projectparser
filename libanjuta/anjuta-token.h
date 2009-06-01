@@ -91,6 +91,7 @@ AnjutaToken *anjuta_token_new_fragment (AnjutaTokenType type, const gchar *pos, 
 void anjuta_token_free (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
+AnjutaToken *anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_copy (AnjutaToken *token);
 
 AnjutaToken * anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *sibling);
@@ -118,6 +119,7 @@ AnjutaToken *anjuta_token_next (AnjutaToken *token);
 AnjutaToken *anjuta_token_next_sibling (AnjutaToken *token);
 AnjutaToken *anjuta_token_next_child (AnjutaToken *token);
 AnjutaToken *anjuta_token_previous (AnjutaToken *token);
+AnjutaToken *anjuta_token_previous_sibling (AnjutaToken *token);
 AnjutaToken *anjuta_token_last_child (AnjutaToken *token);
 AnjutaToken *anjuta_token_parent (AnjutaToken *token);
 gboolean anjuta_token_compare (AnjutaToken *tokena, AnjutaToken *tokenb);

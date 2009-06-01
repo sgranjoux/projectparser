@@ -121,17 +121,17 @@ NUMBER      [0-9][0-9.]*
 <INITIAL,ARGUMENT>\[              {
 	AnjutaToken *token;
     yy_push_state (STRING, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_OPEN | ANJUTA_TOKEN_IRRELEVANT); 
+    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_OPEN | ANJUTA_TOKEN_IRRELEVANT); 
 	yylval->token = token;
-	return OPERATOR;
+	return SPACE;
 }
 
 <STRING>\]  {
 	AnjutaToken *token;
     yy_pop_state (yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_CLOSE | ANJUTA_TOKEN_IRRELEVANT);   
+    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_CLOSE | ANJUTA_TOKEN_IRRELEVANT);   
 	yylval->token = token;
-	return OPERATOR;
+	return SPACE;
 }
 
 <ARGUMENT>, {

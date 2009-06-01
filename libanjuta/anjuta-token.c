@@ -296,6 +296,12 @@ anjuta_token_next_child (AnjutaToken *token)
 }
 
 AnjutaToken *
+anjuta_token_previous_sibling (AnjutaToken *token)
+{
+	return token->prev;
+}
+
+AnjutaToken *
 anjuta_token_last_child (AnjutaToken *token)
 {
 	AnjutaToken *last = NULL;
@@ -367,10 +373,10 @@ anjuta_token_get_length (AnjutaToken *token)
 static void
 anjuta_token_evaluate_token (AnjutaToken *token, GString *value)
 {
-	if (!(anjuta_token_get_flags (token) & ANJUTA_TOKEN_IRRELEVANT) && (anjuta_token_get_string (token) != NULL))
-	{
-		g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
-	}
+	//if (!(anjuta_token_get_flags (token) & ANJUTA_TOKEN_IRRELEVANT) && (anjuta_token_get_string (token) != NULL))
+	//{
+	g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
+	//}
 }	
 
 gchar *
@@ -473,6 +479,29 @@ anjuta_token_merge (AnjutaToken *first, AnjutaToken *end)
 		
 		g_node_unlink ((GNode *)tok);
 		child = (AnjutaToken *)g_node_insert_after ((GNode *)first, (GNode *)child, (GNode *)tok);
+
+	}
+	while (tok != end);
+
+	return first;
+}
+
+AnjutaToken *
+anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end)
+{
+	AnjutaToken *child;
+	AnjutaToken *tok;
+
+	if (first == end) return first;
+
+	child = (AnjutaToken *)g_node_first_child ((GNode *)first);
+	do
+	{
+		tok = (AnjutaToken *)g_node_prev_sibling ((GNode *)first);
+		if (tok == NULL) break;
+		
+		g_node_unlink ((GNode *)tok);
+		child = (AnjutaToken *)g_node_insert_before ((GNode *)first, (GNode *)child, (GNode *)tok);
 
 	}
 	while (tok != end);

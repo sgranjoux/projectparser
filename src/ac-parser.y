@@ -71,8 +71,12 @@
 %token	<token> AC_INIT
 
 %type <token> pkg_check_modules obsolete_ac_output ac_config_files 
-%type <token> optional_space name space_list comma_separator
+%type <token> name strip_name
+%type <token> space_list strip_space_list
 %type <token> list_empty_optional list_arg_optional list_optional_optional
+%type <token> spaces
+%type <token> optional_space
+
 
 %defines
 
@@ -122,19 +126,18 @@ line:
 	;
 
 pkg_check_modules:
-	PKG_CHECK_MODULES  optional_space  name  comma_separator  space_list   list_empty_optional  {
+	PKG_CHECK_MODULES  name  COMMA  space_list   list_empty_optional  {
 		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
-		if ($2 == NULL) anjuta_token_insert_after ($1, anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL));
-		anjuta_token_merge ($1, $6);
+		anjuta_token_merge ($1, $5);
 	}
-	| PKG_CHECK_MODULES  optional_space name  comma_separator  space_list  list_arg_optional
+	| PKG_CHECK_MODULES  name  COMMA  space_list  list_arg_optional
 	;
 
 obsolete_ac_output:
-	OBSOLETE_AC_OUTPUT  optional_space  space_list  list_optional_optional {
+	OBSOLETE_AC_OUTPUT  space_list  list_optional_optional {
+		g_message ("get obsolete ac output");
 		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT); 
-		if ($2 == NULL) anjuta_token_insert_after ($1, anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL));
-		anjuta_token_merge ($1, $4);
+		anjuta_token_merge ($1, $3);
 	}
 	;
 
@@ -143,91 +146,106 @@ ac_output:
 	;
 	
 ac_config_files:
-	AC_CONFIG_FILES  optional_space space_list  list_optional_optional {
-		if ($2 == NULL) anjuta_token_insert_after ($1, anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL));
-		anjuta_token_merge ($1, $4);
+	AC_CONFIG_FILES  space_list  list_optional_optional {
+		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT); 
+		anjuta_token_merge ($1, $3);
 	}
 	;
 	
 list_empty_optional:
-	optional_space  RIGHT_PAREN {
-		$$ = $1 == NULL ? $2 : anjuta_token_merge ($1, $2);
+	RIGHT_PAREN
+	| COMMA optional_space  RIGHT_PAREN {
+		$$ = $3;
 	}
-	| optional_space  COMMA  optional_space  RIGHT_PAREN {
-		$$ = anjuta_token_merge ($1 != NULL ? $1 :  $2, $4);
-	}
-	| optional_space  COMMA  optional_space  COMMA  arg_string_or_empty  RIGHT_PAREN {
-		$$ = anjuta_token_merge ($1 != NULL ? $1 :  $2, $6);
+	| COMMA  optional_space  COMMA  arg_string_or_empty  RIGHT_PAREN {
+		$$ = $5;
 	}
 	;
 
 list_arg_optional:
-	optional_space  COMMA  arg_string  RIGHT_PAREN {
-		$$ = anjuta_token_merge ($1 != NULL ? $1 : $2, $4);
+	COMMA arg_string  RIGHT_PAREN {
+		$$ = $3;
 	}
-	| optional_space  COMMA  arg_string  COMMA  arg_string_or_empty  RIGHT_PAREN {
-		$$ = anjuta_token_merge ($1 != NULL ? $1 :  $2, $6);
+	| COMMA  arg_string  COMMA  arg_string_or_empty  RIGHT_PAREN {
+		$$ = $5;
 	}
 	;
 
 list_optional_optional:
-	optional_space RIGHT_PAREN {
-		$$ = $1 == NULL ? $2 : anjuta_token_merge ($1, $2);
+	RIGHT_PAREN
+	| COMMA  arg_string_or_empty  RIGHT_PAREN {
+		$$ =$3;
 	}
-	| optional_space COMMA arg_string_or_empty RIGHT_PAREN {
-		$$ =anjuta_token_merge ($1 != NULL ? $1 : $2, $4);
-	}
-	| optional_space COMMA arg_string_or_empty COMMA arg_string_or_empty RIGHT_PAREN {
-		$$ = anjuta_token_merge ($1 != NULL ? $1 :  $2, $6);
+	| COMMA  arg_string_or_empty  COMMA  arg_string_or_empty RIGHT_PAREN {
+		$$ = $5;
 	}
 	;
 
 arg_string_or_empty:
 	/* empty */
-	| SPACE
-	| arg_string
+	| arg_string_or_space
+	;
+
+arg_string_or_space:
+	SPACE
+	| arg
+	| arg_string_or_space arg
+	| arg_string_or_space SPACE
 	;
 
 arg_string:
-	arg
-	| SPACE arg 
+	optional_space arg
 	| arg_string arg
 	| arg_string SPACE
 	;
 
-comma_separator:
-	optional_space COMMA optional_space {
-		$$ = anjuta_token_merge (
-			anjuta_token_insert_before ($1 != NULL ? $1 : $2,
-					anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL)),
-			$3 != NULL ? $3 : $2);
+name:
+	optional_space strip_name optional_space {
+		if ($1)
+		{
+			anjuta_token_merge ($1, $3 != NULL ? $3 : $2);
+		}
+		else if ($3)
+		{
+			$$ = anjuta_token_merge ($2, $3);
+		}
+		else
+		{
+			$$ = $2;
+		}
 	}
 	;
 
-name: 
+strip_name: 
 	NAME
 	| MACRO
 	| OPERATOR
-	| name MACRO {
+	| strip_name MACRO {
 		$$ = anjuta_token_merge ($1, $2);
 	}
-	| name OPERATOR {
+	| strip_name OPERATOR {
 		$$ = anjuta_token_merge ($1, $2);
 	}
-	| name NAME {
+	| strip_name NAME {
 		$$ = anjuta_token_merge ($1, $2);
 	}
 	;
 
-
 space_list:
-	name {
+	optional_space strip_space_list optional_space {
+		if ($1) anjuta_token_merge_previous ($2, $1);
+		if ($3) anjuta_token_merge ($2, $3);
+		$$ = $2;
+	}
+
+strip_space_list:
+	strip_name {
 		$$ = anjuta_token_merge (
 			anjuta_token_insert_before ($1,
 					anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL)),
 			$1);
 	}
-	| space_list SPACE name {
+	| strip_space_list spaces strip_name {
 		anjuta_token_merge ($1, $3);
 	}
 	;
@@ -236,8 +254,15 @@ optional_space:
 	/* empty */ {
 		$$ = NULL;
 	}
-	| SPACE {
+	| spaces {
 		anjuta_token_set_flags ($1, ANJUTA_TOKEN_IRRELEVANT);
+	}
+	;
+
+spaces:
+	SPACE
+	| spaces SPACE {
+		anjuta_token_merge ($1, $2);
 	}
 	;
 

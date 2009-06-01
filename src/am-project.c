@@ -967,9 +967,8 @@ project_reload_packages   (AmpProject *project)
 		
 		if (!anjuta_token_match (pkg_check_tok, ANJUTA_SEARCH_OVER, sequence, &module)) break;
 
-		arg = anjuta_token_next_child (module);	/* Optional space */
+		arg = anjuta_token_next_child (module);	/* Name */
 
-		arg = anjuta_token_next_sibling (arg);	/* Name */
 		value = anjuta_token_evaluate (arg);
 		mod = amp_module_new (arg);
 		mod->packages = NULL;
@@ -1123,8 +1122,7 @@ project_list_config_files (AmpProject *project)
 		AnjutaToken *arg;
 
 		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence)) break;
-		arg = anjuta_token_next_child (sequence);	/* Optional space */
-		arg = anjuta_token_next_sibling (arg);			/* List */
+		arg = anjuta_token_next_child (sequence);	/* List */
 		amp_project_add_config_files (project, arg, &config_files);
 		sequence = anjuta_token_next_sibling (sequence);
 	}
@@ -1141,8 +1139,7 @@ project_list_config_files (AmpProject *project)
 			AnjutaToken *arg;
 
 			if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence)) break;
-			arg = anjuta_token_next_child (sequence);	/* Optional space */
-			arg = anjuta_token_next_sibling (arg);			/* List */
+			arg = anjuta_token_next_child (sequence);	/* List */
 			amp_project_add_config_files (project, arg, &config_files);
 			sequence = anjuta_token_next_sibling (sequence);
 		}
