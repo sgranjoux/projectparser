@@ -306,26 +306,22 @@ find_list_start (AnjutaToken *item)
 	return start;
 }
 
-#if 0
 gboolean
-remove_list_item (AnjutaToken *first, AnjutaToken *last)
+remove_list_item (AnjutaToken *token)
 {
-	AnjutaToken *begin;
 	AnjutaTokenStyle *style;
 
 	DEBUG_PRINT ("remove list item");
-	begin = find_list_start (first);
-	if (begin == NULL) return FALSE;
 
 	style = anjuta_token_style_new (0);
-	anjuta_token_style_update (style, begin);
+	anjuta_token_style_update (style, anjuta_token_parent (token));
 	anjuta_token_style_free (style);
 	
-	anjuta_token_remove (first, last);
+	anjuta_token_remove (token);
 
 	return TRUE;
 }
-#endif
+
 
 /*
  * URI and path manipulation functions -----------------------------
@@ -2707,7 +2703,7 @@ impl_remove_source (GbfProject  *_project,
 	
 	source = AMP_SOURCE_DATA (g_node);
 
-	//remove_list_item (source->token);
+	remove_list_item (source->token);
 	
 	g_node_destroy (g_node);
 }

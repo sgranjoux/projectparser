@@ -192,37 +192,13 @@ anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, Anjut
 }
 
 
-#if 0
 gboolean
-anjuta_token_remove (AnjutaToken *token, AnjutaToken *end)
+anjuta_token_remove (AnjutaToken *token)
 {
-	AnjutaToken *prev = anjuta_token_previous (token);
-	
-	if (end->flags & ANJUTA_TOKEN_CLOSE)
-	{
-		if (prev->flags & ANJUTA_TOKEN_NEXT)
-		{
-			/* Remove last element, remove last next, keep end token */
-			token = prev;
-			end = anjuta_token_previous (end);
-		}
-		else if (prev->flags & ANJUTA_TOKEN_OPEN)
-		{
-			/* Remove all element, remove start token too */
-			token = prev;
-		}
-	}
-	
-	for (;token != NULL;)
-	{
-		token->flags |= ANJUTA_TOKEN_REMOVED;
-		if (token == end) break;
-		token = anjuta_token_next (token);
-	}
+	ANJUTA_TOKEN_DATA (token)->flags |= ANJUTA_TOKEN_REMOVED;
 
 	return TRUE;
 }
-#endif
 
 gboolean
 anjuta_token_compare (AnjutaToken *toka, AnjutaToken *tokb)
@@ -332,6 +308,12 @@ anjuta_token_last_child (AnjutaToken *token)
 	return last;
 }
 
+AnjutaToken *
+anjuta_token_parent (AnjutaToken *token)
+{
+	return token->parent;
+}
+
 void
 anjuta_token_set_type (AnjutaToken *token, gint type)
 {
@@ -430,6 +412,28 @@ anjuta_token_evaluate (AnjutaToken *token)
 	return g_string_free (value, FALSE);
 }
 
+static  void
+anjuta_token_value_child (AnjutaToken *token, GString *value)
+{
+	g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
+
+	if (token->children) anjuta_token_evaluate_child (token->children, value);
+
+	if (token->next) anjuta_token_evaluate_child (token->next, value);
+}
+
+gchar *
+anjuta_token_value (AnjutaToken *token)
+{
+	GString *value = g_string_new (NULL);
+
+	g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
+	
+	if (token->children) anjuta_token_value_child (token->children, value);
+	
+	return g_string_free (value, FALSE);
+}
+
 #if 0
 gchar *
 anjuta_token_get_value_range (AnjutaToken *start, AnjutaToken *end)
@@ -474,6 +478,50 @@ anjuta_token_merge (AnjutaToken *first, AnjutaToken *end)
 	while (tok != end);
 
 	return first;
+}
+
+AnjutaToken *
+anjuta_token_copy (AnjutaToken *token)
+{
+	AnjutaToken *copy = NULL;
+
+	if (copy != NULL)
+	{
+		AnjutaTokenData *org = ANJUTA_TOKEN_DATA (token);
+		AnjutaTokenData *data = NULL;
+		AnjutaToken *child;
+		AnjutaToken *last;
+
+		data = g_slice_new0 (AnjutaTokenData);
+		data->type =org->type;
+		data->flags = org->type;
+		if ((data->flags & ANJUTA_TOKEN_STATIC) || (org->pos == NULL))
+		{
+			data->pos = org->pos;
+		}
+		else
+		{
+			data->pos = g_strdup (ANJUTA_TOKEN_DATA (token)->pos);
+		}
+		data->length = org->length;
+
+		copy = (AnjutaToken *)g_node_new (data);
+
+		last = NULL;
+		for (child = anjuta_token_next_child (token); child != NULL; child = anjuta_token_next_sibling (child))
+		{
+			AnjutaToken *new_child = anjuta_token_copy (child);
+			last =  last == NULL ? anjuta_token_insert_child (copy, new_child) : anjuta_token_insert_after (last, new_child);
+		}
+	}
+
+	return copy;
+}
+
+AnjutaToken *
+anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *sibling)
+{
+	return (AnjutaToken *)g_node_insert_after ((GNode *)parent, (GNode *)NULL, (GNode *)sibling);
 }
 
 AnjutaToken *
@@ -543,12 +591,11 @@ anjuta_token_free (AnjutaToken *token)
 /* Token style object
  *---------------------------------------------------------------------------*/
 
-#if 0
 typedef struct _AnjutaTokenStyleSeparator AnjutaTokenStyleSeparator;
 
 struct _AnjutaTokenStyleSeparator
 {
-	AnjutaTokenRange range;
+	AnjutaToken* token;
 	guint count;
 };
 
@@ -579,43 +626,35 @@ anjuta_token_style_separator_free (AnjutaTokenStyleSeparator *sep)
 
 void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 {
-	GList *split_list;
-	GList *link;
 	GHashTable *sep_list;
 	AnjutaTokenStyleSeparator *sep;
 	AnjutaTokenStyleSeparator *eol;
 	AnjutaTokenStyleSeparator *value;
+	AnjutaToken *arg;
 	GHashTableIter iter;
 	gchar *key;
 
-	split_list = anjuta_token_split_list (list);
 
-	if (split_list == NULL) return;
-	
 	/* Find & Replace first separator */
 	anjuta_token_free (style->first);
-	style->first = anjuta_token_copy_exclude_range ((AnjutaToken *)split_list->data, (AnjutaToken *)split_list->next->data);
-
+	arg = anjuta_token_next_child (list);
+	style->first = anjuta_token_copy(arg);
+	arg = anjuta_token_next_sibling (arg);
+	 
 	/* Find intermediate separator */
 	sep_list = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, anjuta_token_style_separator_free);
-	link = split_list->next->next;
-	if (link != NULL)
+	if (anjuta_token_next_sibling (arg) != NULL)
 	{
-		for (;link->next->next != NULL; link = link->next->next)
+		for (; anjuta_token_next_sibling (anjuta_token_next_sibling (arg)) != NULL; arg = anjuta_token_next_sibling (arg))
 		{
-			AnjutaToken *first;
-			AnjutaToken *last;
-
-			first = anjuta_token_next ((AnjutaToken *)link->data);
-			last =anjuta_token_previous ((AnjutaToken *)link->next->data);
+			arg = anjuta_token_next_sibling (arg);		/* Skip  item */
 			
-			key = anjuta_token_get_value_range (first, last);
+			key = anjuta_token_value (arg);
 			sep = g_hash_table_lookup (sep_list, key);
 			if (sep == NULL)
 			{
 				sep = anjuta_token_style_separator_new ();
-				sep->range.first = first;
-				sep->range.last = last;
+				sep->token = arg;
 				sep->count = 1;
 				g_hash_table_insert (sep_list, key, sep);
 			}
@@ -629,15 +668,7 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 	
 	/* Find & Replace last separator */
 	anjuta_token_free (style->last);
-	if (link == NULL)
-	{
-		style->last = NULL;
-	}
-	else
-	{
-		style->last = anjuta_token_copy_exclude_range ((AnjutaToken *)link->data, (AnjutaToken *)link->next->data);
-	}
-	g_list_free (split_list);
+	style->last = anjuta_token_copy(arg);
 
 	/* Replace the most used intermediate separator */
 	anjuta_token_free (style->sep);
@@ -666,16 +697,16 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 			}
 		}
 	}
-	if (eol != NULL) style->eol = anjuta_token_copy_include_range (eol->range.first, eol->range.last);
-	if (sep != NULL) style->sep = anjuta_token_copy_include_range (sep->range.first, sep->range.last);
+	if (eol != NULL) style->eol = anjuta_token_copy (eol->token);
+	if (sep != NULL) style->sep = anjuta_token_copy (sep->token);
 
 	g_hash_table_destroy (sep_list);
 
 	DEBUG_PRINT("Update style new:2");
-	DEBUG_PRINT("first \"%s\"", style->first == NULL ? "(null)" : anjuta_token_get_value_range (style->first, NULL));
-	DEBUG_PRINT("sep \"%s\"", style->sep == NULL ? "(null)" : anjuta_token_get_value_range (style->sep, NULL));
-	DEBUG_PRINT("eol \"%s\"", style->eol == NULL ? "(null)" : anjuta_token_get_value_range (style->eol, NULL));
-	DEBUG_PRINT("last \"%s\"", style->last == NULL ? "(null)" : anjuta_token_get_value_range (style->last, NULL));
+	DEBUG_PRINT("first \"%s\"", style->first == NULL ? "(null)" : anjuta_token_get_value (style->first));
+	DEBUG_PRINT("sep \"%s\"", style->sep == NULL ? "(null)" : anjuta_token_get_value (style->sep));
+	DEBUG_PRINT("eol \"%s\"", style->eol == NULL ? "(null)" : anjuta_token_get_value (style->eol));
+	DEBUG_PRINT("last \"%s\"", style->last == NULL ? "(null)" : anjuta_token_get_value (style->last));
 }	
 	
 void anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
@@ -683,6 +714,7 @@ void anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
 	GList *args;
 	GList *link;
 
+#if 0	
 	args = anjuta_token_split_list (list);
 
 	if (args == NULL) return;
@@ -694,6 +726,7 @@ void anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
 	}
 
 	/* FIXME: complete....*/
+#endif
 }
 
 AnjutaTokenStyle *
@@ -716,7 +749,6 @@ anjuta_token_style_free (AnjutaTokenStyle *style)
 	anjuta_token_free (style->last);
 	g_slice_free (AnjutaTokenStyle, style);
 }
-#endif
 
 /* Token file objects
  *---------------------------------------------------------------------------*/
