@@ -53,7 +53,7 @@
 %type <token> head_token target_token value_token name_token space_token rule_token equal_token token automake_token prerequisite_token
 %type <token> am_variable
 %type <token> value head space prerequisite target depend rule variable commands head_with_space
-%type <token> value_list prerequisite_list target_list token_list target_list2
+%type <token> value_list strip_value_list prerequisite_list target_list token_list target_list2
 %type <token> optional_space space_list_value
 
 %defines
@@ -132,27 +132,26 @@ am_variable:
 	| AM_VARIABLE optional_space equal_token optional_space
 	;
 				
-space_list_value: optional_space  equal_token   optional_space  value_list  optional_space {
-		if (($1 != NULL) || ($3 != NULL))
-		{
-			anjuta_token_merge (
-					anjuta_token_insert_before ($1 != NULL ? $1 : $2,
-						anjuta_token_new_static (ANJUTA_TOKEN_NONE, NULL)),
-				$3 != NULL ? $3 : $2);	
-		}
-        anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
-		$$ = $5 != NULL ? $5 : $4;
+space_list_value: optional_space  equal_token   value_list  {
+		$$ = $3;
 	}
 	;
-		
+
 value_list:
+	optional_space strip_value_list optional_space {
+		if ($1) anjuta_token_merge_previous ($2, $1);
+		if ($3) anjuta_token_merge ($2, $3);
+		$$ = $2;
+	}
+		
+strip_value_list:
 	value {
 		$$ = anjuta_token_merge (
 			anjuta_token_insert_before ($1,
 					anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL)),
 			$1);
 	}
-	| value_list  space  value {
+	| strip_value_list  space  value {
 		anjuta_token_set_flags ($2, ANJUTA_TOKEN_NEXT);
 		anjuta_token_merge ($1, $3);
 	}

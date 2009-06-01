@@ -1243,6 +1243,8 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 
 	arg = anjuta_token_next_child (start);		/* Get variable data */
 	if (arg == NULL) return;
+	if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) arg = anjuta_token_next_sibling (arg); /* Skip space */
+	if (arg == NULL) return;
 	arg = anjuta_token_next_sibling (arg);			/* Skip equal */
 	if (arg == NULL) return;
 
@@ -1333,6 +1335,8 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 
 		arg = anjuta_token_next_child (start);		/* Get variable data */
 		if (arg == NULL) return;
+		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) arg = anjuta_token_next_sibling (arg); /* Skip space */
+		if (arg == NULL) return;
 		arg = anjuta_token_next_sibling (arg);			/* Skip equal */
 		if (arg == NULL) return;
 
@@ -1397,6 +1401,8 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNod
 
 	//g_message ("find subdirs");
 	arg = anjuta_token_next_child (start);		/* Get variable data */
+	if (arg == NULL) return;
+	if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) arg = anjuta_token_next_sibling (arg); /* Skip space */
 	if (arg == NULL) return;
 	arg = anjuta_token_next_sibling (arg);			/* Skip equal */
 	if (arg == NULL) return;
