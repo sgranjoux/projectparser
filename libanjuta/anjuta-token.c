@@ -514,7 +514,7 @@ anjuta_token_copy (AnjutaToken *token)
 {
 	AnjutaToken *copy = NULL;
 
-	if (copy != NULL)
+	if (token != NULL)
 	{
 		AnjutaTokenData *org = ANJUTA_TOKEN_DATA (token);
 		AnjutaTokenData *data = NULL;
@@ -660,6 +660,7 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 	AnjutaTokenStyleSeparator *eol;
 	AnjutaTokenStyleSeparator *value;
 	AnjutaToken *arg;
+	AnjutaToken *last;
 	GHashTableIter iter;
 	gchar *key;
 
@@ -667,23 +668,29 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 	/* Find & Replace first separator */
 	anjuta_token_free (style->first);
 	arg = anjuta_token_next_child (list);
-	style->first = anjuta_token_copy(arg);
-	arg = anjuta_token_next_sibling (arg);
+	if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE)
+	{
+		style->first = anjuta_token_copy(arg);
+		arg = anjuta_token_next_sibling (arg);
+	}
 	 
 	/* Find intermediate separator */
 	sep_list = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, anjuta_token_style_separator_free);
-	if (anjuta_token_next_sibling (arg) != NULL)
+	last = NULL;
+	for (; arg != NULL; arg = anjuta_token_next_sibling (arg))
 	{
-		for (; anjuta_token_next_sibling (anjuta_token_next_sibling (arg)) != NULL; arg = anjuta_token_next_sibling (arg))
+		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE)
 		{
-			arg = anjuta_token_next_sibling (arg);		/* Skip  item */
-			
-			key = anjuta_token_value (arg);
+			last = arg;
+		}
+		else if (last != NULL)
+		{
+			key = anjuta_token_evaluate (last);
 			sep = g_hash_table_lookup (sep_list, key);
 			if (sep == NULL)
 			{
 				sep = anjuta_token_style_separator_new ();
-				sep->token = arg;
+				sep->token = last;
 				sep->count = 1;
 				g_hash_table_insert (sep_list, key, sep);
 			}
@@ -692,12 +699,13 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 				sep->count++;
 				g_free (key);
 			}
+			last = NULL;
 		}
-	}	
+	}
 	
 	/* Find & Replace last separator */
 	anjuta_token_free (style->last);
-	style->last = anjuta_token_copy(arg);
+	style->last = anjuta_token_copy (last);
 
 	/* Replace the most used intermediate separator */
 	anjuta_token_free (style->sep);
@@ -732,10 +740,10 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 	g_hash_table_destroy (sep_list);
 
 	DEBUG_PRINT("Update style new:2");
-	DEBUG_PRINT("first \"%s\"", style->first == NULL ? "(null)" : anjuta_token_get_value (style->first));
-	DEBUG_PRINT("sep \"%s\"", style->sep == NULL ? "(null)" : anjuta_token_get_value (style->sep));
-	DEBUG_PRINT("eol \"%s\"", style->eol == NULL ? "(null)" : anjuta_token_get_value (style->eol));
-	DEBUG_PRINT("last \"%s\"", style->last == NULL ? "(null)" : anjuta_token_get_value (style->last));
+	DEBUG_PRINT("first \"%s\"", style->first == NULL ? "(null)" : anjuta_token_evaluate (style->first));
+	DEBUG_PRINT("sep \"%s\"", style->sep == NULL ? "(null)" : anjuta_token_evaluate (style->sep));
+	DEBUG_PRINT("eol \"%s\"", style->eol == NULL ? "(null)" : anjuta_token_evaluate (style->eol));
+	DEBUG_PRINT("last \"%s\"", style->last == NULL ? "(null)" : anjuta_token_evaluate (style->last));
 }	
 	
 void anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
