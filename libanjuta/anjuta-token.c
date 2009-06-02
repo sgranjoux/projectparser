@@ -902,7 +902,7 @@ anjuta_token_file_save (AnjutaTokenFile *file, GError **error)
 	data.error = error;
 	data.stream = stream;
 	data.fail = FALSE;
-	g_node_traverse ((GNode *)file->first, G_IN_ORDER, G_TRAVERSE_ALL, -1, (GNodeTraverseFunc)save_node, &data);
+	g_node_traverse ((GNode *)file->first, G_PRE_ORDER, G_TRAVERSE_ALL, -1, (GNodeTraverseFunc)save_node, &data);
 	ok = g_output_stream_close (G_OUTPUT_STREAM (stream), NULL, NULL);
 	g_object_unref (stream);
 	

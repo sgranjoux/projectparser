@@ -310,6 +310,7 @@ gboolean
 remove_list_item (AnjutaToken *token)
 {
 	AnjutaTokenStyle *style;
+	AnjutaToken *space;
 
 	DEBUG_PRINT ("remove list item");
 
@@ -318,6 +319,20 @@ remove_list_item (AnjutaToken *token)
 	anjuta_token_style_free (style);
 	
 	anjuta_token_remove (token);
+	space = anjuta_token_next_sibling (token);
+	if (space && (anjuta_token_get_type (space) == ANJUTA_TOKEN_SPACE) && (anjuta_token_next (space) != NULL))
+	{
+		/* Remove following space */
+		anjuta_token_remove (space);
+	}
+	else
+	{
+		space = anjuta_token_previous_sibling (token);
+		if (space && (anjuta_token_get_type (space) == ANJUTA_TOKEN_SPACE) && (anjuta_token_previous (space) != NULL))
+		{
+			anjuta_token_remove (space);
+		}
+	}
 
 	return TRUE;
 }
