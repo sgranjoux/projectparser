@@ -316,7 +316,6 @@ remove_list_item (AnjutaToken *token)
 
 	style = anjuta_token_style_new (0);
 	anjuta_token_style_update (style, anjuta_token_parent (token));
-	anjuta_token_style_free (style);
 	
 	anjuta_token_remove (token);
 	space = anjuta_token_next_sibling (token);
@@ -333,7 +332,29 @@ remove_list_item (AnjutaToken *token)
 			anjuta_token_remove (space);
 		}
 	}
+	
+	anjuta_token_style_format (style, anjuta_token_parent (token));
+	anjuta_token_style_free (style);
+	
+	return TRUE;
+}
 
+static gboolean
+add_list_item (AnjutaToken *list, AnjutaToken *token)
+{
+	AnjutaTokenStyle *style;
+	AnjutaToken *space;
+
+	style = anjuta_token_style_new (0);
+	anjuta_token_style_update (style, anjuta_token_parent (list));
+	
+	space = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
+	space = anjuta_token_insert_after (list, space);
+	anjuta_token_insert_after (space, token);
+
+	anjuta_token_style_format (style, anjuta_token_parent (list));
+	anjuta_token_style_free (style);
+	
 	return TRUE;
 }
 
@@ -2681,13 +2702,8 @@ impl_add_source (GbfProject  *_project,
 	}
 	else
 	{
-		AnjutaToken *tok;
-
-		tok = AMP_SOURCE_DATA (last)->token;
-		token = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
-		tok = anjuta_token_insert_after (tok, token);
 		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
-		tok = anjuta_token_insert_after (tok, token);
+		add_list_item (AMP_SOURCE_DATA (last)->token, token);
 	}
 	
 	/* Add source node in project tree */

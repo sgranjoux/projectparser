@@ -745,25 +745,48 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 	DEBUG_PRINT("eol \"%s\"", style->eol == NULL ? "(null)" : anjuta_token_evaluate (style->eol));
 	DEBUG_PRINT("last \"%s\"", style->last == NULL ? "(null)" : anjuta_token_evaluate (style->last));
 }	
-	
-void anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
+
+static void
+anjuta_token_style_format_line (AnjutaTokenStyle *style, AnjutaToken *bol, AnjutaToken *eol)
 {
-	GList *args;
-	GList *link;
+	
+}
 
-#if 0	
-	args = anjuta_token_split_list (list);
+void
+anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
+{
+	AnjutaToken *arg;
 
-	if (args == NULL) return;
-
-	if (((AnjutaToken *)args->next->data)->flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED))
+	if (style->sep == NULL)
 	{
-		/* Update first separator */
-		//anjuta_token_free_exclude_range ((AnjutaToken *)args->data, (AnjutaToken *)args->next->data);
+		for (arg = anjuta_token_next_child (list); arg != NULL; arg = anjuta_token_next_sibling (arg))
+		{
+			if ((anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) && (anjuta_token_get_flags (arg) & (ANJUTA_TOKEN_ADDED)))
+			{
+				anjuta_token_insert_after (arg, anjuta_token_copy (style->eol));
+				anjuta_token_free (arg);
+			}
+		}
 	}
-
-	/* FIXME: complete....*/
-#endif
+	else
+	{
+		AnjutaToken *bol = anjuta_token_next_child (list);
+		gboolean modified = FALSE;
+		
+		for (arg = bol; arg != NULL; arg = anjuta_token_next_sibling (arg))
+		{
+			gchar *value = anjuta_token_evaluate (arg);
+			if (anjuta_token_get_flags (arg) & (ANJUTA_TOKEN_REMOVED | ANJUTA_TOKEN_ADDED)) modified = TRUE;
+			if (strchr (value, '\n'))
+			{
+				if (modified) anjuta_token_style_format_line (style, list, arg);
+				bol = arg;
+				if (style->sep == NULL) modified = FALSE;
+			}
+			g_free (value);
+		}
+		if (modified) anjuta_token_style_format_line (style, bol, NULL);
+	}
 }
 
 AnjutaTokenStyle *
