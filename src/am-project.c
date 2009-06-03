@@ -2639,9 +2639,10 @@ impl_add_source (GbfProject  *_project,
 	target = (AmpTarget *)*buffer;
 	g_free (buffer);
 
+	if (AMP_NODE_DATA (target)->type != AMP_NODE_TARGET) return;
+
 	group = (AmpGroup *)(target->parent);
 
-#if 0
 	/* Add token */
 	last = g_node_last_child (target);
 	if (last == NULL)
@@ -2655,7 +2656,7 @@ impl_add_source (GbfProject  *_project,
 
 
 		/* Search where the target is declared */
-		tok = AMP_TARGET_DATA (target)->token.last;
+		tok = AMP_TARGET_DATA (target)->token;
 		close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
 		eol_tok = anjuta_token_new_static (ANJUTA_TOKEN_EOL, NULL);
 		anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, tok, &tok);
@@ -2672,23 +2673,22 @@ impl_add_source (GbfProject  *_project,
 		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " "));
 		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_ADDED, "="));
 		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " "));
-		token.first = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
-		tok = anjuta_token_insert_after (tok, token.first);
-		token.last = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
-		tok = anjuta_token_insert_after (tok, token.last);
+		token = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
+		tok = anjuta_token_insert_after (tok, token);
+		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
+		tok = anjuta_token_insert_after (tok, token);
 		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_EOL | ANJUTA_TOKEN_ADDED, "\n"));
 	}
 	else
 	{
 		AnjutaToken *tok;
 
-		tok = AMP_SOURCE_DATA (last)->token.last;
-		token.first = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
-		tok = anjuta_token_insert_after (tok, token.first);
-		token.last = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
-		tok = anjuta_token_insert_after (tok, token.last);
+		tok = AMP_SOURCE_DATA (last)->token;
+		token = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
+		tok = anjuta_token_insert_after (tok, token);
+		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
+		tok = anjuta_token_insert_after (tok, token);
 	}
-#endif
 	
 	/* Add source node in project tree */
 	source = amp_source_new (AMP_GROUP_DATA (group)->file, uri);
