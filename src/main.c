@@ -215,8 +215,6 @@ main(int argc, char *argv[])
 	/* Free objects */
 	g_object_unref (project);
 	close_output ();
-
-	DEBUG_PRINT ("Hello in debug print");
 	
 	return (0);
 }

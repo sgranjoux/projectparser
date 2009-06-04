@@ -160,7 +160,7 @@ void anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file);
 gboolean anjuta_token_file_save (AnjutaTokenFile *file, GError **error);
 
 void anjuta_token_file_append (AnjutaTokenFile *file, AnjutaToken *token);
-void anjuta_token_update_line_width (AnjutaTokenFile *file, guint width);
+void anjuta_token_file_update_line_width (AnjutaTokenFile *file, guint width);
 
 AnjutaToken* anjuta_token_file_first (AnjutaTokenFile *file);
 AnjutaToken* anjuta_token_file_last (AnjutaTokenFile *file);

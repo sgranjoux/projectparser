@@ -182,6 +182,7 @@ static GbfProject *parent_class;
    Private prototypes
    ---------------------------------------------------------------------- */
 
+#if 0
 static gboolean        uri_is_equal                 (const gchar       *uri1,
 						     const gchar       *uri2);
 static gboolean        uri_is_parent                (const gchar       *parent_uri,
@@ -189,11 +190,12 @@ static gboolean        uri_is_parent                (const gchar       *parent_u
 static gboolean        uri_is_local_path            (const gchar       *uri);
 static gchar          *uri_normalize                (const gchar       *path_or_uri,
 						     const gchar       *base_uri);
+#endif
 
 static gboolean        project_reload               (AmpProject      *project,
 						     GError           **err);
 
-static void            project_data_unload         (AmpProject      *project);
+//static void            project_data_unload         (AmpProject      *project);
 static void            project_data_init            (AmpProject      *project);
 
 static void            amp_project_class_init    (AmpProjectClass *klass);
@@ -288,24 +290,6 @@ file_type (GFile *file, const gchar *filename)
 	return type;
 }
 
-static AnjutaToken *
-find_list_start (AnjutaToken *item)
-{
-	AnjutaToken *open_tok;
-	AnjutaToken *start;
-	
-	open_tok = anjuta_token_new_static (ANJUTA_TOKEN_OPEN, NULL);
-	
-	if (!anjuta_token_match (open_tok, ANJUTA_SEARCH_OVER | ANJUTA_SEARCH_BACKWARD, item, &start))
-	{
-		start = NULL;
-	}
-	
-	anjuta_token_free (open_tok);
-
-	return start;
-}
-
 gboolean
 remove_list_item (AnjutaToken *token)
 {
@@ -359,6 +343,7 @@ add_list_item (AnjutaToken *list, AnjutaToken *token)
 }
 
 
+#if 0
 /*
  * URI and path manipulation functions -----------------------------
  */
@@ -448,6 +433,7 @@ uri_normalize (const gchar *path_or_uri, const gchar *base_uri)
 
 	return normalized_uri;
 }
+#endif
 
 static void
 error_set (GError **error, gint code, const gchar *message)
@@ -995,7 +981,6 @@ project_reload_packages   (AmpProject *project)
 	{
 		AnjutaToken *module;
 		AnjutaToken *arg;
-		AnjutaToken *next;
 		gchar *value;
 		AmpModule *mod;
 		AmpPackage *pack;
@@ -1053,12 +1038,12 @@ project_reload_packages   (AmpProject *project)
 static void
 amp_project_add_group (AmpProject *project, GFile *file, const gchar *makefile)
 {
+#if 0
 	GList *files = NULL;
 	GList *item;
 	GNode *parent;
 	GNode *child;
 
-#if 0
 	/* Get all parents */
 	while (file)
 	{
@@ -1186,7 +1171,7 @@ project_list_config_files (AmpProject *project)
 	return config_files;
 }
 
-static gboolean
+static void
 find_target (GNode *node, gpointer data)
 {
 	if (AMP_NODE_DATA (node)->type == AMP_NODE_TARGET)
@@ -1196,14 +1181,12 @@ find_target (GNode *node, gpointer data)
 			/* Find target, return node value in pointer */
 			*(GNode **)data = node;
 
-			return TRUE;
+			return;
 		}
 	}
-
-	return FALSE;
 }
 
-static gboolean
+static void
 find_canonical_target (GNode *node, gpointer data)
 {
 	if (AMP_NODE_DATA (node)->type == AMP_NODE_TARGET)
@@ -1216,19 +1199,16 @@ find_canonical_target (GNode *node, gpointer data)
 			*(GNode **)data = node;
 			g_free (canon_name);
 
-			return TRUE;
+			return;
 		}
 		g_free (canon_name);
 	}
-
-	return FALSE;
 }
 
 static AnjutaToken*
 project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHashTable *orphan_sources)
 {
 	AnjutaToken *arg;
-	AmpGroupData *group = (AmpGroupData *)parent->data;
 	const gchar *type;
 	gchar *install;
 	gchar *name;
@@ -1278,16 +1258,15 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 	g_free (name);
 
 	arg = anjuta_token_next_child (start);		/* Get variable data */
-	if (arg == NULL) return;
+	if (arg == NULL) return NULL;
 	if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) arg = anjuta_token_next_sibling (arg); /* Skip space */
-	if (arg == NULL) return;
+	if (arg == NULL) return NULL;
 	arg = anjuta_token_next_sibling (arg);			/* Skip equal */
-	if (arg == NULL) return;
+	if (arg == NULL) return NULL;
 
 	for (arg = anjuta_token_next_child (arg); arg != NULL; arg = anjuta_token_next_sibling (arg))
 	{
 		gchar *value;
-		gchar *target_id;
 		gchar *canon_id;
 		AmpTarget *target;
 		GList *sources;
@@ -1317,7 +1296,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		DEBUG_PRINT ("create target %p name %s", target, value);
 
 		/* Check if there are source availables */
-		if (g_hash_table_lookup_extended (orphan_sources, canon_id, &orig_key, &sources))
+		if (g_hash_table_lookup_extended (orphan_sources, canon_id, (gpointer *)&orig_key, (gpointer *)&sources))
 		{
 			GList *src;
 			g_hash_table_steal (orphan_sources, canon_id);
@@ -1346,9 +1325,6 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 	GFile *parent_file = g_object_ref (group->file);
 	gchar *target_id = NULL;
 	GList *orphan = NULL;
-	gint flags;
-	gchar *orig_key;
-	GList *orig_sources;
 
 	target_id = anjuta_token_get_value (start);
 	if (target_id)
@@ -1370,11 +1346,11 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 		parent = (gchar *)find != target_id ? (GNode *)find : NULL;
 
 		arg = anjuta_token_next_child (start);		/* Get variable data */
-		if (arg == NULL) return;
+		if (arg == NULL) return NULL;
 		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) arg = anjuta_token_next_sibling (arg); /* Skip space */
-		if (arg == NULL) return;
+		if (arg == NULL) return NULL;
 		arg = anjuta_token_next_sibling (arg);			/* Skip equal */
-		if (arg == NULL) return;
+		if (arg == NULL) return NULL;
 
 		for (arg = anjuta_token_next_child (arg); arg != NULL; arg = anjuta_token_next_sibling (arg))
 		{
@@ -1409,7 +1385,7 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 			gchar *orig_key;
 			GList *orig_sources;
 
-			if (g_hash_table_lookup_extended (orphan_sources, target_id, &orig_key, &orig_sources))
+			if (g_hash_table_lookup_extended (orphan_sources, target_id, (gpointer *)&orig_key, (gpointer *)&orig_sources))
 			{
 				g_hash_table_steal (orphan_sources, target_id);
 				orphan = g_list_concat (orphan, orig_sources);	
@@ -1430,7 +1406,7 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 
 static void project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **config_files);
 
-static AnjutaToken*
+static void
 project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNode *node, GList **config_files)
 {
 	AnjutaToken *arg;
@@ -1461,7 +1437,7 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNod
 static void
 free_source_list (GList *source_list)
 {
-	g_list_foreach (source_list, amp_source_free, NULL);
+	g_list_foreach (source_list, (GFunc)amp_source_free, NULL);
 	g_list_free (source_list);
 }
 
@@ -1482,7 +1458,6 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	gchar *filename = NULL;
 	AmpAmScanner *scanner;
 	AmpGroup *group;
-	GNode *node;
 	GList *elem;
 	AnjutaToken *significant_tok;
 	AnjutaToken *arg;
@@ -1601,7 +1576,7 @@ project_reload (AmpProject *project, GError **error)
 
 	/* shortcut hash tables */
 	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	project->files = g_hash_table_new_full (g_file_hash, g_file_equal, g_object_unref, g_object_unref);
+	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
 	
 	/* Find configure file */
 	if (file_type (root_file, "configure.ac") == G_FILE_TYPE_REGULAR)
@@ -1896,20 +1871,6 @@ impl_load (GbfProject  *_project,
 	}
 }
 
-static gboolean
-file_exists (const gchar *path, const gchar *filename)
-{
-	gchar *full_path;
-	gboolean retval;
-	
-	full_path = g_build_filename (path, filename, NULL);
-	retval = g_file_test (full_path, G_FILE_TEST_EXISTS);
-	g_free (full_path);
-
-	return retval;
-}
-
-
 static void
 impl_refresh (GbfProject *_project,
 	      GError    **error)
@@ -2059,6 +2020,7 @@ impl_add_group (GbfProject  *_project,
 		const gchar *name,
 		GError     **error)
 {
+#if 0
 	AmpProject *project;
 	GNode *g_node, *iter_node;
 	//xmlDocPtr doc;
@@ -2068,7 +2030,6 @@ impl_add_group (GbfProject  *_project,
 	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
-#if 0
 	project = AMP_PROJECT (_project);
 	
 	/* Validate group name */
@@ -2151,7 +2112,7 @@ impl_add_group (GbfProject  *_project,
 	change_set_destroy (change_set);
 #endif
 	
-	return retval;
+	return NULL;
 }
 
 static void 
@@ -2159,6 +2120,7 @@ impl_remove_group (GbfProject  *_project,
 		   const gchar *id,
 		   GError     **error)
 {
+#if 0
 	AmpProject *project;
 	GNode *g_node;
 	//xmlDocPtr doc;
@@ -2177,7 +2139,6 @@ impl_remove_group (GbfProject  *_project,
 	}
 
 	/* Create the update xml */
-#if 0
 	doc = xml_new_change_doc (project);
 	if (!xml_write_remove_group (project, doc, g_node)) {
 		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
@@ -2312,6 +2273,7 @@ impl_add_target (GbfProject  *_project,
 		 const gchar *type,
 		 GError     **error)
 {
+#if 0	
 	AmpProject *project;
 	GNode *g_node, *iter_node;
 	//xmlDocPtr doc;
@@ -2323,7 +2285,6 @@ impl_add_target (GbfProject  *_project,
 	g_return_val_if_fail (type != NULL, NULL);
 	g_return_val_if_fail (name != NULL, NULL);
 
-#if 0	
 	project = AMP_PROJECT (_project);
 	
 	/* find the group */
@@ -2423,8 +2384,10 @@ impl_add_target (GbfProject  *_project,
 			   _("Newly created target could not be identified"));
 	}
 	change_set_destroy (change_set);
-#endif
+	
 	return retval;
+#endif
+	return NULL;
 }
 
 static void 
@@ -2432,6 +2395,7 @@ impl_remove_target (GbfProject  *_project,
 		    const gchar *id,
 		    GError     **error)
 {
+#if 0
 	AmpProject *project;
 	GNode *g_node;
 	//xmlDocPtr doc;
@@ -2441,7 +2405,6 @@ impl_remove_target (GbfProject  *_project,
 
 	project = AMP_PROJECT (_project);
 	
-#if 0
 	/* Find the target */
 	g_node = g_hash_table_lookup (project->targets, id);
 	if (g_node == NULL) {
@@ -2547,7 +2510,6 @@ impl_get_source (GbfProject  *_project,
 	AmpProject *project;
 	GbfProjectTargetSource *source;
 	GNode *g_node;
-	AmpSource *node;
 	GNode **buffer;
 	gsize dummy;
 
@@ -2568,9 +2530,10 @@ impl_get_source (GbfProject  *_project,
 }
 
 static gboolean
-foreach_source (GNode *node, GHashTable *hash)
+foreach_source (GNode *node, gpointer user_data)
 {
 	AmpSourceData *source = AMP_SOURCE_DATA (node);
+	GHashTable *hash = (GHashTable *)user_data;
 	
 	if (source->node.type == AMP_NODE_SOURCE)
 	{
@@ -2595,7 +2558,7 @@ impl_get_all_sources (GbfProject *_project,
 
 	project = AMP_PROJECT (_project);
 
-	hash = g_hash_table_new_full (g_file_hash, g_file_equal, NULL, g_free);
+	hash = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, g_free);
 	g_node_traverse (project->root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, foreach_source, hash);
 	sources = g_hash_table_get_values (hash);
 	g_hash_table_steal_all (hash);
@@ -2641,8 +2604,6 @@ impl_add_source (GbfProject  *_project,
 		 GError     **error)
 {
 	AmpProject *project;
-	GFile *file;
-	gchar *source_path;
 	AmpGroup *group;
 	AmpTarget *target;
 	AmpSource *last;
@@ -2660,7 +2621,7 @@ impl_add_source (GbfProject  *_project,
 	target = (AmpTarget *)*buffer;
 	g_free (buffer);
 
-	if (AMP_NODE_DATA (target)->type != AMP_NODE_TARGET) return;
+	if (AMP_NODE_DATA (target)->type != AMP_NODE_TARGET) return NULL;
 
 	group = (AmpGroup *)(target->parent);
 
@@ -2761,15 +2722,15 @@ impl_configure (GbfProject *_project, GError **error)
 static GList *
 impl_get_config_modules   (GbfProject *_project, GError **error)
 {
-	GList *modules = NULL;
 	AmpProject *project;
 	
-	g_return_if_fail (AMP_IS_PROJECT (_project));
+	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	project = AMP_PROJECT (_project);
 
 	return g_hash_table_get_keys (project->modules);
 }
 
+#if 0
 static gboolean
 package_is_valid (const gchar* package)
 {
@@ -2785,6 +2746,7 @@ package_is_valid (const gchar* package)
 	}
 	return TRUE;
 }
+#endif
 
 static GList *
 impl_get_config_packages  (GbfProject *project,
@@ -2794,8 +2756,8 @@ impl_get_config_packages  (GbfProject *project,
 	AmpModule *mod;
 	GList *packages = NULL;
 
-	g_return_if_fail (project != NULL);
-	g_return_if_fail (module != NULL);
+	g_return_val_if_fail (project != NULL, NULL);
+	g_return_val_if_fail (module != NULL, NULL);
 
 	mod = g_hash_table_lookup (AMP_PROJECT (project)->modules, module);
 
@@ -2916,16 +2878,18 @@ amp_project_get_property (GObject    *object,
 gboolean
 amp_project_save (AmpProject *project, GError **error)
 {
-	gchar *key;
-	AnjutaTokenFile *tfile;
+	gpointer key;
+	gpointer value;
 	GHashTableIter iter;
 
 	g_return_val_if_fail (project != NULL, FALSE);
 
 	g_hash_table_iter_init (&iter, project->files);
-	while (g_hash_table_iter_next (&iter, &key, &tfile))
+	while (g_hash_table_iter_next (&iter, &key, &value))
 	{
 		GError *error = NULL;
+		AnjutaTokenFile *tfile = (AnjutaTokenFile *)value;
+		;
 		anjuta_token_file_save (tfile, &error);
 	}
 
@@ -2939,8 +2903,8 @@ amp_project_move (AmpProject *project, const gchar *path)
 	GFile *new_file;
 	gchar *relative;
 	GHashTableIter iter;
-	gchar *key;
-	AmpGroup *group;
+	gpointer key;
+	gpointer value;
 	AnjutaTokenFile *tfile;
 	GHashTable* old_hash;
 
@@ -2952,8 +2916,10 @@ amp_project_move (AmpProject *project, const gchar *path)
 	old_hash = project->groups;
 	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	g_hash_table_iter_init (&iter, old_hash);
-	while (g_hash_table_iter_next (&iter, &key, &group))
+	while (g_hash_table_iter_next (&iter, &key, &value))
 	{
+		AmpGroup *group = (AmpGroup *)value;
+		
 		relative = get_relative_path (old_root_file, AMP_GROUP_DATA (group)->file);
 		new_file = g_file_resolve_relative_path (project->root_file, relative);
 		g_free (relative);
@@ -2966,9 +2932,9 @@ amp_project_move (AmpProject *project, const gchar *path)
 
 	/* Change all files */
 	old_hash = project->files;
-	project->files = g_hash_table_new_full (g_file_hash, g_file_equal, g_object_unref, g_object_unref);
+	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
 	g_hash_table_iter_init (&iter, old_hash);
-	while (g_hash_table_iter_next (&iter, &key, &tfile))
+	while (g_hash_table_iter_next (&iter, &key, (gpointer *)&tfile))
 	{
 		relative = get_relative_path (old_root_file, anjuta_token_file_get_file (tfile));
 		new_file = g_file_resolve_relative_path (project->root_file, relative);

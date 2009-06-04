@@ -44,6 +44,7 @@ static gint amp_am_scanner_last_token (AmpAmScanner *scanner);
 static gint amp_am_scanner_last_flags (AmpAmScanner *scanner);
 static void amp_am_scanner_update_line_width (AmpAmScanner *scanner, YYLTYPE *loc);
 static void amp_update_location (YYLTYPE *loc, const gchar *text, gint length);
+static int amp_am_parse (yyscan_t scanner);
 
 %}
 
@@ -271,18 +272,6 @@ amp_am_scanner_append_token (AmpAmScanner *scanner, gint token)
 	//anjuta_token_old_dump (frag);
     
     return frag;
-}
-
-static gint
-amp_am_scanner_last_token (AmpAmScanner *scanner)
-{
-    return anjuta_token_get_type (anjuta_token_file_last (scanner->file));
-}
-
-static gint
-amp_am_scanner_last_flags (AmpAmScanner *scanner)
-{
-    return anjuta_token_get_flags (anjuta_token_file_last (scanner->file));
 }
 
 static void

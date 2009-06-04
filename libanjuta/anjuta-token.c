@@ -675,7 +675,7 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 	}
 	 
 	/* Find intermediate separator */
-	sep_list = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, anjuta_token_style_separator_free);
+	sep_list = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, (GDestroyNotify)anjuta_token_style_separator_free);
 	last = NULL;
 	for (; arg != NULL; arg = anjuta_token_next_sibling (arg))
 	{
@@ -715,7 +715,7 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 	eol = NULL;
 	sep = NULL;
 	g_hash_table_iter_init (&iter, sep_list);
-	while (g_hash_table_iter_next (&iter, &key, &value))
+	while (g_hash_table_iter_next (&iter, (gpointer *)&key, (gpointer *)&value))
 	{
 		if (strchr (key, '\n') != NULL)
 		{
