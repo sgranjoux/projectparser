@@ -1849,18 +1849,21 @@ impl_load (GbfProject  *_project,
 	AmpProject *project;
 	
 	g_return_if_fail (AMP_IS_PROJECT (_project));
+	g_return_if_fail (uri != NULL);
 
 	/* unload current project */
 	project = AMP_PROJECT (_project);
 	project_unload (project);
 
-	/* allow this? */
-	if (uri == NULL)
-		return;
-
 	/* some basic checks */
 	if (!impl_probe (_project, uri, error))
+	{
+		g_set_error (error, GBF_PROJECT_ERROR, 
+		             GBF_PROJECT_ERROR_DOESNT_EXIST,
+			   _("Project doesn't exist or invalid path"));
+		
 		return;
+	}
 	
 	/* now try loading the project */
 	project->root_file = g_file_new_for_path (uri);
@@ -2727,7 +2730,7 @@ impl_get_config_modules   (GbfProject *_project, GError **error)
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	project = AMP_PROJECT (_project);
 
-	return g_hash_table_get_keys (project->modules);
+	return project->modules == NULL ? NULL : g_hash_table_get_keys (project->modules);
 }
 
 #if 0

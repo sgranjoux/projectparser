@@ -176,7 +176,7 @@ main(int argc, char *argv[])
 			gchar *path;
 
 			path = g_file_get_path (file);
-			gbf_project_load (project, path, NULL);
+			gbf_project_load (project, path, &error);
 			g_free (path);
 			g_object_unref (file);
 		}
@@ -208,7 +208,16 @@ main(int argc, char *argv[])
 		}
 		else
 		{
-			printf ("Error: unknown command %s", *command);
+			fprintf (stderr, "Error: unknown command %s\n", *command);
+
+			break;
+		}
+		if (error != NULL)
+		{
+			fprintf (stderr, "Error: %s\n", error->message == NULL ? "unknown error" : error->message);
+
+			g_error_free (error);
+			break;
 		}
 	}
 
