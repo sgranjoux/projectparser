@@ -72,7 +72,7 @@ anjuta_debug_init (int enable)
 {
 	const gchar *log;
 	gboolean all = enable;
-	
+
 	log = g_getenv ("ANJUTA_LOG_DOMAINS");
 	if (log != NULL)
 	{

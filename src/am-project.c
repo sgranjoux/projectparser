@@ -1404,7 +1404,7 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 	return NULL;
 }
 
-static void project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **config_files);
+static gboolean project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **config_files);
 
 static void
 project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNode *node, GList **config_files)
@@ -1451,7 +1451,7 @@ remove_config_file (gpointer data, GObject *object, gboolean is_last_ref)
 	}
 }
 
-static void
+static gboolean
 project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **config_files)
 {
 	GHashTable *orphan_sources = NULL;
@@ -1467,7 +1467,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	/* Check if group already exists */
 	/* some Anjuta Makefile.am contains . by example */
 	group_id = g_file_get_uri (file);
-	if (g_hash_table_lookup (project->groups, group_id) != NULL) return;
+	if (g_hash_table_lookup (project->groups, group_id) != NULL) return TRUE;
 	
 	/* Find makefile name
 	 * It has to be in the config_files list with .am extension */
@@ -1495,7 +1495,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 			}
 		}
 	}
-	if (filename == NULL) return;
+	if (filename == NULL) return FALSE;
 
 	/* Create group */
 	group = amp_group_new (file, filename);
@@ -1557,6 +1557,8 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 
 	/* Free unused sources files */
 	g_hash_table_destroy (orphan_sources);
+
+	return TRUE;
 }
 
 static gboolean
@@ -1612,7 +1614,14 @@ project_reload (AmpProject *project, GError **error)
 	
 	/* Load all makefiles recursively */
 	config_files = project_list_config_files (project);
-	project_load_makefile (project, project->root_file, NULL, &config_files);
+	if (!project_load_makefile (project, project->root_file, NULL, &config_files))
+	{
+		g_set_error (error, GBF_PROJECT_ERROR, 
+		             GBF_PROJECT_ERROR_DOESNT_EXIST,
+			   _("Project doesn't exist or invalid path"));
+
+		ok = FALSE;
+	}
 	g_list_foreach (config_files, (GFunc)amp_config_file_free, NULL);
 	g_list_free (config_files);
 	
