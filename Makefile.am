@@ -29,3 +29,5 @@ DISTCLEANFILES = intltool-extract \
 # Remove doc directory on uninstall
 uninstall-local:
 	-rm -r $(projectparserdocdir)
+
+-include $(top_srcdir)/git.mk

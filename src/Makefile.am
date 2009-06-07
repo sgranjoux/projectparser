@@ -57,3 +57,4 @@ project.c: ac-scanner.h am-scanner.h
 
 EXTRA_DIST = ac-parser.h am-parser.h
 
+-include $(top_srcdir)/git.mk

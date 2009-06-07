@@ -20,3 +20,5 @@ libanjuta_a_SOURCES = \
 	anjuta-token.h \
 	anjuta-debug.c \
 	anjuta-debug.h
+
+-include $(top_srcdir)/git.mk

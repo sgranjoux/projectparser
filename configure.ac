@@ -35,9 +35,21 @@ PKG_CHECK_MODULES(GLIB, glib-2.0 >= $GLIB_REQUIRED gobject-2.0 >= $GLIB_REQUIRED
 
 PKG_CHECK_MODULES(GTK, gtk+-2.0 >= $GTK_REQUIRED)
 
-AC_OUTPUT([
+AC_CONFIG_FILES([
 Makefile
 src/Makefile
 libanjuta/Makefile
+tests/Makefile
 po/Makefile.in
 ])
+
+TESTLOGFILE=tests.log
+AC_SUBST(TESTLOGFILE)
+
+AC_CONFIG_FILES([
+tests/test0.sh
+tests/test1.sh], [
+chmod +x tests/test0.sh
+chmod +x tests/test1.sh])
+
+AC_OUTPUT
