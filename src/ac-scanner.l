@@ -178,7 +178,7 @@ NUMBER      [0-9][0-9.]*
     return AC_OUTPUT;
 }
 
-<INITIAL>AC_CONFIG_FILES {
+<INITIAL>AC_CONFIG_FILES\( {
     AnjutaToken *token;
     yy_push_state (ARGUMENT, yyscanner);
     token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_OPEN);
