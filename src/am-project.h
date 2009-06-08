@@ -42,6 +42,8 @@ GbfProject   *amp_project_new      (void);
 gboolean amp_project_move (AmpProject *project, const gchar *path);
 gboolean amp_project_save (AmpProject *project, GError **error);
 
+gchar * amp_project_get_uri (AmpProject *project);
+
 
 gchar * amp_project_get_node_id (AmpProject *project, const gchar *path);
 

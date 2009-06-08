@@ -37,6 +37,7 @@ gboolean amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenFile *file);
 typedef enum
 {
 	AM_TOKEN_SUBDIRS = ANJUTA_TOKEN_USER,
+	AM_TOKEN_DIST_SUBDIRS,
 	AM_TOKEN__DATA,
 	AM_TOKEN__HEADERS,
 	AM_TOKEN__LIBRARIES,

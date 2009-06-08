@@ -67,9 +67,12 @@ void list_target (GbfProject *project, const gchar *id, gint indent, const gchar
 	GbfProjectTarget* target = gbf_project_get_target (project, id, NULL);
 	GList *node;
 	guint count = 0;
+	GFile *root;
 
 	if (target == NULL) return;
 
+	root = g_file_new_for_uri (amp_project_get_uri (project));
+	
 	indent++;
 	print ("%*sTARGET (%s): %s", indent * INDENT, "", path, target->name); 
 	indent++;
@@ -77,11 +80,17 @@ void list_target (GbfProject *project, const gchar *id, gint indent, const gchar
 	{
 		GbfProjectTargetSource* source = gbf_project_get_source (project, node->data, NULL);
 		gchar *child_path = g_strdup_printf ("%s:%d", path, count);
+		GFile *child_file = g_file_new_for_uri (source->source_uri);
+		gchar *rel_path = g_file_get_relative_path (root, child_file);
 		
-		print ("%*sSOURCE (%s): %s", indent * INDENT, "", child_path, source->source_uri); 
+		print ("%*sSOURCE (%s): %s", indent * INDENT, "", child_path, rel_path);
+		g_free (rel_path);
+		g_object_unref (child_file);
 		g_free (child_path);
 		count++;
 	}
+
+	g_object_unref (root);
 }
 
 void list_group (GbfProject *project, const gchar *id, gint indent, const gchar *path)

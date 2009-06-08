@@ -176,6 +176,11 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
     return AM_VARIABLE;
 }
 
+<INITIAL>DIST_SUBDIRS {
+    yylval->token = amp_am_scanner_append_token  (yyextra, AM_TOKEN_DIST_SUBDIRS);   
+    return AM_VARIABLE;
+}
+
 <INITIAL>{NAME}_DATA {
     yylval->token = amp_am_scanner_append_token  (yyextra, AM_TOKEN__DATA);   
     return AM_VARIABLE;

@@ -48,8 +48,10 @@ AC_SUBST(TESTLOGFILE)
 
 AC_CONFIG_FILES([
 tests/test0.sh
-tests/test1.sh], [
+tests/test1.sh
+tests/test2.sh], [
 chmod +x tests/test0.sh
-chmod +x tests/test1.sh])
+chmod +x tests/test1.sh
+chmod +x tests/test2.sh])
 
 AC_OUTPUT
