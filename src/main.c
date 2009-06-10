@@ -46,7 +46,7 @@ void open_output (void)
 
 void close_output (void)
 {
-	if (output_file != NULL) fclose (output_stream);
+	if (output_stream != NULL) fclose (output_stream);
 	output_stream = NULL;
 }
 

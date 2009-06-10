@@ -121,7 +121,7 @@ typedef struct _AmpGroupData AmpGroupData;
 struct _AmpGroupData {
 	AmpNodeData node;			/* Common node data */
     gchar *makefile;		
-	gboolean build;				/* TRUE if build and not only distributed */
+	gboolean dist_only;			/* TRUE if the group is distributed but not built */
 	GFile *file;
 	AnjutaTokenFile *tfile;		/* Corresponding Makefile */
 	GList *tokens;					/* List of token used by this group */
@@ -675,19 +675,29 @@ amp_project_free_module_hash (AmpProject *project)
  *---------------------------------------------------------------------------*/
 
 static void
-amp_group_set_makefile (AmpGroup *node, const gchar *makefile)
+amp_group_add_token (AmpGroup *node, AnjutaToken *token)
 {
     AmpGroupData *group;
 	
 	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
 
  	group = (AmpGroupData *)node->data;
-	g_free (group->makefile);
-	group->makefile = makefile != NULL ? g_strdup (makefile) : NULL;
+	group->tokens = g_list_prepend (group->tokens, token);
+}
+
+static void
+amp_group_set_dist_only (AmpGroup *node, gboolean dist_only)
+{
+    AmpGroupData *group;
+	
+	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
+
+ 	group = (AmpGroupData *)node->data;
+	group->dist_only = dist_only;
 }
 
 static AmpGroup*
-amp_group_new (GFile *file, const gchar *makefile)
+amp_group_new (GFile *file, const gchar *makefile, gboolean dist_only)
 {
     AmpGroupData *group = NULL;
 
@@ -697,6 +707,8 @@ amp_group_new (GFile *file, const gchar *makefile)
 	group->node.type = AMP_NODE_GROUP;
 	group->file = g_object_ref (file);
 	group->makefile = makefile != NULL ? g_strdup (makefile) : NULL;
+	group->dist_only = dist_only;
+	group->tokens = NULL;
 
     return g_node_new (group);
 }
@@ -1336,14 +1348,13 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 	return NULL;
 }
 
-static gboolean project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **config_files);
+static AmpGroup* project_load_makefile (AmpProject *project, GFile *file, AmpGroup *parent, gboolean dist_only, GList **config_files);
 
 static void
-project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNode *node, GList **config_files)
+project_load_subdirs (AmpProject *project, AnjutaToken *start, AmpGroup *parent, gboolean dist_only, GList **config_files)
 {
 	AnjutaToken *arg;
 
-	//g_message ("find subdirs");
 	arg = anjuta_token_next_child (start);		/* Get variable data */
 	if (arg == NULL) return;
 	if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) arg = anjuta_token_next_sibling (arg); /* Skip space */
@@ -1354,14 +1365,39 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, GFile *file, GNod
 	for (arg = anjuta_token_next_child (arg); arg != NULL; arg = anjuta_token_next_sibling (arg))
 	{
 		gchar *value;
-		GFile *subdir;
 		
 		if ((anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) || (anjuta_token_get_type (arg) == ANJUTA_TOKEN_COMMENT)) continue;
 			
 		value = anjuta_token_evaluate (arg);
-		subdir = g_file_resolve_relative_path (file, value);
-		project_load_makefile (project, subdir, node, config_files);
-		g_object_unref (subdir);
+		
+		/* Skip ., it is a special case, used to defined build order */
+		if (strcmp (value, ".") != 0)
+		{
+			GFile *subdir;
+			gchar *group_id;
+			AmpGroup *group;
+
+			subdir = g_file_resolve_relative_path (AMP_GROUP_DATA (parent)->file, value);
+			
+			/* Look for already existing group */
+			group_id = g_file_get_uri (subdir);
+			group = g_hash_table_lookup (project->groups, group_id);
+			g_free (group_id);
+
+			if (group != NULL)
+			{
+				/* Already existing group, mark for built if needed */
+				if (!dist_only) amp_group_set_dist_only (group, FALSE);
+				amp_group_add_token (group, arg);
+			}
+			else
+			{
+				/* Create new group */
+				group = project_load_makefile (project, subdir, parent, dist_only, config_files);
+				amp_group_add_token (group, arg);
+			}
+			g_object_unref (subdir);
+		}
 		g_free (value);
 	}
 }
@@ -1383,8 +1419,8 @@ remove_config_file (gpointer data, GObject *object, gboolean is_last_ref)
 	}
 }
 
-static gboolean
-project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **config_files)
+static AmpGroup*
+project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean dist_only, GList **config_files)
 {
 	GHashTable *orphan_sources = NULL;
 	gchar *filename = NULL;
@@ -1396,11 +1432,6 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	GFile *makefile = NULL;
 	gchar *group_id;
 
-	/* Check if group already exists */
-	/* some Anjuta Makefile.am contains . by example */
-	group_id = g_file_get_uri (file);
-	if (g_hash_table_lookup (project->groups, group_id) != NULL) return TRUE;
-	
 	/* Find makefile name
 	 * It has to be in the config_files list with .am extension */
 	filename = NULL;
@@ -1427,11 +1458,11 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 			}
 		}
 	}
-	if (filename == NULL) return FALSE;
+	if (filename == NULL) return NULL;
 
 	/* Create group */
-	group = amp_group_new (file, filename);
-	g_hash_table_insert (project->groups, group_id, group);
+	group = amp_group_new (file, filename, dist_only);
+	g_hash_table_insert (project->groups, g_file_get_uri (file), group);
 	if (parent == NULL)
 	{
 		project->root_node = group;
@@ -1466,10 +1497,10 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 		switch (anjuta_token_get_type (arg))
 		{
 		case AM_TOKEN_SUBDIRS:
-				project_load_subdirs (project, arg, file, group, config_files);
+				project_load_subdirs (project, arg, group, FALSE, config_files);
 				break;
 		case AM_TOKEN_DIST_SUBDIRS:
-				project_load_subdirs (project, arg, file, group, config_files);
+				project_load_subdirs (project, arg, group, TRUE, config_files);
 				break;
 		case AM_TOKEN__DATA:
 		case AM_TOKEN__HEADERS:
@@ -1493,7 +1524,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, GList **
 	/* Free unused sources files */
 	g_hash_table_destroy (orphan_sources);
 
-	return TRUE;
+	return group;
 }
 
 static gboolean
@@ -1549,7 +1580,7 @@ project_reload (AmpProject *project, GError **error)
 	
 	/* Load all makefiles recursively */
 	config_files = project_list_config_files (project);
-	if (!project_load_makefile (project, project->root_file, NULL, &config_files))
+	if (project_load_makefile (project, project->root_file, NULL, FALSE, &config_files) == NULL)
 	{
 		g_set_error (error, GBF_PROJECT_ERROR, 
 		             GBF_PROJECT_ERROR_DOESNT_EXIST,
@@ -2031,7 +2062,7 @@ impl_add_group (GbfProject  *_project,
 	}
 	
 	/* Add source node in project tree */
-	child = amp_group_new (AMP_GROUP_DATA (group)->file, name);
+	child = amp_group_new (AMP_GROUP_DATA (group)->file, name, TRUE);
 	//AMP_GROUP_DATA(child)->token = token;
 	g_node_append (group, child);
 
