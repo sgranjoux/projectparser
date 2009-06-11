@@ -32,7 +32,7 @@ typedef struct _AmpAmScanner AmpAmScanner;
 AmpAmScanner *amp_am_scanner_new (void);
 void amp_am_scanner_free (AmpAmScanner *scanner);
 
-gboolean amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenFile *file);
+gboolean amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenFile *file, GError **error);
 
 typedef enum
 {

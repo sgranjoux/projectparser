@@ -51,6 +51,8 @@
 #define WARNING_PREFIX    "WARNING("
 #define MESSAGE_DELIMITER ": "
 
+static const gchar *valid_am_makefiles[] = {"GNUmakefile.am", "makefile.am", "Makefile.am", NULL};
+
 typedef enum {
 	AMP_NODE_GROUP,
 	AMP_NODE_TARGET,
@@ -78,6 +80,7 @@ struct _AmpProject {
 	/* shortcut hash tables, mapping id -> GNode from the tree above */
 	GHashTable		*groups;
 	GHashTable		*files;
+	GHashTable		*configs;		/* Config file from configure_file */
 	
 	GHashTable	*modules;
 	
@@ -120,9 +123,9 @@ typedef struct _AmpGroupData AmpGroupData;
 
 struct _AmpGroupData {
 	AmpNodeData node;			/* Common node data */
-    gchar *makefile;		
 	gboolean dist_only;			/* TRUE if the group is distributed but not built */
-	GFile *file;
+	GFile *directory;				/* GFile corresponding to group directory */
+	GFile *makefile;				/* GFile corresponding to group makefile */
 	AnjutaTokenFile *tfile;		/* Corresponding Makefile */
 	GList *tokens;					/* List of token used by this group */
 };
@@ -165,8 +168,8 @@ struct _AmpSourceData {
 typedef struct _AmpConfigFile AmpConfigFile;
 
 struct _AmpConfigFile {
-	GFile *parent;
-	gchar *filename;
+	GFile *file;
+	AnjutaToken *token;
 };
 
 
@@ -566,19 +569,15 @@ split_automake_variable (gchar *name, gint *flags, gchar **module, gchar **prima
  *---------------------------------------------------------------------------*/
 
 static AmpConfigFile*
-amp_config_file_new (const gchar *pathname, GFile *project_root)
+amp_config_file_new (const gchar *pathname, GFile *project_root, AnjutaToken *token)
 {
 	AmpConfigFile *config;
-	GFile *file;
 
 	g_return_val_if_fail ((pathname != NULL) && (project_root != NULL), NULL);
 
-	file = g_file_resolve_relative_path (project_root, pathname);
-	
 	config = g_slice_new0(AmpConfigFile);
-	config->parent = g_file_get_parent (file);
-	config->filename = g_file_get_basename (file);
-	g_object_unref (file);
+	config->file = g_file_resolve_relative_path (project_root, pathname);
+	config->token = token;
 
 	return config;
 }
@@ -588,8 +587,7 @@ amp_config_file_free (AmpConfigFile *config)
 {
 	if (config)
 	{
-		g_object_unref (config->parent);
-		g_free (config->filename);
+		g_object_unref (config->file);
 		g_slice_free (AmpConfigFile, config);
 	}
 }
@@ -696,17 +694,40 @@ amp_group_set_dist_only (AmpGroup *node, gboolean dist_only)
 	group->dist_only = dist_only;
 }
 
+static AnjutaTokenFile*
+amp_group_set_makefile (AmpGroup *node, GFile *makefile)
+{
+    AmpGroupData *group;
+	
+	g_return_val_if_fail ((node != NULL) && (node->data != NULL), NULL); 
+
+ 	group = (AmpGroupData *)node->data;
+	if (group->makefile != NULL) g_object_unref (group->makefile);
+	if (group->tfile != NULL) anjuta_token_file_free (group->tfile);
+	if (makefile != NULL)
+	{
+		group->makefile = g_object_ref (makefile);
+		group->tfile = anjuta_token_file_new (makefile);
+	}
+	else
+	{
+		group->makefile = NULL;
+		group->tfile = NULL;
+	}
+
+	return group->tfile;
+}
+
 static AmpGroup*
-amp_group_new (GFile *file, const gchar *makefile, gboolean dist_only)
+amp_group_new (GFile *file, gboolean dist_only)
 {
     AmpGroupData *group = NULL;
 
 	g_return_val_if_fail (file != NULL, NULL);
-
+	
 	group = g_slice_new0(AmpGroupData); 
 	group->node.type = AMP_NODE_GROUP;
-	group->file = g_object_ref (file);
-	group->makefile = makefile != NULL ? g_strdup (makefile) : NULL;
+	group->directory = g_object_ref (file);
 	group->dist_only = dist_only;
 	group->tokens = NULL;
 
@@ -718,8 +739,9 @@ amp_group_free (AmpGroup *node)
 {
     AmpGroupData *group = (AmpGroupData *)node->data;
 	
-	if (group->tfile) g_object_unref (G_OBJECT (group->tfile));
-	g_object_unref (group->file);
+	if (group->tfile) anjuta_token_file_free (group->tfile);
+	if (group->directory) g_object_unref (group->directory);
+	if (group->makefile) g_object_unref (group->makefile);
     g_slice_free (AmpGroupData, group);
 
 	g_node_destroy (node);
@@ -865,7 +887,7 @@ group_hash_foreach_monitor (gpointer key,
 	AmpGroup *group_node = value;
 	AmpProject *project = user_data;
 
-	monitor_add (project, AMP_GROUP_DATA(group_node)->file);
+	monitor_add (project, AMP_GROUP_DATA(group_node)->directory);
 }
 
 static void
@@ -896,7 +918,7 @@ amp_dump_node (GNode *g_node)
 	
 	switch (AMP_NODE_DATA (g_node)->type) {
 		case AMP_NODE_GROUP:
-			name = g_file_get_uri (AMP_GROUP_DATA (g_node)->file);
+			name = g_file_get_uri (AMP_GROUP_DATA (g_node)->directory);
 			DEBUG_PRINT ("GROUP: %s", name);
 			break;
 		case AMP_NODE_TARGET:
@@ -976,8 +998,10 @@ project_unload (AmpProject *project)
 	/* shortcut hash tables */
 	if (project->groups) g_hash_table_destroy (project->groups);
 	if (project->files) g_hash_table_destroy (project->files);
+	if (project->configs) g_hash_table_destroy (project->configs);
 	project->groups = NULL;
 	project->files = NULL;
+	project->configs = NULL;
 
 	amp_project_free_module_hash (project);
 }
@@ -1051,7 +1075,7 @@ project_reload_packages   (AmpProject *project)
 
 /* Add a GFile in the list for each makefile in the token list */
 void
-amp_project_add_config_files (AmpProject *project, AnjutaToken *list, GList **config_files)
+amp_project_add_config_files (AmpProject *project, AnjutaToken *list)
 {
 	AnjutaToken* arg;
 
@@ -1064,18 +1088,18 @@ amp_project_add_config_files (AmpProject *project, AnjutaToken *list, GList **co
 		value = anjuta_token_evaluate (arg);
 		if ((value != NULL) && (*value != '\0'))
 		{
-			*config_files = g_list_prepend (*config_files, amp_config_file_new (value, project->root_file));
+			AmpConfigFile *cfg = amp_config_file_new (value, project->root_file, arg);
+			g_hash_table_insert (project->configs, cfg->file, cfg);
 		}
 		g_free (value);
 	}
 }							   
                            
-static GList *
+static gboolean
 project_list_config_files (AmpProject *project)
 {
 	AnjutaToken *config_files_tok;
 	AnjutaToken *sequence;
-	GList *config_files = NULL;
 
 	//g_message ("load config project %p root file %p", project, project->root_file);	
 	/* Search the new AC_CONFIG_FILES macro */
@@ -1088,31 +1112,28 @@ project_list_config_files (AmpProject *project)
 
 		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence)) break;
 		arg = anjuta_token_next_child (sequence);	/* List */
-		amp_project_add_config_files (project, arg, &config_files);
+		amp_project_add_config_files (project, arg);
 		sequence = anjuta_token_next_sibling (sequence);
 	}
 	
-	if (config_files == NULL)
-	{
-		/* Search the old AC_OUTPUT macro */
-	    anjuta_token_free(config_files_tok);
-	    config_files_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "AC_OUTPUT(");
+	/* Search the old AC_OUTPUT macro */
+    anjuta_token_free(config_files_tok);
+    config_files_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "AC_OUTPUT(");
 		
-	    sequence = anjuta_token_file_first (project->configure_file);
-		while (sequence != NULL)
-		{
-			AnjutaToken *arg;
+    sequence = anjuta_token_file_first (project->configure_file);
+	while (sequence != NULL)
+	{
+		AnjutaToken *arg;
 
-			if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence)) break;
-			arg = anjuta_token_next_child (sequence);	/* List */
-			amp_project_add_config_files (project, arg, &config_files);
-			sequence = anjuta_token_next_sibling (sequence);
-		}
+		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence)) break;
+		arg = anjuta_token_next_child (sequence);	/* List */
+		amp_project_add_config_files (project, arg);
+		sequence = anjuta_token_next_sibling (sequence);
 	}
 	
 	anjuta_token_free (config_files_tok);
 
-	return config_files;
+	return TRUE;
 }
 
 static void
@@ -1266,7 +1287,7 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 {
 	AnjutaToken *arg;
 	AmpGroupData *group = (AmpGroupData *)parent->data;
-	GFile *parent_file = g_object_ref (group->file);
+	GFile *parent_file = g_object_ref (group->directory);
 	gchar *target_id = NULL;
 	GList *orphan = NULL;
 
@@ -1348,10 +1369,10 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 	return NULL;
 }
 
-static AmpGroup* project_load_makefile (AmpProject *project, GFile *file, AmpGroup *parent, gboolean dist_only, GList **config_files);
+static AmpGroup* project_load_makefile (AmpProject *project, GFile *file, AmpGroup *parent, gboolean dist_only);
 
 static void
-project_load_subdirs (AmpProject *project, AnjutaToken *start, AmpGroup *parent, gboolean dist_only, GList **config_files)
+project_load_subdirs (AmpProject *project, AnjutaToken *start, AmpGroup *parent, gboolean dist_only)
 {
 	AnjutaToken *arg;
 
@@ -1377,7 +1398,7 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, AmpGroup *parent,
 			gchar *group_id;
 			AmpGroup *group;
 
-			subdir = g_file_resolve_relative_path (AMP_GROUP_DATA (parent)->file, value);
+			subdir = g_file_resolve_relative_path (AMP_GROUP_DATA (parent)->directory, value);
 			
 			/* Look for already existing group */
 			group_id = g_file_get_uri (subdir);
@@ -1393,7 +1414,7 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, AmpGroup *parent,
 			else
 			{
 				/* Create new group */
-				group = project_load_makefile (project, subdir, parent, dist_only, config_files);
+				group = project_load_makefile (project, subdir, parent, dist_only);
 				amp_group_add_token (group, arg);
 			}
 			g_object_unref (subdir);
@@ -1420,48 +1441,19 @@ remove_config_file (gpointer data, GObject *object, gboolean is_last_ref)
 }
 
 static AmpGroup*
-project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean dist_only, GList **config_files)
+project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean dist_only)
 {
 	GHashTable *orphan_sources = NULL;
-	gchar *filename = NULL;
+	const gchar **filename;
 	AmpAmScanner *scanner;
 	AmpGroup *group;
-	GList *elem;
 	AnjutaToken *significant_tok;
 	AnjutaToken *arg;
+	AnjutaTokenFile *tfile;
 	GFile *makefile = NULL;
-	gchar *group_id;
-
-	/* Find makefile name
-	 * It has to be in the config_files list with .am extension */
-	filename = NULL;
-	for (elem = g_list_first (*config_files); elem != NULL; elem = g_list_next (elem))
-	{
-		AmpConfigFile *config = (AmpConfigFile *)elem->data;
-
-		//g_message ("search %s compare %s %s", g_file_get_path (file), g_file_get_path (config->parent), config->filename);
-		if (g_file_equal (config->parent, file))
-		{
-			filename = g_strconcat (config->filename, ".am", NULL);
-			if (file_type (file, filename) == G_FILE_TYPE_REGULAR)
-			{
-				/* Removed used config file */
-				amp_config_file_free (config);
-				*config_files = g_list_delete_link (*config_files, elem);
-
-				break;
-			}
-			else
-			{
-				g_free (filename);
-				filename = NULL;
-			}
-		}
-	}
-	if (filename == NULL) return NULL;
 
 	/* Create group */
-	group = amp_group_new (file, filename, dist_only);
+	group = amp_group_new (file, dist_only);
 	g_hash_table_insert (project->groups, g_file_get_uri (file), group);
 	if (parent == NULL)
 	{
@@ -1471,17 +1463,49 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean
 	{
 		g_node_append (parent, group);
 	}
+		
+	/* Find makefile name
+	 * It has to be in the config_files list with .am extension */
+	for (filename = valid_am_makefiles; *filename != NULL; filename++)
+	{
+		makefile = g_file_get_child (file, *filename);
+		if (file_type (file, *filename) == G_FILE_TYPE_REGULAR)
+		{
+			gchar *final_filename = g_strdup (*filename);
+			gchar *ptr;
+			GFile *final_file;
+			AmpConfigFile *config;
 
+			ptr = g_strrstr (final_filename,".am");
+			if (ptr != NULL) *ptr = '\0';
+			final_file = g_file_get_child (file, final_filename);
+			g_free (final_filename);
+			
+			config = g_hash_table_lookup (project->configs, final_file);
+			g_object_unref (final_file);
+			if (config != NULL)
+			{
+				amp_group_add_token (group, config->token);
+				break;
+			}
+		}
+		g_object_unref (makefile);
+	}
+
+	if (*filename == NULL)
+	{
+		/* Unable to find automake file */
+		return group;
+	}
+	
 	/* Parse makefile.am */	
-	DEBUG_PRINT ("Parse: %s", g_file_get_uri (file));
-	makefile = g_file_get_child (file, filename);
-	AMP_GROUP_DATA (group)->tfile = anjuta_token_file_new (makefile);
-	g_hash_table_insert (project->files, makefile, AMP_GROUP_DATA (group)->tfile);
-	g_object_add_toggle_ref (G_OBJECT (AMP_GROUP_DATA (group)->tfile), remove_config_file, project);
+	DEBUG_PRINT ("Parse: %s", g_file_get_uri (makefile));
+	tfile = amp_group_set_makefile (group, makefile);
+	g_hash_table_insert (project->files, makefile, tfile);
+	g_object_add_toggle_ref (G_OBJECT (tfile), remove_config_file, project);
 	scanner = amp_am_scanner_new ();
-	amp_am_scanner_parse (scanner, AMP_GROUP_DATA (group)->tfile);
+	amp_am_scanner_parse (scanner, tfile, NULL);
 	amp_am_scanner_free (scanner);
-	g_free (filename);
 
 	/* Find significant token */
 	significant_tok = anjuta_token_new_static (ANJUTA_TOKEN_SIGNIFICANT, NULL);
@@ -1497,10 +1521,10 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean
 		switch (anjuta_token_get_type (arg))
 		{
 		case AM_TOKEN_SUBDIRS:
-				project_load_subdirs (project, arg, group, FALSE, config_files);
+				project_load_subdirs (project, arg, group, FALSE);
 				break;
 		case AM_TOKEN_DIST_SUBDIRS:
-				project_load_subdirs (project, arg, group, TRUE, config_files);
+				project_load_subdirs (project, arg, group, TRUE);
 				break;
 		case AM_TOKEN__DATA:
 		case AM_TOKEN__HEADERS:
@@ -1532,7 +1556,6 @@ project_reload (AmpProject *project, GError **error)
 {
 	AmpAcScanner *scanner;
 	GFile *root_file;
-	GList *config_files;
 	GFile *configure_file;
 	gboolean ok;
 
@@ -1545,6 +1568,7 @@ project_reload (AmpProject *project, GError **error)
 	/* shortcut hash tables */
 	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
+	project->configs = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, amp_config_file_free);
 	
 	/* Find configure file */
 	if (file_type (root_file, "configure.ac") == G_FILE_TYPE_REGULAR)
@@ -1570,7 +1594,7 @@ project_reload (AmpProject *project, GError **error)
 	g_object_add_toggle_ref (G_OBJECT (project->configure_file), remove_config_file, project);
 	g_object_unref (configure_file);
 	scanner = amp_ac_scanner_new ();
-	ok = amp_ac_scanner_parse (scanner, project->configure_file);
+	ok = amp_ac_scanner_parse (scanner, project->configure_file, NULL);
 	amp_ac_scanner_free (scanner);
 		     
 	monitors_setup (project);
@@ -1579,8 +1603,8 @@ project_reload (AmpProject *project, GError **error)
 	project_reload_packages (project);
 	
 	/* Load all makefiles recursively */
-	config_files = project_list_config_files (project);
-	if (project_load_makefile (project, project->root_file, NULL, FALSE, &config_files) == NULL)
+	project_list_config_files (project);
+	if (project_load_makefile (project, project->root_file, NULL, FALSE) == NULL)
 	{
 		g_set_error (error, GBF_PROJECT_ERROR, 
 		             GBF_PROJECT_ERROR_DOESNT_EXIST,
@@ -1588,8 +1612,6 @@ project_reload (AmpProject *project, GError **error)
 
 		ok = FALSE;
 	}
-	g_list_foreach (config_files, (GFunc)amp_config_file_free, NULL);
-	g_list_free (config_files);
 	
 	return ok;
 }
@@ -1804,13 +1826,28 @@ impl_probe (GbfProject  *_project,
 			   _("Project doesn't exist or invalid path"));
 	}
 	
-	probe =  dir &&
-			((file_type (file, "Makefile.am") == G_FILE_TYPE_REGULAR) ||
-			 (file_type (file, "makefile.am") == G_FILE_TYPE_REGULAR) ||
-			 (file_type (file, "GNUmakefile.am") == G_FILE_TYPE_REGULAR)) &&
-			((file_type (file, "configure.ac") == G_FILE_TYPE_REGULAR) ||
-			 (file_type (file, "configure.in") == G_FILE_TYPE_REGULAR));
-	
+	probe =  dir;
+	if (probe)
+	{
+		const gchar **makefile;
+
+		/* Look for makefiles */
+		probe = FALSE;
+		for (makefile = valid_am_makefiles; *makefile != NULL; makefile++)
+		{
+			if (file_type (file, *makefile) == G_FILE_TYPE_REGULAR)
+			{
+				probe = TRUE;
+				break;
+			}
+		}
+
+		if (probe)
+		{
+			probe = ((file_type (file, "configure.ac") == G_FILE_TYPE_REGULAR) ||
+			 				(file_type (file, "configure.in") == G_FILE_TYPE_REGULAR));
+		}
+	}
 	g_object_unref (file);
 	
 	return probe;
@@ -1904,10 +1941,10 @@ impl_get_group (GbfProject  *_project,
 		return NULL;
 	}
 	group = g_new0 (GbfProjectGroup, 1);
-	group->id = g_file_get_uri (AMP_GROUP_DATA(g_node)->file);
-	group->name = g_file_get_basename (AMP_GROUP_DATA(g_node)->file);
+	group->id = g_file_get_uri (AMP_GROUP_DATA(g_node)->directory);
+	group->name = g_file_get_basename (AMP_GROUP_DATA(g_node)->directory);
 	if (g_node->parent)
-		group->parent_id = g_file_get_uri (AMP_GROUP_DATA (g_node->parent)->file);
+		group->parent_id = g_file_get_uri (AMP_GROUP_DATA (g_node->parent)->directory);
 	else
 		group->parent_id = NULL;
 	group->groups = NULL;
@@ -1920,7 +1957,7 @@ impl_get_group (GbfProject  *_project,
 		switch (node->type) {
 			case AMP_NODE_GROUP:
 				group->groups = g_list_prepend (group->groups,
-								g_file_get_uri (((AmpGroupData *)node)->file));
+								g_file_get_uri (((AmpGroupData *)node)->directory));
 				break;
 			case AMP_NODE_TARGET:
 				target_id  = canonicalize_automake_variable (((AmpTargetData *)node)->name);
@@ -2062,9 +2099,9 @@ impl_add_group (GbfProject  *_project,
 	}
 	
 	/* Add source node in project tree */
-	child = amp_group_new (AMP_GROUP_DATA (group)->file, name, TRUE);
+	//child = amp_group_new (AMP_GROUP_DATA (group)->file, name, TRUE);
 	//AMP_GROUP_DATA(child)->token = token;
-	g_node_append (group, child);
+	//g_node_append (group, child);
 
 	return g_base64_encode ((guchar *)&child, sizeof (child));
 	
@@ -2716,7 +2753,7 @@ impl_add_source (GbfProject  *_project,
 	}
 	
 	/* Add source node in project tree */
-	source = amp_source_new (AMP_GROUP_DATA (group)->file, uri);
+	source = amp_source_new (AMP_GROUP_DATA (group)->directory, uri);
 	AMP_SOURCE_DATA(source)->token = token;
 	g_node_append (target, source);
 
@@ -2954,6 +2991,7 @@ amp_project_move (AmpProject *project, const gchar *path)
 	gpointer key;
 	gpointer value;
 	AnjutaTokenFile *tfile;
+	AmpConfigFile *cfg;
 	GHashTable* old_hash;
 
 	/* Change project root directory */
@@ -2968,11 +3006,11 @@ amp_project_move (AmpProject *project, const gchar *path)
 	{
 		AmpGroup *group = (AmpGroup *)value;
 		
-		relative = get_relative_path (old_root_file, AMP_GROUP_DATA (group)->file);
+		relative = get_relative_path (old_root_file, AMP_GROUP_DATA (group)->directory);
 		new_file = g_file_resolve_relative_path (project->root_file, relative);
 		g_free (relative);
-		g_object_unref (AMP_GROUP_DATA (group)->file);
-		AMP_GROUP_DATA (group)->file = new_file;
+		g_object_unref (AMP_GROUP_DATA (group)->directory);
+		AMP_GROUP_DATA (group)->directory = new_file;
 
 		g_hash_table_insert (project->groups, g_file_get_uri (new_file), group);
 	}
@@ -2994,6 +3032,25 @@ amp_project_move (AmpProject *project, const gchar *path)
 	}
 	g_hash_table_steal_all (old_hash);
 	g_hash_table_destroy (old_hash);
+
+	/* Change all configs */
+	old_hash = project->configs;
+	project->configs = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, amp_config_file_free);
+	g_hash_table_iter_init (&iter, old_hash);
+	while (g_hash_table_iter_next (&iter, &key, (gpointer *)&cfg))
+	{
+		relative = get_relative_path (old_root_file, anjuta_token_file_get_file (tfile));
+		new_file = g_file_resolve_relative_path (project->root_file, relative);
+		g_free (relative);
+		g_object_unref (cfg->file);
+		cfg->file = new_file;
+		
+		g_hash_table_insert (project->configs, new_file, tfile);
+		g_object_unref (key);
+	}
+	g_hash_table_steal_all (old_hash);
+	g_hash_table_destroy (old_hash);
+
 	
 	g_object_unref (old_root_file);
 

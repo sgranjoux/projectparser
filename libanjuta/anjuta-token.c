@@ -841,7 +841,7 @@ static GObjectClass *parent_class = NULL;
 const gchar *
 anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error)
 {
-	if (!file->content)
+	if (file->content == NULL)
 	{
 		gchar *content;
 		gsize length;
@@ -1085,3 +1085,9 @@ anjuta_token_file_new (GFile *gfile)
 	
 	return file;
 };
+
+void
+anjuta_token_file_free (AnjutaTokenFile *tfile)
+{
+	g_object_unref (tfile);
+}

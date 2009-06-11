@@ -311,14 +311,16 @@ amp_update_location (YYLTYPE *loc, const gchar *text, gint length)
  *---------------------------------------------------------------------------*/
 
 gboolean
-amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenFile *file)
+amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenFile *file, GError **error)
 {
     if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
 
 	scanner->file = file;
 	if (scanner->file== NULL) return FALSE;
 
-    scanner->pos = anjuta_token_file_get_content (scanner->file, NULL);
+    scanner->pos = anjuta_token_file_get_content (scanner->file, error);
+	if (scanner->pos == NULL) return FALSE;
+
     scanner->buffer = yy_scan_string (scanner->pos, scanner->scanner);
 	
 	return amp_am_yyparse (scanner->scanner) == 0;
