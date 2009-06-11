@@ -1,0 +1,10 @@
+#!/bin/sh
+
+echo >> @TESTLOGFILE@
+echo >> @TESTLOGFILE@
+echo "Running $0" >> @TESTLOGFILE@
+@top_builddir@/src/projectparser -o out \
+	load @srcdir@/anjuta \
+	list >> @TESTLOGFILE@ 2>&1 \
+&& diff out @srcdir@/anjuta.lst >> @TESTLOGFILE@ 2>&1
+
