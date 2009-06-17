@@ -136,6 +136,8 @@ guint anjuta_token_get_length (AnjutaToken *token);
 AnjutaTokenStyle *anjuta_token_style_new (guint line_width);
 void anjuta_token_style_free (AnjutaTokenStyle *style);
 
+void anjuta_token_style_set_eol (AnjutaTokenStyle *style, const gchar *eol);
+
 void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *token);
 void anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *token);
 

@@ -1,0 +1,17 @@
+#!/bin/sh
+
+echo >> @TESTLOGFILE@
+echo >> @TESTLOGFILE@
+echo "Running $0" >> @TESTLOGFILE@
+rm -fr empty2
+@top_builddir@/src/projectparser -o out \
+	load @srcdir@/empty \
+	move empty2 \
+	add group 0 group1 \
+	list \
+	save >> @TESTLOGFILE@ 2>&1 \
+&& diff out @srcdir@/empty2.lst >> @TESTLOGFILE@ 2>&1 \
+&& @top_builddir@/src/projectparser -o out \
+	load empty2 \
+	list >> @TESTLOGFILE@ 2>&1 \
+&& diff out @srcdir@/empty2.lst >> @TESTLOGFILE@ 2>&1 

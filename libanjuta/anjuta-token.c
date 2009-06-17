@@ -653,7 +653,15 @@ anjuta_token_style_separator_free (AnjutaTokenStyleSeparator *sep)
 	g_slice_free (AnjutaTokenStyleSeparator, sep);
 }
 
-void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
+void
+anjuta_token_style_set_eol (AnjutaTokenStyle *style, const gchar *eol)
+{
+	if (style->eol) anjuta_token_free (style->eol);
+	style->eol = anjuta_token_new_string (ANJUTA_TOKEN_SPACE, eol);
+}
+
+void
+anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 {
 	GHashTable *sep_list;
 	AnjutaTokenStyleSeparator *sep;
@@ -708,10 +716,6 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 	style->last = anjuta_token_copy (last);
 
 	/* Replace the most used intermediate separator */
-	anjuta_token_free (style->sep);
-	anjuta_token_free (style->eol);
-	style->sep = NULL;
-	style->eol = NULL;
 	eol = NULL;
 	sep = NULL;
 	g_hash_table_iter_init (&iter, sep_list);
@@ -734,8 +738,16 @@ void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 			}
 		}
 	}
-	if (eol != NULL) style->eol = anjuta_token_copy (eol->token);
-	if (sep != NULL) style->sep = anjuta_token_copy (sep->token);
+	if (eol != NULL) 
+	{
+		if (style->eol != NULL) anjuta_token_free (style->eol);
+		style->eol = anjuta_token_copy (eol->token);
+	}
+	if (sep != NULL)
+	{
+		if (style->sep != NULL) anjuta_token_free (style->sep);
+		style->sep = anjuta_token_copy (sep->token);
+	}
 
 	g_hash_table_destroy (sep_list);
 

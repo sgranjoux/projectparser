@@ -119,6 +119,13 @@ struct _AmpNodeData {
 	gchar				*id;				/* Node string id, FIXME: to be removed */
 };
 
+typedef enum {
+	AM_GROUP_TOKEN_CONFIGURE,
+	AM_GROUP_TOKEN_SUBDIRS,
+	AM_GROUP_TOKEN_DIST_SUBDIRS,
+	AM_GROUP_TOKEN_LAST
+} AmpGroupTokenCategory;
+
 typedef struct _AmpGroupData AmpGroupData;
 
 struct _AmpGroupData {
@@ -127,7 +134,7 @@ struct _AmpGroupData {
 	GFile *directory;				/* GFile corresponding to group directory */
 	GFile *makefile;				/* GFile corresponding to group makefile */
 	AnjutaTokenFile *tfile;		/* Corresponding Makefile */
-	GList *tokens;					/* List of token used by this group */
+	GList *tokens[AM_GROUP_TOKEN_LAST];					/* List of token used by this group */
 };
 
 typedef enum _AmpTargetFlag
@@ -296,14 +303,14 @@ file_type (GFile *file, const gchar *filename)
 }
 
 gboolean
-remove_list_item (AnjutaToken *token)
+remove_list_item (AnjutaToken *token, AnjutaTokenStyle *user_style)
 {
 	AnjutaTokenStyle *style;
 	AnjutaToken *space;
 
 	DEBUG_PRINT ("remove list item");
 
-	style = anjuta_token_style_new (0);
+	style = user_style != NULL ? user_style : anjuta_token_style_new (0);
 	anjuta_token_style_update (style, anjuta_token_parent (token));
 	
 	anjuta_token_remove (token);
@@ -323,18 +330,18 @@ remove_list_item (AnjutaToken *token)
 	}
 	
 	anjuta_token_style_format (style, anjuta_token_parent (token));
-	anjuta_token_style_free (style);
+	if (user_style == NULL) anjuta_token_style_free (style);
 	
 	return TRUE;
 }
 
 static gboolean
-add_list_item (AnjutaToken *list, AnjutaToken *token)
+add_list_item (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_style)
 {
 	AnjutaTokenStyle *style;
 	AnjutaToken *space;
 
-	style = anjuta_token_style_new (0);
+	style = user_style != NULL ? user_style : anjuta_token_style_new (0);
 	anjuta_token_style_update (style, anjuta_token_parent (list));
 	
 	space = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
@@ -342,7 +349,7 @@ add_list_item (AnjutaToken *list, AnjutaToken *token)
 	anjuta_token_insert_after (space, token);
 
 	anjuta_token_style_format (style, anjuta_token_parent (list));
-	anjuta_token_style_free (style);
+	if (user_style == NULL) anjuta_token_style_free (style);
 	
 	return TRUE;
 }
@@ -673,14 +680,25 @@ amp_project_free_module_hash (AmpProject *project)
  *---------------------------------------------------------------------------*/
 
 static void
-amp_group_add_token (AmpGroup *node, AnjutaToken *token)
+amp_group_add_token (AmpGroup *node, AnjutaToken *token, AmpGroupTokenCategory category)
 {
     AmpGroupData *group;
 	
 	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
 
  	group = (AmpGroupData *)node->data;
-	group->tokens = g_list_prepend (group->tokens, token);
+	group->tokens[category] = g_list_prepend (group->tokens[category], token);
+}
+
+static GList *
+amp_group_get_token (AmpGroup *node, AmpGroupTokenCategory category)
+{
+    AmpGroupData *group;
+	
+	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
+
+ 	group = (AmpGroupData *)node->data;
+	return group->tokens[category];
 }
 
 static void
@@ -729,7 +747,6 @@ amp_group_new (GFile *file, gboolean dist_only)
 	group->node.type = AMP_NODE_GROUP;
 	group->directory = g_object_ref (file);
 	group->dist_only = dist_only;
-	group->tokens = NULL;
 
     return g_node_new (group);
 }
@@ -738,10 +755,15 @@ static void
 amp_group_free (AmpGroup *node)
 {
     AmpGroupData *group = (AmpGroupData *)node->data;
+	gint i;
 	
 	if (group->tfile) anjuta_token_file_free (group->tfile);
 	if (group->directory) g_object_unref (group->directory);
 	if (group->makefile) g_object_unref (group->makefile);
+	for (i = 0; i < AM_GROUP_TOKEN_LAST; i++)
+	{
+		if (group->tokens[i] != NULL) g_list_free (group->tokens[i]);
+	}
     g_slice_free (AmpGroupData, group);
 
 	g_node_destroy (node);
@@ -1409,14 +1431,13 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, AmpGroup *parent,
 			{
 				/* Already existing group, mark for built if needed */
 				if (!dist_only) amp_group_set_dist_only (group, FALSE);
-				amp_group_add_token (group, arg);
 			}
 			else
 			{
 				/* Create new group */
 				group = project_load_makefile (project, subdir, parent, dist_only);
-				amp_group_add_token (group, arg);
 			}
+			amp_group_add_token (group, arg, dist_only ? AM_GROUP_TOKEN_DIST_SUBDIRS : AM_GROUP_TOKEN_SUBDIRS);
 			g_object_unref (subdir);
 		}
 		g_free (value);
@@ -1485,7 +1506,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean
 			g_object_unref (final_file);
 			if (config != NULL)
 			{
-				amp_group_add_token (group, config->token);
+				amp_group_add_token (group, config->token, AM_GROUP_TOKEN_CONFIGURE);
 				break;
 			}
 		}
@@ -2036,168 +2057,154 @@ impl_add_group (GbfProject  *_project,
 		GError     **error)
 {
 	AmpProject *project;
-	AmpGroup *group;
+	AmpGroup *parent;
 	AmpGroup *last;
 	AmpGroup *child;
-	GNode **buffer;
+	GFile *directory;
+	GFile *makefile;
 	gsize dummy;
 	AnjutaToken* token;
+	AnjutaToken* prev_token;
+	GList *token_list;
+	gchar *basename;
+	AnjutaTokenFile* tfile;
 	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	g_return_val_if_fail (name != NULL, NULL);
 	g_return_val_if_fail (parent_id != NULL, NULL);
 	
 	project = AMP_PROJECT (_project);
-	buffer = (GNode **)g_base64_decode (parent_id, &dummy);
-	group = (AmpTarget *)*buffer;
-	g_free (buffer);
-
-	if (AMP_NODE_DATA (group)->type != AMP_NODE_GROUP) return NULL;
-
-	/* Add token */
-	for (last = g_node_last_child (group); (last != NULL) && (AMP_NODE_DATA (last)->type != AMP_NODE_GROUP); last = g_node_prev_sibling (last));
-	if (last == NULL)
+	parent = g_hash_table_lookup (project->groups, parent_id);
+	if (parent == NULL)
 	{
-#if 0
-		/* First child */
-		AnjutaToken *tok;
-		AnjutaToken *close_tok;
-		AnjutaToken *eol_tok;
-		gchar *target_var;
-		gchar *canon_name;
-
-
-		/* Search where the target is declared */
-		tok = AMP_TARGET_DATA (target)->token;
-		close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
-		eol_tok = anjuta_token_new_static (ANJUTA_TOKEN_EOL, NULL);
-		anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, tok, &tok);
-		anjuta_token_match (eol_tok, ANJUTA_SEARCH_OVER, tok, &tok);
-		anjuta_token_free (close_tok);
-		anjuta_token_free (eol_tok);
-
-		/* Add a _SOURCES variable just after */
-		canon_name = canonicalize_automake_variable (AMP_TARGET_DATA (target)->name);
-		target_var = g_strconcat (canon_name,  "_SOURCES", NULL);
-		g_free (canon_name);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, target_var));
-		g_free (target_var);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " "));
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_ADDED, "="));
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " "));
-		token = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
-		tok = anjuta_token_insert_after (tok, token);
-		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
-		tok = anjuta_token_insert_after (tok, token);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_EOL | ANJUTA_TOKEN_ADDED, "\n"));
-#endif
-	}
-	else
-	{
-		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, name);
-		add_list_item (AMP_SOURCE_DATA (last)->token, token);
-	}
-	
-	/* Add source node in project tree */
-	//child = amp_group_new (AMP_GROUP_DATA (group)->file, name, TRUE);
-	//AMP_GROUP_DATA(child)->token = token;
-	//g_node_append (group, child);
-
-	return g_base64_encode ((guchar *)&child, sizeof (child));
-	
-#if 0
-	AmpProject *project;
-	GNode *g_node, *iter_node;
-	//xmlDocPtr doc;
-	GSList *change_set = NULL;
-	//AmChange *change;
-	gchar *retval;
-	
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-
-	project = AMP_PROJECT (_project);
-	
-	/* Validate group name */
-	if (!name || strlen (name) <= 0)
-	{
-		error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
-			   _("Please specify group name"));
-		return NULL;
-	}
-	{
-		gboolean failed = FALSE;
-		const gchar *ptr = name;
-		while (*ptr) {
-			if (!isalnum (*ptr) && *ptr != '.' && *ptr != '-' &&
-			    *ptr != '_')
-				failed = TRUE;
-			ptr++;
-		}
-		if (failed) {
-			error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
-				   _("Group name can only contain alphanumeric, '_', '-' or '.' characters"));
-			return NULL;
-		}
-	}
-	
-	/* find the parent group */
-	g_node = g_hash_table_lookup (project->groups, parent_id);
-	if (g_node == NULL) {
 		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
 			   _("Parent group doesn't exist"));
 		return NULL;
 	}
+	if (AMP_NODE_DATA (parent)->type != AMP_NODE_GROUP) return NULL;
 
-	/* check that the new group doesn't already exist */
-	iter_node = g_node_first_child (g_node);
-	while (iter_node) {
-		AmpNode *node = AMP_NODE_DATA (iter_node);
-		if (node->type == AMP_NODE_GROUP &&
-		    !strcmp (node->name, name)) {
-			error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
-				   _("Group already exists"));
-			return NULL;
+	/* Add source node in project tree */
+	directory = g_file_get_child (AMP_GROUP_DATA (parent)->directory, name);
+	child = amp_group_new (directory, FALSE);
+	g_hash_table_insert (project->groups, g_file_get_uri (directory), child);
+	g_object_unref (directory);
+	g_node_append (parent, child);
+
+	/* Create directory */
+	g_file_make_directory (directory, NULL, NULL);
+
+	/* Create Makefile.am */
+	basename = g_file_get_basename (AMP_GROUP_DATA (parent)->makefile);
+	if (basename != NULL)
+	{
+		makefile = g_file_get_child (directory, basename);
+		g_free (basename);
+	}
+	else
+	{
+		makefile = g_file_get_child (directory, "Makefile.am");
+	}
+	g_file_replace_contents (makefile, "", 0, NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL, NULL);
+	tfile = amp_group_set_makefile (child, makefile);
+	g_hash_table_insert (project->files, makefile, tfile);
+	g_object_add_toggle_ref (G_OBJECT (tfile), remove_config_file, project);
+
+	/* Add in configure */
+	token_list= amp_group_get_token (parent, AM_GROUP_TOKEN_CONFIGURE);
+	if (token_list != NULL)
+	{
+		gchar *relative_make;
+		gchar *ext;
+		AnjutaTokenStyle *style;
+		
+		prev_token = (AnjutaToken *)token_list->data;
+
+		relative_make = g_file_get_relative_path (project->root_file, makefile);
+		ext = relative_make + strlen (relative_make) - 3;
+		if (strcmp (ext, ".am") == 0)
+		{
+			*ext = '\0';
 		}
-		iter_node = g_node_next_sibling (iter_node);
+		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED,  relative_make);
+		g_free (relative_make);
+		
+		style = anjuta_token_style_new (0);
+		anjuta_token_style_set_eol (style, "\n");
+		add_list_item (prev_token, token, style);
+		anjuta_token_style_free (style);
 	}
-			
-	/* Create the update xml */
-	/*doc = xml_new_change_doc (project);
-	if (!xml_write_add_group (project, doc, g_node, name)) {
-		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
-			   _("Group couldn't be created"));
-		xmlFreeDoc (doc);
-		return NULL;
-	}
-
-	DEBUG ({
-		xmlSetDocCompressMode (doc, 0);
-		xmlSaveFile ("/tmp/add-group.xml", doc);
-	});*/
-
-	/* Update the project */
-	/*if (!project_update (project, doc, &change_set, error)) {
-		error_set (error, PROJECT_ERROR_PROJECT_MALFORMED,
-			   _("Unable to update project"));
-		xmlFreeDoc (doc);
-		return NULL;
-	}
-	xmlFreeDoc (doc);*/
-
-	/* get newly created group id */
-	retval = NULL;
-	DEBUG (change_set_debug_print (change_set));
-	change = change_set_find (change_set, AM_CHANGE_ADDED, AMP_NODE_GROUP);
-	if (change) {
-		retval = g_strdup (change->id);
-	} else {
-		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
-			   _("Group couldn't be created"));
-	}
-	change_set_destroy (change_set);
-#endif
 	
-	return NULL;
+	/* Add in Makefile.am */
+	for (last = g_node_prev_sibling (child); (last != NULL) && (AMP_NODE_DATA (last)->type != AMP_NODE_GROUP); last = g_node_prev_sibling (last));
+	if (last == NULL)
+	{
+		AnjutaToken *prev_token;
+		gint space = 0;
+		AnjutaToken *list;
+
+		/* Skip comment and one space at the beginning */
+		for (prev_token = anjuta_token_next_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile)); prev_token != NULL; prev_token = anjuta_token_next_sibling (prev_token))
+		{
+			switch (anjuta_token_get_type (prev_token))
+			{
+				case ANJUTA_TOKEN_COMMENT:
+					space = 0;
+					continue;
+				case ANJUTA_TOKEN_SPACE:
+					if (space == 0)
+					{
+						space = 1;
+						continue;
+					}
+					break;
+				default:
+					break;
+			}
+			break;
+		}
+
+		if (prev_token == NULL)
+		{
+			prev_token = anjuta_token_next_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile));
+			if (prev_token)
+			{
+				prev_token = anjuta_token_file_last (AMP_GROUP_DATA (parent)->tfile);
+			}
+		}
+
+		if (prev_token == NULL)
+		{
+			prev_token = anjuta_token_insert_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile), anjuta_token_new_string (AM_TOKEN_SUBDIRS | ANJUTA_TOKEN_SIGNIFICANT | ANJUTA_TOKEN_ADDED, "SUBDIRS"));
+		}
+		else
+		{
+			prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (AM_TOKEN_SUBDIRS | ANJUTA_TOKEN_SIGNIFICANT | ANJUTA_TOKEN_ADDED, "SUBDIRS"));
+		}
+		list = prev_token;
+		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
+		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_ADDED, "="));
+		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL));
+		token = prev_token;
+		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
+		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, name));
+		anjuta_token_merge (token, prev_token);
+		anjuta_token_merge (list, token);
+		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, "\n"));
+	}
+	else
+	{
+		token_list = amp_group_get_token (parent, AM_GROUP_TOKEN_SUBDIRS);
+		if (token_list != NULL)
+		{
+			prev_token = (AnjutaToken *)token_list->data;
+		
+			token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, name);
+			add_list_item (prev_token, token, NULL);
+		}
+	}
+	amp_group_add_token (child, token, AM_GROUP_TOKEN_SUBDIRS);
+
+	return g_strdup (g_file_get_uri (AMP_GROUP_DATA (child)->directory));
 }
 
 static void 
@@ -2205,46 +2212,39 @@ impl_remove_group (GbfProject  *_project,
 		   const gchar *id,
 		   GError     **error)
 {
-#if 0
 	AmpProject *project;
 	GNode *g_node;
-	//xmlDocPtr doc;
-	GSList *change_set = NULL;
-	
+	AmpGroupData *group;
+	GList *token_list;
+
 	g_return_if_fail (AMP_IS_PROJECT (_project));
 
 	project = AMP_PROJECT (_project);
-	
-	/* Find the target */
 	g_node = g_hash_table_lookup (project->groups, id);
-	if (g_node == NULL) {
-		error_set (error,GBF_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Group doesn't exist"));
-		return;
+	if (g_node == NULL)
+	{
+		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
+			   _("Parent group doesn't exist"));
+		return NULL;
 	}
+	if (AMP_NODE_DATA (g_node)->type != AMP_NODE_GROUP) return NULL;
+	
+	group = AMP_SOURCE_DATA (g_node);
 
-	/* Create the update xml */
-	doc = xml_new_change_doc (project);
-	if (!xml_write_remove_group (project, doc, g_node)) {
-		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
-			   _("Group couldn't be removed"));
-		xmlFreeDoc (doc);
-		return;
+	for (token_list = amp_group_get_token (group, AM_GROUP_TOKEN_CONFIGURE); token_list != NULL; token_list = g_list_next (token_list))
+	{
+		remove_list_item ((AnjutaToken *)token_list->data, NULL);
 	}
-
-	DEBUG ({
-		xmlSetDocCompressMode (doc, 0);
-		xmlSaveFile ("/tmp/remove-group.xml", doc);
-	});
-
-	/* Update the project */
-	if (!project_update (project, doc, &change_set, error)) {
-		error_set (error, PROJECT_ERROR_PROJECT_MALFORMED,
-			   _("Unable to update project"));
+	for (token_list = amp_group_get_token (group, AM_GROUP_TOKEN_SUBDIRS); token_list != NULL; token_list = g_list_next (token_list))
+	{
+		remove_list_item ((AnjutaToken *)token_list->data, NULL);
 	}
-	xmlFreeDoc (doc);
-	change_set_destroy (change_set);
-#endif
+	for (token_list = amp_group_get_token (group, AM_GROUP_TOKEN_DIST_SUBDIRS); token_list != NULL; token_list = g_list_next (token_list))
+	{
+		remove_list_item ((AnjutaToken *)token_list->data, NULL);
+	}
+	
+	g_node_destroy (g_node);
 }
 
 static GbfProjectTarget * 
@@ -2749,7 +2749,7 @@ impl_add_source (GbfProject  *_project,
 	else
 	{
 		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
-		add_list_item (AMP_SOURCE_DATA (last)->token, token);
+		add_list_item (AMP_SOURCE_DATA (last)->token, token, NULL);
 	}
 	
 	/* Add source node in project tree */
@@ -2783,7 +2783,7 @@ impl_remove_source (GbfProject  *_project,
 	
 	source = AMP_SOURCE_DATA (g_node);
 
-	remove_list_item (source->token);
+	remove_list_item (source->token, NULL);
 	
 	g_node_destroy (g_node);
 }
@@ -3035,18 +3035,17 @@ amp_project_move (AmpProject *project, const gchar *path)
 
 	/* Change all configs */
 	old_hash = project->configs;
-	project->configs = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, amp_config_file_free);
+	project->configs = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, amp_config_file_free);
 	g_hash_table_iter_init (&iter, old_hash);
 	while (g_hash_table_iter_next (&iter, &key, (gpointer *)&cfg))
 	{
-		relative = get_relative_path (old_root_file, anjuta_token_file_get_file (tfile));
+		relative = get_relative_path (old_root_file, cfg->file);
 		new_file = g_file_resolve_relative_path (project->root_file, relative);
 		g_free (relative);
 		g_object_unref (cfg->file);
 		cfg->file = new_file;
 		
-		g_hash_table_insert (project->configs, new_file, tfile);
-		g_object_unref (key);
+		g_hash_table_insert (project->configs, new_file, cfg);
 	}
 	g_hash_table_steal_all (old_hash);
 	g_hash_table_destroy (old_hash);
@@ -3094,7 +3093,16 @@ amp_project_get_node_id (AmpProject *project, const gchar *path)
 		}
 	}
 
-	return g_base64_encode ((guchar *)&node, sizeof (node));
+	switch (AMP_NODE_DATA (node)->type)
+	{
+		case AMP_NODE_GROUP:
+			return g_file_get_uri (AMP_GROUP_DATA (node)->directory);
+		case AMP_NODE_TARGET:
+		case AMP_NODE_SOURCE:
+			return g_base64_encode ((guchar *)&node, sizeof (node));
+		default:
+			return NULL;
+	}
 }
 
 gchar *

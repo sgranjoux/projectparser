@@ -209,11 +209,33 @@ main(int argc, char *argv[])
 			gbf_project_remove_source (project, id, NULL);
 			g_free (id);
 		}
-		else if (g_ascii_strcasecmp (*command, "add") == 0)
+		else if (g_ascii_strcasecmp (command[0], "add") == 0)
 		{
-			gchar *id = amp_project_get_node_id (AMP_PROJECT (project), *(++command));
-			gbf_project_add_source (project, id, *(++command), NULL);
-			g_free (id);
+			gchar *parent;
+			
+			parent = amp_project_get_node_id (AMP_PROJECT (project), command[2]);
+			if (g_ascii_strcasecmp (command[1], "group") == 0)
+			{
+				gbf_project_add_group (project, parent, command[3], NULL);
+			}
+			else if (g_ascii_strcasecmp (command[1], "target") == 0)
+			{
+				gbf_project_add_target (project, parent, command[3], command[4], NULL);
+				command++;
+			}
+			else if (g_ascii_strcasecmp (command[1], "source") == 0)
+			{
+				gbf_project_add_source (project, parent, command[3], NULL);
+			}
+			else
+			{
+				fprintf (stderr, "Error: unknown command %s\n", *command);
+
+				break;
+			}
+			g_free (parent);
+				
+			command += 3;
 		}
 		else
 		{
