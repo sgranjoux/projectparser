@@ -159,7 +159,7 @@ struct _AmpTargetData {
 	gchar *type;
 	gchar *install;
 	gint flags;
-	AnjutaToken* token;
+	GList* tokens;
 };
 
 typedef GNode AmpSource;
@@ -772,6 +772,29 @@ amp_group_free (AmpGroup *node)
 /* Target objects
  *---------------------------------------------------------------------------*/
 
+static void
+amp_target_add_token (AmpGroup *node, AnjutaToken *token)
+{
+    AmpTargetData *target;
+	
+	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
+
+ 	target = (AmpTargetData *)node->data;
+	target->tokens = g_list_prepend (target->tokens, token);
+}
+
+static GList *
+amp_target_get_token (AmpGroup *node)
+{
+    AmpTargetData *target;
+	
+	g_return_val_if_fail ((node != NULL) && (node->data != NULL), NULL); 
+
+ 	target = (AmpTargetData *)node->data;
+	return target->tokens;
+}
+
+
 static AmpTarget*
 amp_target_new (const gchar *name, const gchar *type, const gchar *install, gint flags)
 {
@@ -1278,7 +1301,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 
 		/* Create target */
 		target = amp_target_new (value, type, install, flags);
-		AMP_TARGET_DATA (target)->token = arg;
+		amp_target_add_token (target, arg);
 		g_node_append (parent, target);
 		DEBUG_PRINT ("create target %p name %s", target, value);
 
@@ -2382,6 +2405,62 @@ impl_configure_target (GbfProject  *_project,
 	return wid;
 }
 
+static AnjutaTokenType
+impl_anjuta_token_for_type (const gchar *type)
+{
+	if (!strcmp (type, "static_lib")) {
+		return AM_TOKEN__LIBRARIES;
+	} else if (!strcmp (type, "shared_lib")) {
+		return AM_TOKEN__LTLIBRARIES;
+	} else if (!strcmp (type, "headers")) {
+		return AM_TOKEN__HEADERS;
+	} else if (!strcmp (type, "man")) {
+		return AM_TOKEN__MANS;
+	} else if (!strcmp (type, "data")) {
+		return AM_TOKEN__DATA;
+	} else if (!strcmp (type, "program")) {
+		return AM_TOKEN__PROGRAMS;
+	} else if (!strcmp (type, "script")) {
+		return AM_TOKEN__SCRIPTS;
+	} else if (!strcmp (type, "info")) {
+		return AM_TOKEN__TEXINFOS;
+	} else if (!strcmp (type, "java")) {
+		return AM_TOKEN__JAVA;
+	} else if (!strcmp (type, "python")) {
+		return AM_TOKEN__PYTHON;
+	} else {
+		return ANJUTA_TOKEN_NAME;
+	}
+}
+
+static const gchar*
+impl_autotool_prefix_for_type (const gchar *type)
+{
+	if (!strcmp (type, "static_lib")) {
+		return "_LIBRARIES";
+	} else if (!strcmp (type, "shared_lib")) {
+		return "_LTLIBRARIES";
+	} else if (!strcmp (type, "headers")) {
+		return "_HEADERS";
+	} else if (!strcmp (type, "man")) {
+		return "_MANS";
+	} else if (!strcmp (type, "data")) {
+		return "_DATA";
+	} else if (!strcmp (type, "program")) {
+		return "_PROGRAMS";
+	} else if (!strcmp (type, "script")) {
+		return "_SCRIPTS";
+	} else if (!strcmp (type, "info")) {
+		return "_TEXINFOS";
+	} else if (!strcmp (type, "java")) {
+		return "_JAVA";
+	} else if (!strcmp (type, "python")) {
+		return "_PYTHON";
+	} else {
+		return "";
+	}
+}
+
 static char * 
 impl_add_target (GbfProject  *_project,
 		 const gchar *group_id,
@@ -2389,28 +2468,19 @@ impl_add_target (GbfProject  *_project,
 		 const gchar *type,
 		 GError     **error)
 {
-#if 0	
 	AmpProject *project;
-	GNode *g_node, *iter_node;
-	//xmlDocPtr doc;
-	GSList *change_set = NULL;
-	//AmChange *change;
-	gchar *retval;
-
+	AmpGroup *parent;
+	AmpTarget *child;
+	AnjutaToken* token;
+	AnjutaToken* prev_token;
+	AnjutaToken *list;
+	gchar *targetname;
+	gchar *find;
+	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-	g_return_val_if_fail (type != NULL, NULL);
 	g_return_val_if_fail (name != NULL, NULL);
+	g_return_val_if_fail (group_id != NULL, NULL);
 
-	project = AMP_PROJECT (_project);
-	
-	/* find the group */
-	g_node = g_hash_table_lookup (project->groups, group_id);
-	if (g_node == NULL) {
-		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Group doesn't exist"));
-		return NULL;
-	}
-	
 	/* Validate target name */
 	if (!name || strlen (name) <= 0)
 	{
@@ -2452,58 +2522,66 @@ impl_add_target (GbfProject  *_project,
 		}
 	}
 	
-	/* check that the target doesn't already exist */
-	iter_node = g_node_first_child (g_node);
-	while (iter_node) {
-		AmpNode *node = AMP_NODE (iter_node);
-		if (node->type == AMP_NODE_TARGET &&
-		    !strcmp (node->name, name)) {
-			error_set (error, GBF_PROJECT_ERROR_ALREADY_EXISTS,
-				   _("Target already exists"));
-			return NULL;
+	/* Find parent group */	
+	project = AMP_PROJECT (_project);
+	parent = g_hash_table_lookup (project->groups, group_id);
+	if (parent == NULL)
+	{
+		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
+			   _("Parent group doesn't exist"));
+		return NULL;
+	}
+	if (AMP_NODE_DATA (parent)->type != AMP_NODE_GROUP) return NULL;
+
+	/* Check that the new target doesn't already exist */
+	find = (gchar *)name;
+	g_node_children_foreach (parent, G_TRAVERSE_ALL, find_target, &find);
+	if ((gchar *)find != name)
+	{
+		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
+			_("Target already exists"));
+
+		return NULL;
+	}
+	
+	/* Add target node in project tree */
+	child = amp_target_new (name, type, "", 0);
+	g_node_append (parent, child);
+
+	/* Add in Makefile.am */
+	prev_token = anjuta_token_next_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile));
+	if (prev_token != NULL)
+	{
+		/* Add at the end of the file */
+		while (anjuta_token_next_sibling (prev_token) != NULL)
+		{
+			prev_token = anjuta_token_next_sibling (prev_token);
 		}
-		iter_node = g_node_next_sibling (iter_node);
-	}
-			
-	/* Create the update xml */
-	doc = xml_new_change_doc (project);
-	if (!xml_write_add_target (project, doc, g_node, name, type)) {
-		error_set (error, PROJECT_ERROR_GENERAL_FAILURE,
-			   _("General failure in target creation"));
-		xmlFreeDoc (doc);
-		return NULL;
 	}
 
-	DEBUG ({
-		xmlSetDocCompressMode (doc, 0);
-		xmlSaveFile ("/tmp/add-target.xml", doc);
-	});
+	token = anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, "\n");
+	if (prev_token == NULL)
+	{
+		prev_token = anjuta_token_insert_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile), token);
+	}
+	else
+	{
+		prev_token = anjuta_token_insert_after (prev_token, token);
+	}
 
-	/* Update the project */
-	if (!project_update (project, doc, &change_set, error)) {
-		error_set (error, PROJECT_ERROR_PROJECT_MALFORMED,
-			   _("Unable to update project"));
-		xmlFreeDoc (doc);
-		return NULL;
-	}
-	xmlFreeDoc (doc);
-	
-	/* get newly created target id */
-	retval = NULL;
-	DEBUG (change_set_debug_print (change_set));
-	change = change_set_find (change_set, AM_CHANGE_ADDED,
-				  AMP_NODE_TARGET);
-	if (change) {
-		retval = g_strdup (change->id);
-	} else {
-		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
-			   _("Newly created target could not be identified"));
-	}
-	change_set_destroy (change_set);
-	
-	return retval;
-#endif
-	return NULL;
+	targetname = g_strconcat (name, impl_autotool_prefix_for_type (type), NULL);
+	token = anjuta_token_new_string (impl_anjuta_token_for_type (type), targetname);
+	g_free (targetname);
+	prev_token = anjuta_token_insert_after (prev_token, token);
+	list = prev_token;
+	prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
+	prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_ADDED, "="));
+	prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL));
+	anjuta_token_merge (list, token);
+	prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, "\n"));
+	amp_target_add_token (child, token);
+
+	return g_base64_encode ((guchar *)&child, sizeof (child));
 }
 
 static void 
@@ -2511,46 +2589,26 @@ impl_remove_target (GbfProject  *_project,
 		    const gchar *id,
 		    GError     **error)
 {
-#if 0
 	AmpProject *project;
-	GNode *g_node;
-	//xmlDocPtr doc;
-	GSList *change_set = NULL;
-	
+	AmpTarget *target;
+	GList *token_list;
+	GNode **buffer;
+	gsize dummy;
+
 	g_return_if_fail (AMP_IS_PROJECT (_project));
 
 	project = AMP_PROJECT (_project);
+	buffer = (AmpSource **)g_base64_decode (id, &dummy);
+	target = *buffer;
+	g_free (buffer);
+	if (AMP_NODE_DATA (target)->type != AMP_NODE_TARGET) return;
 	
-	/* Find the target */
-	g_node = g_hash_table_lookup (project->targets, id);
-	if (g_node == NULL) {
-		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Target doesn't exist"));
-		return;
+	for (token_list = amp_target_get_token (target); token_list != NULL; token_list = g_list_next (token_list))
+	{
+		anjuta_token_remove ((AnjutaToken *)token_list->data);
 	}
 
-	/* Create the update xml */
-	doc = xml_new_change_doc (project);
-	if (!xml_write_remove_target (project, doc, g_node)) {
-		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
-			   _("Target couldn't be removed"));
-		xmlFreeDoc (doc);
-		return;
-	}
-
-	DEBUG ({
-		xmlSetDocCompressMode (doc, 0);
-		xmlSaveFile ("/tmp/remove-target.xml", doc);
-	});
-
-	/* Update the project */
-	if (!project_update (project, doc, &change_set, error)) {
-		error_set (error, PROJECT_ERROR_PROJECT_MALFORMED,
-			   _("Unable to update project"));
-	}
-	xmlFreeDoc (doc);
-	change_set_destroy (change_set);
-#endif
+	amp_target_free (target);
 }
 
 static const gchar * 
@@ -2754,7 +2812,7 @@ impl_add_source (GbfProject  *_project,
 
 
 		/* Search where the target is declared */
-		tok = AMP_TARGET_DATA (target)->token;
+		tok = (AnjutaToken *)amp_target_get_token (target)->data;
 		close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
 		eol_tok = anjuta_token_new_static (ANJUTA_TOKEN_EOL, NULL);
 		anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, tok, &tok);
