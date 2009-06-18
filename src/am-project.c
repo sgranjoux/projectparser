@@ -695,7 +695,7 @@ amp_group_get_token (AmpGroup *node, AmpGroupTokenCategory category)
 {
     AmpGroupData *group;
 	
-	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
+	g_return_val_if_fail ((node != NULL) && (node->data != NULL), NULL); 
 
  	group = (AmpGroupData *)node->data;
 	return group->tokens[category];
@@ -2062,17 +2062,41 @@ impl_add_group (GbfProject  *_project,
 	AmpGroup *child;
 	GFile *directory;
 	GFile *makefile;
-	gsize dummy;
 	AnjutaToken* token;
 	AnjutaToken* prev_token;
 	GList *token_list;
 	gchar *basename;
+	gchar *uri;
 	AnjutaTokenFile* tfile;
 	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	g_return_val_if_fail (name != NULL, NULL);
 	g_return_val_if_fail (parent_id != NULL, NULL);
-	
+
+	/* Validate group name */
+	if (!name || strlen (name) <= 0)
+	{
+		error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
+			   _("Please specify group name"));
+		return NULL;
+	}
+	{
+		gboolean failed = FALSE;
+		const gchar *ptr = name;
+		while (*ptr) {
+			if (!isalnum (*ptr) && *ptr != '.' && *ptr != '-' &&
+			    *ptr != '_')
+				failed = TRUE;
+			ptr++;
+		}
+		if (failed) {
+			error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
+				   _("Group name can only contain alphanumeric, '_', '-' or '.' characters"));
+			return NULL;
+		}
+	}
+
+	/* Find parent group */	
 	project = AMP_PROJECT (_project);
 	parent = g_hash_table_lookup (project->groups, parent_id);
 	if (parent == NULL)
@@ -2083,10 +2107,20 @@ impl_add_group (GbfProject  *_project,
 	}
 	if (AMP_NODE_DATA (parent)->type != AMP_NODE_GROUP) return NULL;
 
-	/* Add source node in project tree */
+	/* Check that the new group doesn't already exist */
 	directory = g_file_get_child (AMP_GROUP_DATA (parent)->directory, name);
+	uri = g_file_get_uri (directory);
+	if (g_hash_table_lookup (project->groups, uri) != NULL)
+	{
+		g_free (uri);
+		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
+			_("Group already exists"));
+		return NULL;
+	}
+	
+	/* Add group node in project tree */
 	child = amp_group_new (directory, FALSE);
-	g_hash_table_insert (project->groups, g_file_get_uri (directory), child);
+	g_hash_table_insert (project->groups, uri, child);
 	g_object_unref (directory);
 	g_node_append (parent, child);
 
@@ -2213,24 +2247,21 @@ impl_remove_group (GbfProject  *_project,
 		   GError     **error)
 {
 	AmpProject *project;
-	GNode *g_node;
-	AmpGroupData *group;
+	AmpGroup *group;
 	GList *token_list;
 
 	g_return_if_fail (AMP_IS_PROJECT (_project));
 
 	project = AMP_PROJECT (_project);
-	g_node = g_hash_table_lookup (project->groups, id);
-	if (g_node == NULL)
+	group = g_hash_table_lookup (project->groups, id);
+	if (group == NULL)
 	{
 		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
 			   _("Parent group doesn't exist"));
-		return NULL;
+		return;
 	}
-	if (AMP_NODE_DATA (g_node)->type != AMP_NODE_GROUP) return NULL;
+	if (AMP_NODE_DATA (group)->type != AMP_NODE_GROUP) return;
 	
-	group = AMP_SOURCE_DATA (g_node);
-
 	for (token_list = amp_group_get_token (group, AM_GROUP_TOKEN_CONFIGURE); token_list != NULL; token_list = g_list_next (token_list))
 	{
 		remove_list_item ((AnjutaToken *)token_list->data, NULL);
@@ -2243,8 +2274,8 @@ impl_remove_group (GbfProject  *_project,
 	{
 		remove_list_item ((AnjutaToken *)token_list->data, NULL);
 	}
-	
-	g_node_destroy (g_node);
+
+	amp_group_free (group);
 }
 
 static GbfProjectTarget * 
@@ -2766,26 +2797,23 @@ impl_remove_source (GbfProject  *_project,
 		    GError     **error)
 {
 	AmpProject *project;
-	GNode *g_node;
-	AmpSourceData *source;
+	AmpSource *source;
 	GNode **buffer;
 	gsize dummy;
 
 	g_return_if_fail (AMP_IS_PROJECT (_project));
 
 	project = AMP_PROJECT (_project);
-	buffer = (GNode **)g_base64_decode (id, &dummy);
-	g_node = *buffer;
+	buffer = (AmpSource **)g_base64_decode (id, &dummy);
+	source = *buffer;
 	g_free (buffer);
 
-	amp_dump_node (g_node);
-	if (AMP_NODE_DATA (g_node)->type != AMP_NODE_SOURCE) return;
+	amp_dump_node (source);
+	if (AMP_NODE_DATA (source)->type != AMP_NODE_SOURCE) return;
 	
-	source = AMP_SOURCE_DATA (g_node);
+	remove_list_item (AMP_SOURCE_DATA (source)->token, NULL);
 
-	remove_list_item (source->token, NULL);
-	
-	g_node_destroy (g_node);
+	amp_source_free (source);
 }
 
 static GtkWidget *
