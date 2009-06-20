@@ -51,10 +51,12 @@ AC_CONFIG_FILES([
 tests/test0.sh
 tests/test1.sh
 tests/test2.sh
-tests/test3.sh], [
+tests/test3.sh
+tests/test4.sh], [
 chmod +x tests/test0.sh
 chmod +x tests/test1.sh
 chmod +x tests/test2.sh
-chmod +x tests/test3.sh])
+chmod +x tests/test3.sh
+chmod +x tests/test4.sh])
 
 AC_OUTPUT

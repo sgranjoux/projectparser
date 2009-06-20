@@ -126,8 +126,10 @@ commands:
 		
 am_variable:
 	AM_VARIABLE space_list_value {
-		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
-		anjuta_token_merge ($1, $2);
+		$$ = anjuta_token_merge (
+			anjuta_token_insert_before ($1,
+					anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT | ANJUTA_TOKEN_SIGNIFICANT, NULL)),
+			$2);
 	}
 	| AM_VARIABLE optional_space equal_token optional_space
 	;
