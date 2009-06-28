@@ -109,10 +109,10 @@ file:
    
 statement:
 	line_or_empty
-	| pkg_check_modules
-	| obsolete_ac_output
-	| ac_output
-	| ac_config_files
+	| optional_space pkg_check_modules optional_space 
+	| optional_space obsolete_ac_output optional_space
+	| optional_space ac_output optional_space
+	| optional_space ac_config_files optional_space
 	;
 
 line_or_empty:

@@ -195,16 +195,6 @@ static GbfProject *parent_class;
    Private prototypes
    ---------------------------------------------------------------------- */
 
-#if 0
-static gboolean        uri_is_equal                 (const gchar       *uri1,
-						     const gchar       *uri2);
-static gboolean        uri_is_parent                (const gchar       *parent_uri,
-						     const gchar       *child_uri);
-static gboolean        uri_is_local_path            (const gchar       *uri);
-static gchar          *uri_normalize                (const gchar       *path_or_uri,
-						     const gchar       *base_uri);
-#endif
-
 static gboolean        project_reload               (AmpProject      *project,
 						     GError           **err);
 
@@ -354,99 +344,6 @@ add_list_item (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_sty
 	
 	return TRUE;
 }
-
-
-#if 0
-/*
- * URI and path manipulation functions -----------------------------
- */
-
-static gboolean 
-uri_is_equal (const gchar *uri1,
-	      const gchar *uri2)
-{
-	gboolean retval = FALSE;
-	GFile *file1, *file2;
-
-	file1 = g_file_new_for_commandline_arg (uri1);
-	file2 = g_file_new_for_commandline_arg (uri2);
-	retval = g_file_equal (file1, file2);
-	g_object_unref (file1);
-	g_object_unref (file2);
-
-	return retval;
-}
-
-static gboolean 
-uri_is_parent (const gchar *parent_uri,
-	       const gchar *child_uri)
-{
-	gboolean retval = FALSE;
-	GFile *parent, *child;
-
-	parent = g_file_new_for_commandline_arg (parent_uri);
-	child = g_file_new_for_commandline_arg (child_uri);
-	retval = g_file_has_prefix (child, parent);
-	g_object_unref (parent);
-	g_object_unref (child);
-
-	return retval;
-}
-
-/*
- * This is very similar to the function that decides in 
- * g_file_new_for_commandline_arg
- */
-static gboolean
-uri_is_local_path (const gchar *uri)
-{
-	const gchar *p;
-	
-	for (p = uri;
-	     g_ascii_isalnum (*p) || *p == '+' || *p == '-' || *p == '.';
-	     p++)
-		;
-
-	if (*p == ':')
-		return FALSE;
-	else
-		return TRUE;
-}
-
-/*
- * This is basically g_file_get_uri (g_file_new_for_commandline_arg (uri)) with
- * an option to give a basedir while g_file_new_for_commandline_arg always
- * uses the current dir.
- */
-static gchar *
-uri_normalize (const gchar *path_or_uri, const gchar *base_uri)
-{
-	gchar *normalized_uri = NULL;
-
-	if (base_uri != NULL && uri_is_local_path (path_or_uri))
-	{
-		GFile *base;
-		GFile *resolved;
-
-		base = g_file_new_for_uri (base_uri);
-		resolved = g_file_resolve_relative_path (base, path_or_uri);
-
-		normalized_uri = g_file_get_uri (resolved);
-		g_object_unref (base);
-		g_object_unref (resolved);
-	}
-	else
-	{
-		GFile *file;
-
-		file = g_file_new_for_commandline_arg (path_or_uri);
-		normalized_uri = g_file_get_uri (file);
-		g_object_unref (file);
-	}
-
-	return normalized_uri;
-}
-#endif
 
 static void
 error_set (GError **error, gint code, const gchar *message)
@@ -1608,6 +1505,7 @@ project_reload (AmpProject *project, GError **error)
 	GFile *root_file;
 	GFile *configure_file;
 	gboolean ok;
+	GError *err = NULL;
 
 	/* Unload current project */
 	root_file = g_object_ref (project->root_file);
@@ -1642,10 +1540,18 @@ project_reload (AmpProject *project, GError **error)
 	project->configure_file = anjuta_token_file_new (configure_file);
 	g_hash_table_insert (project->files, configure_file, project->configure_file);
 	g_object_add_toggle_ref (G_OBJECT (project->configure_file), remove_config_file, project);
-	g_object_unref (configure_file);
 	scanner = amp_ac_scanner_new ();
-	ok = amp_ac_scanner_parse (scanner, project->configure_file, NULL);
+	ok = amp_ac_scanner_parse (scanner, project->configure_file, &err);
 	amp_ac_scanner_free (scanner);
+	if (!ok)
+	{
+		g_set_error (error, GBF_PROJECT_ERROR, 
+		             	GBF_PROJECT_ERROR_PROJECT_MALFORMED,
+		    			err == NULL ? _("Unable to parse project file") : err->message);
+		if (err != NULL) g_error_free (err);
+
+		return FALSE;
+	}
 		     
 	monitors_setup (project);
 
@@ -1920,10 +1826,6 @@ impl_load (GbfProject  *_project,
 	/* some basic checks */
 	if (!impl_probe (_project, uri, error))
 	{
-		g_set_error (error, GBF_PROJECT_ERROR, 
-		             GBF_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Project doesn't exist or invalid path"));
-		
 		return;
 	}
 	
@@ -2989,24 +2891,6 @@ impl_get_config_modules   (GbfProject *_project, GError **error)
 
 	return project->modules == NULL ? NULL : g_hash_table_get_keys (project->modules);
 }
-
-#if 0
-static gboolean
-package_is_valid (const gchar* package)
-{
-	const gchar* c = package;
-	while (*c != '\0')
-	{
-		if (!g_ascii_isalnum (*c) &&
-		    (*c != '_') && (*c != '-') && (*c != '.') && (*c != '+'))
-		{
-			return FALSE;
-		}
-		c++;
-	}
-	return TRUE;
-}
-#endif
 
 static GList *
 impl_get_config_packages  (GbfProject *project,
