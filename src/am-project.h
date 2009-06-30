@@ -23,7 +23,9 @@
 #define _AM_PROJECT_H_
 
 #include <glib-object.h>
-#include "libanjuta/gbf-project.h"
+
+#include <libanjuta/anjuta-token.h>
+#include <libanjuta/gbf-project.h>
 
 G_BEGIN_DECLS
 
@@ -36,16 +38,102 @@ G_BEGIN_DECLS
 typedef struct _AmpProject        AmpProject;
 typedef struct _AmpProjectClass   AmpProjectClass;
 
+struct _AmpProjectClass {
+	GbfProjectClass parent_class;
+};
+
+typedef GNode AmpNode;
+typedef GNode AmpGroup;
+typedef GNode AmpTarget;
+typedef GNode AmpSource;
+
+typedef GNodeTraverseFunc AmpNodeFunc;
+
+typedef enum {
+	AMP_NODE_GROUP,
+	AMP_NODE_TARGET,
+	AMP_NODE_SOURCE
+} AmpNodeType;
+
+struct _AmpProject {
+	GbfProject         parent;
+
+	/* uri of the project; this can be a full uri, even though we
+	 * can only work with native local files */
+	GFile			*root_file;
+
+	/* project data */
+	AnjutaTokenFile		*configure_file;		/* configure.in file */
+	
+	AmpGroup              *root_node;         	/* tree containing project data;
+								 * each GNode's data is a
+								 * AmpNode, and the root of
+								 * the tree is the root group. */
+
+	/* shortcut hash tables, mapping id -> GNode from the tree above */
+	GHashTable		*groups;
+	GHashTable		*files;
+	GHashTable		*configs;		/* Config file from configure_file */
+	
+	GHashTable	*modules;
+	
+	/* project files monitors */
+	GHashTable         *monitors;
+};
+
 GType         amp_project_get_type (GTypeModule *plugin);
-GbfProject   *amp_project_new      (void);
+AmpProject   *amp_project_new      (void);
+
+
+gboolean amp_project_probe (AmpProject  *project, const gchar *uri, GError     **error);
+gboolean amp_project_load (AmpProject *project, const gchar *uri, GError **error);
+gboolean amp_project_reload (AmpProject *project, GError **error);
+void amp_project_unload (AmpProject *project);
+
+AmpGroup *amp_project_get_root (AmpProject *project);
+AmpGroup *amp_project_get_group (AmpProject *project, const gchar *id);
+AmpTarget *amp_project_get_target (AmpProject *project, const gchar *id);
+AmpSource *amp_project_get_source (AmpProject *project, const gchar *id);
+
 
 gboolean amp_project_move (AmpProject *project, const gchar *path);
 gboolean amp_project_save (AmpProject *project, GError **error);
 
 gchar * amp_project_get_uri (AmpProject *project);
 
+AmpGroup* amp_project_add_group (AmpProject  *project, const gchar *parent_id,	const gchar *name, GError **error);
+void amp_project_remove_group (AmpProject  *project, const gchar *id, GError **error);
+
+AmpTarget* amp_project_add_target (AmpProject  *project, const gchar *group_id, const gchar *name, const gchar *type, GError **error);
+void amp_project_remove_target (AmpProject  *project, const gchar *id, GError **error);
+
+AmpSource* amp_project_add_source (AmpProject  *project, const gchar *target_id, const gchar *uri, GError **error);
+void amp_project_remove_source (AmpProject  *project, const gchar *id, GError **error);
+
+
+GList *amp_project_get_config_modules (AmpProject *project, GError **error);
+GList *amp_project_get_config_packages  (AmpProject *project, const gchar* module, GError **error);
 
 gchar * amp_project_get_node_id (AmpProject *project, const gchar *path);
+
+AmpNode *amp_node_parent (AmpNode *node);
+AmpNode *amp_node_first_child (AmpNode *node);
+AmpNode *amp_node_last_child (AmpNode *node);
+AmpNode *amp_node_next_sibling (AmpNode *node);
+AmpNode *amp_node_prev_sibling (AmpNode *node);
+AmpNodeType amp_node_get_type (AmpNode *node);
+void amp_node_all_foreach (AmpNode *node, AmpNodeFunc func, gpointer data);
+
+GFile *amp_group_get_directory (AmpGroup *group);
+GFile *amp_group_get_makefile (AmpGroup *group);
+gchar *amp_group_get_id (AmpGroup *group);
+
+const gchar *amp_target_get_name (AmpTarget *target);
+const gchar *amp_target_get_type (AmpTarget *target);
+gchar *amp_target_get_id (AmpTarget *target);
+
+gchar *amp_source_get_id (AmpSource *source);
+GFile *amp_source_get_file (AmpSource *source);
 
 /* FIXME: The config infrastructure should probably be made part of GbfProject
  * so that other backend implementations could use them directly and we don't

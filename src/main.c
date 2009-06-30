@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include "gbf-am-project.h"
 #include "am-project.h"
 #include "libanjuta/anjuta-debug.h"
 
@@ -68,10 +69,13 @@ void list_target (GbfProject *project, const gchar *id, gint indent, const gchar
 	GList *node;
 	guint count = 0;
 	GFile *root;
+	gchar *uri;
 
 	if (target == NULL) return;
 
-	root = g_file_new_for_uri (amp_project_get_uri (project));
+	uri = amp_project_get_uri (AMP_PROJECT (project));
+	root = g_file_new_for_uri (uri);
+	g_free (uri);
 	
 	indent++;
 	print ("%*sTARGET (%s): %s", indent * INDENT, "", path, target->name); 
@@ -174,7 +178,7 @@ main(int argc, char *argv[])
 	}
 
 	/* Create project */
-	project = amp_project_new ();
+	project = GBF_PROJECT (g_object_new (GBF_TYPE_AM_PROJECT, NULL));
 
 	/* Execute commands */
 	for (command = &argv[1]; *command != NULL; command++)

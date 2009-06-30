@@ -26,7 +26,9 @@ projectparser_SOURCES = \
 	am-scanner.h \
 	ac-scanner.l \
 	ac-parser.y \
-	ac-scanner.h
+	ac-scanner.h \
+	gbf-am-project.c \
+	gbf-am-project.h
 
 projectparser_LDFLAGS = 
 

@@ -317,6 +317,7 @@ amp_ac_scanner_new (void)
 	scanner = g_new0 (AmpAcScanner, 1);
 
     yylex_init(&scanner->scanner);
+
     yyset_extra (scanner, scanner->scanner);
 
 	return scanner;

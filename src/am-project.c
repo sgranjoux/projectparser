@@ -24,6 +24,8 @@
 #include <config.h>
 #endif
 
+#include "am-project.h"
+
 #include <libanjuta/anjuta-debug.h>
 
 #include <string.h>
@@ -37,7 +39,6 @@
 #include <glib/gi18n.h>
 #include <gio/gio.h>
 #include <glib.h>
-#include "am-project.h"
 #include "ac-scanner.h"
 #include "am-scanner.h"
 //#include "am-config.h"
@@ -53,46 +54,7 @@
 
 static const gchar *valid_am_makefiles[] = {"GNUmakefile.am", "makefile.am", "Makefile.am", NULL};
 
-typedef enum {
-	AMP_NODE_GROUP,
-	AMP_NODE_TARGET,
-	AMP_NODE_SOURCE
-} AmpNodeType;
-
-typedef GNode AmpNode;
-typedef GNode AmpGroup;
-
-struct _AmpProject {
-	GbfProject          parent;
-
-	/* uri of the project; this can be a full uri, even though we
-	 * can only work with native local files */
-	GFile			*root_file;
-
-	/* project data */
-	AnjutaTokenFile		*configure_file;		/* configure.in file */
-	
-	AmpGroup              *root_node;         	/* tree containing project data;
-								 * each GNode's data is a
-								 * GbfAmpNode, and the root of
-								 * the tree is the root group. */
-
-	/* shortcut hash tables, mapping id -> GNode from the tree above */
-	GHashTable		*groups;
-	GHashTable		*files;
-	GHashTable		*configs;		/* Config file from configure_file */
-	
-	GHashTable	*modules;
-	
-	/* project files monitors */
-	GHashTable         *monitors;
-};
-
-struct _AmpProjectClass {
-	GbfProjectClass parent_class;
-};
-
-/* convenient shortcut macro the get the GbfAmpNode from a GNode */
+/* convenient shortcut macro the get the AmpNode from a GNode */
 #define AMP_NODE_DATA(node)  ((node) != NULL ? (AmpNodeData *)((node)->data) : NULL)
 #define AMP_GROUP_DATA(node)  ((node) != NULL ? (AmpGroupData *)((node)->data) : NULL)
 #define AMP_TARGET_DATA(node)  ((node) != NULL ? (AmpTargetData *)((node)->data) : NULL)
@@ -150,8 +112,6 @@ typedef enum _AmpTargetFlag
 	AM_TARGET_MAN_SECTION = 31 << 7
 } AmpTargetFlag;
 
-typedef GNode AmpTarget;
-
 typedef struct _AmpTargetData AmpTargetData;
 
 struct _AmpTargetData {
@@ -162,8 +122,6 @@ struct _AmpTargetData {
 	gint flags;
 	GList* tokens;
 };
-
-typedef GNode AmpSource;
 
 typedef struct _AmpSourceData AmpSourceData;
 
@@ -188,30 +146,32 @@ enum {
 	PROP_PROJECT_DIR
 };
 
-static GbfProject *parent_class;
-
-
-/* ----------------------------------------------------------------------
-   Private prototypes
-   ---------------------------------------------------------------------- */
-
-static gboolean        project_reload               (AmpProject      *project,
-						     GError           **err);
-
-//static void            project_data_unload         (AmpProject      *project);
-static void            project_data_init            (AmpProject      *project);
-
-static void            amp_project_class_init    (AmpProjectClass *klass);
-static void            amp_project_instance_init (AmpProject      *project);
-static void            amp_project_dispose       (GObject           *object);
-static void            amp_project_get_property  (GObject           *object,
-						     guint              prop_id,
-						     GValue            *value,
-						     GParamSpec        *pspec);
-
+static GObject *parent_class;
 
 /* Helper functions
  *---------------------------------------------------------------------------*/
+
+static void
+error_set (GError **error, gint code, const gchar *message)
+{
+        if (error != NULL) {
+                if (*error != NULL) {
+                        gchar *tmp;
+
+                        /* error already created, just change the code
+                         * and prepend the string */
+                        (*error)->code = code;
+                        tmp = (*error)->message;
+                        (*error)->message = g_strconcat (message, "\n\n", tmp, NULL);
+                        g_free (tmp);
+
+                } else {
+                        *error = g_error_new_literal (GBF_PROJECT_ERROR,
+                                                      code,
+                                                      message);
+                }
+        }
+}
 
 /* Work even if file is not a descendant of parent */
 static gchar*
@@ -343,28 +303,6 @@ add_list_item (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_sty
 	if (user_style == NULL) anjuta_token_style_free (style);
 	
 	return TRUE;
-}
-
-static void
-error_set (GError **error, gint code, const gchar *message)
-{
-        if (error != NULL) {
-                if (*error != NULL) {
-                        gchar *tmp;
-
-                        /* error already created, just change the code
-                         * and prepend the string */
-                        (*error)->code = code;
-                        tmp = (*error)->message;
-                        (*error)->message = g_strconcat (message, "\n\n", tmp, NULL);
-                        g_free (tmp);
-
-                } else {
-                        *error = g_error_new_literal (GBF_PROJECT_ERROR,
-                                                      code,
-                                                      message);
-                }
-        }
 }
 
 /* Automake parsing function
@@ -766,7 +704,7 @@ monitor_cb (GFileMonitor *monitor,
 		case G_FILE_MONITOR_EVENT_CHANGED:
 		case G_FILE_MONITOR_EVENT_DELETED:
 			/* monitor will be removed here... is this safe? */
-			project_reload (project, NULL);
+			amp_project_reload (project, NULL);
 			g_signal_emit_by_name (G_OBJECT (project), "project-updated");
 			break;
 		default:
@@ -919,34 +857,6 @@ project_node_destroy (AmpProject *project, GNode *g_node)
 		/* now destroy the tree itself */
 		//g_node_destroy (g_node);
 	}
-}
-
-static void
-project_unload (AmpProject *project)
-{
-	g_return_if_fail (AMP_IS_PROJECT (project));
-	
-	monitors_remove (project);
-	
-	/* project data */
-	project_node_destroy (project, project->root_node);
-	project->root_node = NULL;
-
-	if (project->configure_file)	g_object_unref (G_OBJECT (project->configure_file));
-	project->configure_file = NULL;
-
-	if (project->root_file) g_object_unref (project->root_file);
-	project->root_file = NULL;
-	
-	/* shortcut hash tables */
-	if (project->groups) g_hash_table_destroy (project->groups);
-	if (project->files) g_hash_table_destroy (project->files);
-	if (project->configs) g_hash_table_destroy (project->configs);
-	project->groups = NULL;
-	project->files = NULL;
-	project->configs = NULL;
-
-	amp_project_free_module_hash (project);
 }
 
 static void
@@ -1498,8 +1408,11 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean
 	return group;
 }
 
-static gboolean
-project_reload (AmpProject *project, GError **error) 
+/* Public functions
+ *---------------------------------------------------------------------------*/
+
+gboolean
+amp_project_reload (AmpProject *project, GError **error) 
 {
 	AmpAcScanner *scanner;
 	GFile *root_file;
@@ -1509,7 +1422,7 @@ project_reload (AmpProject *project, GError **error)
 
 	/* Unload current project */
 	root_file = g_object_ref (project->root_file);
-	project_unload (project);
+	amp_project_unload (project);
 	project->root_file = root_file;
 	DEBUG_PRINT ("reload project %p root file %p", project, project->root_file);
 
@@ -1572,197 +1485,51 @@ project_reload (AmpProject *project, GError **error)
 	return ok;
 }
 
-static void
-project_data_init (AmpProject *project)
+gboolean
+amp_project_load (AmpProject  *project,
+    const gchar *uri,
+	GError     **error)
 {
-	g_return_if_fail (project != NULL);
-	g_return_if_fail (AMP_IS_PROJECT (project));
+	g_return_val_if_fail (uri != NULL, FALSE);
+
+	project->root_file = g_file_new_for_path (uri);
+	if (!amp_project_reload (project, error))
+	{
+		g_object_unref (project->root_file);
+		project->root_file = NULL;
+	}
+
+	return project->root_file != NULL;
+}
+
+void
+amp_project_unload (AmpProject *project)
+{
+	monitors_remove (project);
 	
 	/* project data */
-	project->root_file = NULL;
-	project->configure_file = NULL;
+	project_node_destroy (project, project->root_node);
 	project->root_node = NULL;
+
+	if (project->configure_file)	g_object_unref (G_OBJECT (project->configure_file));
+	project->configure_file = NULL;
+
+	if (project->root_file) g_object_unref (project->root_file);
+	project->root_file = NULL;
+	
+	/* shortcut hash tables */
+	if (project->groups) g_hash_table_destroy (project->groups);
+	if (project->files) g_hash_table_destroy (project->files);
+	if (project->configs) g_hash_table_destroy (project->configs);
+	project->groups = NULL;
+	project->files = NULL;
+	project->configs = NULL;
+
+	amp_project_free_module_hash (project);
 }
 
-#if 0
-AmConfigMapping *
-amp_project_get_config (AmpProject *project, GError **error)
-{
-	g_return_val_if_fail (IS_AMP_PROJECT (project), NULL);
-	g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-	
-	return am_config_mapping_copy (project->project_config);
-}
-
-AmConfigMapping *
-amp_project_get_group_config (AmpProject *project, const gchar *group_id,
-				 GError **error)
-{
-	AmpNode *node;
-	GNode *g_node;
-	
-	g_return_val_if_fail (IS_AMP_PROJECT (project), NULL);
-	g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-	
-	g_node = g_hash_table_lookup (project->groups, group_id);
-	if (g_node == NULL) {
-		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
-			   _("Group doesn't exist"));
-		return NULL;
-	}
-	node = AMP_NODE_DATA (g_node);
-	return am_config_mapping_copy (node->config);
-}
-
-AmConfigMapping *
-amp_project_get_target_config (AmpProject *project, const gchar *target_id,
-				  GError **error)
-{
-	AmpNode *node;
-	GNode *g_node;
-
-	g_return_val_if_fail (IS_AMP_PROJECT (project), NULL);
-	g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-	
-	g_node = g_hash_table_lookup (project->targets, target_id);
-	if (g_node == NULL) {
-		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
-			   _("Target doesn't exist"));
-		return NULL;
-	}
-	node = AMP_NODE_DATA (g_node);
-	return am_config_mapping_copy (node->config);
-}
-
-void
-amp_project_set_config (AmpProject *project,
-			   AmConfigMapping *new_config, GError **error)
-{
-	xmlDocPtr doc;
-	GSList *change_set = NULL;
-	
-	g_return_if_fail (IS_AMP_PROJECT (project));
-	g_return_if_fail (new_config != NULL);
-	g_return_if_fail (error == NULL || *error == NULL);
-	
-	/* Create the update xml */
-	doc = xml_new_change_doc (project);
-	
-	if (!xml_write_set_config (project, doc, NULL, new_config)) {
-		xmlFreeDoc (doc);
-		return;
-	}
-
-	DEBUG ({
-		xmlSetDocCompressMode (doc, 0);
-		xmlSaveFile ("/tmp/set-config.xml", doc);
-	});
-
-	/* Update the project */
-	if (!project_update (project, doc, &change_set, error)) {
-		error_set (error, PROJECT_ERROR_PROJECT_MALFORMED,
-			   _("Unable to update project"));
-		xmlFreeDoc (doc);
-		return;
-	}
-	xmlFreeDoc (doc);
-	change_set_destroy (change_set);
-}
-
-void
-amp_project_set_group_config (AmpProject *project, const gchar *group_id,
-				 AmConfigMapping *new_config, GError **error)
-{
-	AmpNode *node;
-	xmlDocPtr doc;
-	GNode *g_node;
-	GSList *change_set = NULL;
-	
-	g_return_if_fail (IS_AMP_PROJECT (project));
-	g_return_if_fail (new_config != NULL);
-	g_return_if_fail (error == NULL || *error == NULL);
-	
-	g_node = g_hash_table_lookup (project->groups, group_id);
-	if (g_node == NULL) {
-		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
-			   _("Group doesn't exist"));
-		return;
-	}
-	node = AMP_NODE_DATA (g_node);
-	
-	/* Create the update xml */
-	doc = xml_new_change_doc (project);
-	if (!xml_write_set_config (project, doc, g_node, new_config)) {
-		xmlFreeDoc (doc);
-		return;
-	}
-
-	DEBUG ({
-		xmlSetDocCompressMode (doc, 0);
-		xmlSaveFile ("/tmp/set-config.xml", doc);
-	});
-	
-	/* Update the project */
-	if (!project_update (project, doc, &change_set, error)) {
-		error_set (error, PROJECT_ERROR_PROJECT_MALFORMED,
-			   _("Unable to update project"));
-		xmlFreeDoc (doc);
-		return;
-	}
-	xmlFreeDoc (doc);
-	change_set_destroy (change_set);
-}
-
-void
-amp_project_set_target_config (AmpProject *project,
-				  const gchar *target_id,
-				  AmConfigMapping *new_config,
-				  GError **error)
-{
-	xmlDocPtr doc;
-	GNode *g_node;
-	GSList *change_set = NULL;
-	
-	g_return_if_fail (IS_AMP_PROJECT (project));
-	g_return_if_fail (new_config != NULL);
-	g_return_if_fail (error == NULL || *error == NULL);
-	
-	g_node = g_hash_table_lookup (project->targets, target_id);
-	if (g_node == NULL) {
-		error_set (error, PROJECT_ERROR_DOESNT_EXIST,
-			   _("Target doesn't exist"));
-	}
-	
-	/* Create the update xml */
-	doc = xml_new_change_doc (project);
-	if (!xml_write_set_config (project, doc, g_node, new_config)) {
-		xmlFreeDoc (doc);
-		return;
-	}
-
-	DEBUG ({
-		xmlSetDocCompressMode (doc, 0);
-		xmlSaveFile ("/tmp/set-config.xml", doc);
-	});
-
-	/* Update the project */
-	if (!project_update (project, doc, &change_set, error)) {
-		error_set (error, PROJECT_ERROR_PROJECT_MALFORMED,
-			   _("Unable to update project"));
-		xmlFreeDoc (doc);
-		return;
-	}
-	xmlFreeDoc (doc);
-	change_set_destroy (change_set);
-}
-#endif
-
-
-/* GbfProject implementation
- *---------------------------------------------------------------------------*/
-
-static gboolean 
-impl_probe (GbfProject  *_project,
+gboolean 
+amp_project_probe (AmpProject  *project,
 	    const gchar *uri,
 	    GError     **error)
 {
@@ -1770,8 +1537,6 @@ impl_probe (GbfProject  *_project,
 	gboolean probe;
 	gboolean dir;
 	
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), FALSE);
-
 	file = g_file_new_for_path (uri);
 
 	dir = (file_type (file, NULL) == G_FILE_TYPE_DIRECTORY);
@@ -1809,185 +1574,12 @@ impl_probe (GbfProject  *_project,
 	return probe;
 }
 
-static void 
-impl_load (GbfProject  *_project,
-	   const gchar *uri,
-	   GError     **error)
-{
-	AmpProject *project;
-	
-	g_return_if_fail (AMP_IS_PROJECT (_project));
-	g_return_if_fail (uri != NULL);
-
-	/* unload current project */
-	project = AMP_PROJECT (_project);
-	project_unload (project);
-
-	/* some basic checks */
-	if (!impl_probe (_project, uri, error))
-	{
-		return;
-	}
-	
-	/* now try loading the project */
-	project->root_file = g_file_new_for_path (uri);
-	if (!project_reload (project, error))
-	{
-		g_object_unref (project->root_file);
-		project->root_file = NULL;
-	}
-}
-
-static void
-impl_refresh (GbfProject *_project,
-	      GError    **error)
-{
-	AmpProject *project;
-
-	g_return_if_fail (AMP_IS_PROJECT (_project));
-
-	project = AMP_PROJECT (_project);
-
-	if (project_reload (project, error))
-		g_signal_emit_by_name (G_OBJECT (project), "project-updated");
-}
-
-static GbfProjectCapabilities
-impl_get_capabilities (GbfProject *_project, GError    **error)
-{
-	g_return_val_if_fail (AMP_IS_PROJECT (_project),
-			      GBF_PROJECT_CAN_ADD_NONE);
-	return (GBF_PROJECT_CAN_ADD_GROUP |
-		GBF_PROJECT_CAN_ADD_TARGET |
-		GBF_PROJECT_CAN_ADD_SOURCE);
-}
-
-static GbfProjectGroup * 
-impl_get_group (GbfProject  *_project,
-		const gchar *id,
-		GError     **error)
-{
-	AmpProject *project;
-	GbfProjectGroup *group;
-	GNode *g_node;
-	AmpNodeData *node;
-	gchar *target_id;
-	
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-
-	project = AMP_PROJECT (_project);
-	if ((id == NULL) || (*id == '\0') || ((id[0] == '/') && (id[1] == '\0')))
-	{
-		gchar *id = g_file_get_uri (project->root_file);
-		g_node = g_hash_table_lookup (project->groups, id);
-		g_free (id);
-	}
-	else
-	{
-		g_node = g_hash_table_lookup (project->groups, id);
-	}
-	//g_message ("get node %p, id \"%s\" hash %p\n", g_node, id, project->groups);
-	if (g_node == NULL) {
-		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Group doesn't exist"));
-		return NULL;
-	}
-	group = g_new0 (GbfProjectGroup, 1);
-	group->id = g_file_get_uri (AMP_GROUP_DATA(g_node)->directory);
-	group->name = g_file_get_basename (AMP_GROUP_DATA(g_node)->directory);
-	if (g_node->parent)
-		group->parent_id = g_file_get_uri (AMP_GROUP_DATA (g_node->parent)->directory);
-	else
-		group->parent_id = NULL;
-	group->groups = NULL;
-	group->targets = NULL;
-
-	/* add subgroups and targets of the group */
-	g_node = g_node_first_child (g_node);
-	while (g_node) {
-		node = AMP_NODE_DATA (g_node);
-		switch (node->type) {
-			case AMP_NODE_GROUP:
-				group->groups = g_list_prepend (group->groups,
-								g_file_get_uri (((AmpGroupData *)node)->directory));
-				break;
-			case AMP_NODE_TARGET:
-				target_id  = canonicalize_automake_variable (((AmpTargetData *)node)->name);
-				group->targets = g_list_prepend (group->targets,
-								 g_base64_encode ((guchar *)&g_node, sizeof (g_node)));
-				g_free (target_id);
-				break;
-			default:
-				break;
-		}
-		g_node = g_node_next_sibling (g_node);
-	}
-	group->groups = g_list_reverse (group->groups);
-	group->targets = g_list_reverse (group->targets);
-	
-	return group;
-}
-
-static void
-foreach_group (gpointer key, gpointer value, gpointer data)
-{
-	GList **groups = data;
-
-	*groups = g_list_prepend (*groups, g_strdup (key));
-}
-
-
-static GList *
-impl_get_all_groups (GbfProject *_project,
-		     GError    **error)
-{
-	AmpProject *project;
-	GList *groups = NULL;
-
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-
-	project = AMP_PROJECT (_project);
-	g_hash_table_foreach (project->groups, foreach_group, &groups);
-
-	return groups;
-}
-
-static GtkWidget *
-impl_configure_new_group (GbfProject *_project,
-			  GError    **error)
-{
-	UNIMPLEMENTED;
-
-	return NULL;
-}
-
-static GtkWidget * 
-impl_configure_group (GbfProject  *_project,
-		      const gchar *id,
-		      GError     **error)
-{
-	GtkWidget *wid = NULL;
-	GError *err = NULL;
-	
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-	g_return_val_if_fail (id != NULL, NULL);
-	g_return_val_if_fail (error == NULL || *error == NULL, NULL);
-	
-	//wid = am_properties_get_group_widget (AMP_PROJECT (_project),
-	//						  id, &err);
-	if (err) {
-		g_propagate_error (error, err);
-	}
-	return wid;
-}
-
-static gchar * 
-impl_add_group (GbfProject  *_project,
+AmpGroup* 
+amp_project_add_group (AmpProject  *project,
 		const gchar *parent_id,
 		const gchar *name,
 		GError     **error)
 {
-	AmpProject *project;
 	AmpGroup *parent;
 	AmpGroup *last;
 	AmpGroup *child;
@@ -2000,7 +1592,6 @@ impl_add_group (GbfProject  *_project,
 	gchar *uri;
 	AnjutaTokenFile* tfile;
 	
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	g_return_val_if_fail (name != NULL, NULL);
 	g_return_val_if_fail (parent_id != NULL, NULL);
 
@@ -2028,7 +1619,6 @@ impl_add_group (GbfProject  *_project,
 	}
 
 	/* Find parent group */	
-	project = AMP_PROJECT (_project);
 	parent = g_hash_table_lookup (project->groups, parent_id);
 	if (parent == NULL)
 	{
@@ -2171,21 +1761,17 @@ impl_add_group (GbfProject  *_project,
 	}
 	amp_group_add_token (child, token, AM_GROUP_TOKEN_SUBDIRS);
 
-	return g_strdup (g_file_get_uri (AMP_GROUP_DATA (child)->directory));
+	return child;
 }
 
-static void 
-impl_remove_group (GbfProject  *_project,
+void 
+amp_project_remove_group (AmpProject  *project,
 		   const gchar *id,
 		   GError     **error)
 {
-	AmpProject *project;
 	AmpGroup *group;
 	GList *token_list;
 
-	g_return_if_fail (AMP_IS_PROJECT (_project));
-
-	project = AMP_PROJECT (_project);
 	group = g_hash_table_lookup (project->groups, id);
 	if (group == NULL)
 	{
@@ -2211,112 +1797,8 @@ impl_remove_group (GbfProject  *_project,
 	amp_group_free (group);
 }
 
-static GbfProjectTarget * 
-impl_get_target (GbfProject  *_project,
-		 const gchar *id,
-		 GError     **error)
-{
-	AmpProject *project;
-	GbfProjectTarget *target;
-	GNode *g_node;
-	AmpSourceData *child_node;
-	GNode **buffer;
-	gsize dummy;
-
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-
-	project = AMP_PROJECT (_project);
-	buffer = (GNode **)g_base64_decode (id, &dummy);
-	g_node = *buffer;
-	g_free (buffer);
-	
-	target = g_new0 (GbfProjectTarget, 1);
-	target->group_id = g_strdup (AMP_NODE_DATA (g_node->parent)->id);
-	target->id = g_strconcat (target->group_id, AMP_TARGET_DATA(g_node)->name, NULL);
-	target->name = g_strdup (AMP_TARGET_DATA(g_node)->name);
-	target->type = g_strdup (AMP_TARGET_DATA(g_node)->type);
-	target->sources = NULL;
-
-	/* add sources to the target */
-	g_node = g_node_first_child (g_node);
-	while (g_node) {
-		child_node = AMP_SOURCE_DATA (g_node);
-		switch (child_node->node.type) {
-			case AMP_NODE_SOURCE:
-				target->sources = g_list_prepend (target->sources,
-								  g_base64_encode ((guchar *)&g_node, sizeof (g_node)));
-				//DEBUG_PRINT ("sources id %p  \"%s\"", child_node, (const gchar *)target->sources->data);
-				break;
-			default:
-				break;
-		}
-		g_node = g_node_next_sibling (g_node);
-	}
-	target->sources = g_list_reverse (target->sources);
-
-	return target;
-}
-
-static gboolean
-get_all_target (GNode *node, gpointer data)
-{
-	GList **targets = data;
-
-	if (AMP_NODE_DATA (node)->type == AMP_NODE_TARGET)
-	{
-		gchar *id = g_base64_encode ((guchar *)&node, sizeof (node));
-		*targets = g_list_prepend (*targets, id);
-	}
-
-	return FALSE;
-}
-
-static GList *
-impl_get_all_targets (GbfProject *_project,
-		      GError    **error)
-{
-	AmpProject *project;
-	GList *targets = NULL;
-
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-
-	project = AMP_PROJECT (_project);
-	g_node_traverse (project->root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, get_all_target, &targets);
-
-	return targets;
-}
-
-static GtkWidget *
-impl_configure_new_target (GbfProject *_project,
-			   GError    **error)
-{
-	UNIMPLEMENTED;
-
-	return NULL;
-}
-
-static GtkWidget * 
-impl_configure_target (GbfProject  *_project,
-		       const gchar *id,
-		       GError     **error)
-{
-	GtkWidget *wid = NULL;
-	GError *err = NULL;
-	
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-	g_return_val_if_fail (id != NULL, NULL);
-	g_return_val_if_fail (error == NULL || *error == NULL, NULL);
-	
-	//wid = am_properties_get_target_widget (AMP_PROJECT (_project),
-	//					   id, &err);
-	if (err) {
-		g_propagate_error (error, err);
-	}
-	return wid;
-}
-
 static AnjutaTokenType
-impl_anjuta_token_for_type (const gchar *type)
+anjuta_token_for_target_type (const gchar *type)
 {
 	if (!strcmp (type, "static_lib")) {
 		return AM_TOKEN__LIBRARIES;
@@ -2346,7 +1828,7 @@ impl_anjuta_token_for_type (const gchar *type)
 }
 
 static const gchar*
-impl_autotool_prefix_for_type (const gchar *type)
+autotool_prefix_for_target_type (const gchar *type)
 {
 	if (!strcmp (type, "static_lib")) {
 		return "_LIBRARIES";
@@ -2376,7 +1858,7 @@ impl_autotool_prefix_for_type (const gchar *type)
 }
 
 static const gchar * 
-impl_default_install_for_type (const gchar *type)
+default_install_for_target_type (const gchar *type)
 {
 	if (!strcmp (type, "static_lib")) {
 		return _("lib");
@@ -2405,15 +1887,13 @@ impl_default_install_for_type (const gchar *type)
 	}
 }
 
-
-static char * 
-impl_add_target (GbfProject  *_project,
+AmpTarget*
+amp_project_add_target (AmpProject  *project,
 		 const gchar *group_id,
 		 const gchar *name,
 		 const gchar *type,
 		 GError     **error)
 {
-	AmpProject *project;
 	AmpGroup *parent;
 	AmpTarget *child;
 	AnjutaToken* token;
@@ -2423,7 +1903,6 @@ impl_add_target (GbfProject  *_project,
 	gchar *find;
 	GList *last;
 	
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	g_return_val_if_fail (name != NULL, NULL);
 	g_return_val_if_fail (group_id != NULL, NULL);
 
@@ -2469,7 +1948,6 @@ impl_add_target (GbfProject  *_project,
 	}
 	
 	/* Find parent group */	
-	project = AMP_PROJECT (_project);
 	parent = g_hash_table_lookup (project->groups, group_id);
 	if (parent == NULL)
 	{
@@ -2495,7 +1973,7 @@ impl_add_target (GbfProject  *_project,
 	g_node_append (parent, child);
 
 	/* Add in Makefile.am */
-	targetname = g_strconcat (impl_default_install_for_type (type), impl_autotool_prefix_for_type (type), NULL);
+	targetname = g_strconcat (default_install_for_target_type (type), autotool_prefix_for_target_type (type), NULL);
 
 	for (last = amp_group_get_token (parent, AM_GROUP_TARGET); last != NULL; last = g_list_next (last))
 	{
@@ -2509,7 +1987,7 @@ impl_add_target (GbfProject  *_project,
 		g_free (value);
 	}
 
-	token = anjuta_token_new_string (impl_anjuta_token_for_type (type), targetname);
+	token = anjuta_token_new_string (anjuta_token_for_target_type (type), targetname);
 	g_free (targetname);
 
 	if (last == NULL)
@@ -2569,24 +2047,20 @@ impl_add_target (GbfProject  *_project,
 	}
 	token = anjuta_token_insert_after (token, anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, name));
 	amp_target_add_token (child, token);
-		
-	return g_base64_encode ((guchar *)&child, sizeof (child));
+
+	return child;
 }
 
-static void 
-impl_remove_target (GbfProject  *_project,
+void 
+amp_project_remove_target (AmpProject  *project,
 		    const gchar *id,
 		    GError     **error)
 {
-	AmpProject *project;
 	AmpTarget *target;
 	GList *token_list;
 	GNode **buffer;
 	gsize dummy;
 
-	g_return_if_fail (AMP_IS_PROJECT (_project));
-
-	project = AMP_PROJECT (_project);
 	buffer = (AmpSource **)g_base64_decode (id, &dummy);
 	target = *buffer;
 	g_free (buffer);
@@ -2600,175 +2074,12 @@ impl_remove_target (GbfProject  *_project,
 	amp_target_free (target);
 }
 
-static const gchar * 
-impl_name_for_type (GbfProject  *_project,
-		    const gchar *type)
-{
-	if (!strcmp (type, "static_lib")) {
-		return _("Static Library");
-	} else if (!strcmp (type, "shared_lib")) {
-		return _("Shared Library");
-	} else if (!strcmp (type, "headers")) {
-		return _("Header Files");
-	} else if (!strcmp (type, "man")) {
-		return _("Man Documentation");
-	} else if (!strcmp (type, "data")) {
-		return _("Miscellaneous Data");
-	} else if (!strcmp (type, "program")) {
-		return _("Program");
-	} else if (!strcmp (type, "script")) {
-		return _("Script");
-	} else if (!strcmp (type, "info")) {
-		return _("Info Documentation");
-	} else if (!strcmp (type, "java")) {
-		return _("Java Module");
-	} else if (!strcmp (type, "python")) {
-		return _("Python Module");
-	} else if (!strcmp (type, "lisp")) {
-		return _("Lisp Module");
-	} else {
-		return _("Unknown");
-	}
-}
-
-static const gchar * 
-impl_mimetype_for_type (GbfProject  *_project,
-			const gchar *type)
-{
-	if (!strcmp (type, "static_lib")) {
-		return "application/x-archive";
-	} else if (!strcmp (type, "shared_lib")) {
-		return "application/x-sharedlib";
-	} else if (!strcmp (type, "headers")) {
-		return "text/x-chdr";
-	} else if (!strcmp (type, "man")) {
-		return "text/x-troff-man";
-	} else if (!strcmp (type, "data")) {
-		return "application/octet-stream";
-	} else if (!strcmp (type, "program")) {
-		return "application/x-executable";
-	} else if (!strcmp (type, "script")) {
-		return "text/x-shellscript";
-	} else if (!strcmp (type, "info")) {
-		return "application/x-tex-info";
-	} else if (!strcmp (type, "java")) {
-		return "application/x-java";
-	} else if (!strcmp (type, "python")) {
-		return "application/x-python";
-	} else {
-		return "text/plain";
-	}
-}
-
-static gchar **
-impl_get_types (GbfProject *_project)
-{
-	return g_strsplit ("program:shared_lib:static_lib:headers:"
-			   "man:data:script:info:java:python:lisp", ":", 0);
-}
-
-static GbfProjectTargetSource * 
-impl_get_source (GbfProject  *_project,
-		 const gchar *id,
-		 GError     **error)
-{
-	AmpProject *project;
-	GbfProjectTargetSource *source;
-	GNode *g_node;
-	GNode **buffer;
-	gsize dummy;
-
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-
-	project = AMP_PROJECT (_project);
-	buffer = (GNode **)g_base64_decode (id, &dummy);
-	g_node = *buffer;
-	g_free (buffer);
-	//DEBUG_PRINT (" get sources id \"%s\" %p", id, g_node);
-	
-	source = g_new0 (GbfProjectTargetSource, 1);
-	source->id = g_file_get_uri (AMP_SOURCE_DATA (g_node)->file);
-	source->source_uri = g_file_get_uri (AMP_SOURCE_DATA (g_node)->file);
-	source->target_id = g_strdup (AMP_NODE_DATA (g_node->parent)->id);
-
-	return source;
-}
-
-static gboolean
-foreach_source (GNode *node, gpointer user_data)
-{
-	AmpSourceData *source = AMP_SOURCE_DATA (node);
-	GHashTable *hash = (GHashTable *)user_data;
-	
-	if (source->node.type == AMP_NODE_SOURCE)
-	{
-		gchar *id = g_base64_encode ((guchar *)&node, sizeof (node));
-		g_hash_table_insert (hash, source->file, id);
-	}
-
-	return FALSE;
-}
-
-/* List all sources, removing duplicate */
-static GList *
-impl_get_all_sources (GbfProject *_project,
-		      GError    **error)
-{
-	AmpProject *project;
-	GHashTable *hash;
-	GList *sources;
-	
-
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-
-	project = AMP_PROJECT (_project);
-
-	hash = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, g_free);
-	g_node_traverse (project->root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, foreach_source, hash);
-	sources = g_hash_table_get_values (hash);
-	g_hash_table_steal_all (hash);
-	g_hash_table_destroy (hash);
-	
-	return sources;
-}
-
-static GtkWidget *
-impl_configure_new_source (GbfProject *_project,
-			   GError    **error)
-{
-	UNIMPLEMENTED;
-
-	return NULL;
-}
-
-static GtkWidget * 
-impl_configure_source (GbfProject  *_project,
-		       const gchar *id,
-		       GError     **error)
-{
-	UNIMPLEMENTED;
-
-	return NULL;
-}
-
-/**
- * impl_add_source:
- * @project: 
- * @target_id: the target ID to where to add the source
- * @uri: an uri to the file, which can be absolute or relative to the target's group
- * @error: 
- * 
- * Add source implementation.  The uri must have the project root as its parent.
- * 
- * Return value: 
- **/
-static gchar * 
-impl_add_source (GbfProject  *_project,
+AmpSource* 
+amp_project_add_source (AmpProject  *project,
 		 const gchar *target_id,
 		 const gchar *uri,
 		 GError     **error)
 {
-	AmpProject *project;
 	AmpGroup *group;
 	AmpTarget *target;
 	AmpSource *last;
@@ -2777,11 +2088,9 @@ impl_add_source (GbfProject  *_project,
 	gsize dummy;
 	AnjutaToken* token;
 	
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	g_return_val_if_fail (uri != NULL, NULL);
 	g_return_val_if_fail (target_id != NULL, NULL);
 	
-	project = AMP_PROJECT (_project);
 	buffer = (GNode **)g_base64_decode (target_id, &dummy);
 	target = (AmpTarget *)*buffer;
 	g_free (buffer);
@@ -2837,22 +2146,18 @@ impl_add_source (GbfProject  *_project,
 	AMP_SOURCE_DATA(source)->token = token;
 	g_node_append (target, source);
 
-	return g_base64_encode ((guchar *)&source, sizeof (source));
+	return source;
 }
 
-static void 
-impl_remove_source (GbfProject  *_project,
+void 
+amp_project_remove_source (AmpProject  *project,
 		    const gchar *id,
 		    GError     **error)
 {
-	AmpProject *project;
 	AmpSource *source;
 	GNode **buffer;
 	gsize dummy;
 
-	g_return_if_fail (AMP_IS_PROJECT (_project));
-
-	project = AMP_PROJECT (_project);
 	buffer = (AmpSource **)g_base64_decode (id, &dummy);
 	source = *buffer;
 	g_free (buffer);
@@ -2865,35 +2170,14 @@ impl_remove_source (GbfProject  *_project,
 	amp_source_free (source);
 }
 
-static GtkWidget *
-impl_configure (GbfProject *_project, GError **error)
+GList *
+amp_project_get_config_modules   (AmpProject *project, GError **error)
 {
-	GtkWidget *wid = NULL;
-	GError *err = NULL;
-	
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-	g_return_val_if_fail (error == NULL || *error == NULL, NULL);
-	
-	//wid = am_properties_get_widget (AMP_PROJECT (_project), &err);
-	if (err) {
-		g_propagate_error (error, err);
-	}
-	return wid;
-}
-
-static GList *
-impl_get_config_modules   (GbfProject *_project, GError **error)
-{
-	AmpProject *project;
-	
-	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-	project = AMP_PROJECT (_project);
-
 	return project->modules == NULL ? NULL : g_hash_table_get_keys (project->modules);
 }
 
-static GList *
-impl_get_config_packages  (GbfProject *project,
+GList *
+amp_project_get_config_packages  (AmpProject *project,
 			   const gchar* module,
 			   GError **error)
 {
@@ -2903,7 +2187,7 @@ impl_get_config_packages  (GbfProject *project,
 	g_return_val_if_fail (project != NULL, NULL);
 	g_return_val_if_fail (module != NULL, NULL);
 
-	mod = g_hash_table_lookup (AMP_PROJECT (project)->modules, module);
+	mod = g_hash_table_lookup (project->modules, module);
 
 	if (mod != NULL)
 	{
@@ -2918,102 +2202,6 @@ impl_get_config_packages  (GbfProject *project,
 	}
 
 	return packages;
-}
-
-static void
-amp_project_class_init (AmpProjectClass *klass)
-{
-	GObjectClass *object_class;
-	GbfProjectClass *project_class;
-
-	object_class = G_OBJECT_CLASS (klass);
-	project_class = GBF_PROJECT_CLASS (klass);
-	parent_class = g_type_class_peek_parent (klass);
-
-	object_class->dispose = amp_project_dispose;
-	object_class->get_property = amp_project_get_property;
-
-	project_class->load = impl_load;
-	project_class->probe = impl_probe;
-	project_class->refresh = impl_refresh;
-	project_class->get_capabilities = impl_get_capabilities;
-
-	project_class->add_group = impl_add_group;
-	project_class->remove_group = impl_remove_group;
-	project_class->get_group = impl_get_group;
-	project_class->get_all_groups = impl_get_all_groups;
-	project_class->configure_group = impl_configure_group;
-	project_class->configure_new_group = impl_configure_new_group;
-
-	project_class->add_target = impl_add_target;
-	project_class->remove_target = impl_remove_target;
-	project_class->get_target = impl_get_target;
-	project_class->get_all_targets = impl_get_all_targets;
-	project_class->configure_target = impl_configure_target;
-	project_class->configure_new_target = impl_configure_new_target;
-
-	project_class->add_source = impl_add_source;
-	project_class->remove_source = impl_remove_source;
-	project_class->get_source = impl_get_source;
-	project_class->get_all_sources = impl_get_all_sources;
-	project_class->configure_source = impl_configure_source;
-	project_class->configure_new_source = impl_configure_new_source;
-
-	project_class->configure = impl_configure;
-	project_class->get_config_modules = impl_get_config_modules;
-	project_class->get_config_packages = impl_get_config_packages;
-	
-	project_class->name_for_type = impl_name_for_type;
-	project_class->mimetype_for_type = impl_mimetype_for_type;
-	project_class->get_types = impl_get_types;
-	
-	/* default signal handlers */
-	project_class->project_updated = NULL;
-
-	/* FIXME: shouldn't we use '_' instead of '-' ? */
-	g_object_class_install_property 
-		(object_class, PROP_PROJECT_DIR,
-		 g_param_spec_string ("project-dir", 
-				      _("Project directory"),
-				      _("Project directory"),
-				      NULL,
-				      G_PARAM_READABLE));
-}
-
-static void
-amp_project_instance_init (AmpProject *project)
-{
-	project_data_init (project);
-}
-
-static void
-amp_project_dispose (GObject *object)
-{
-	g_return_if_fail (AMP_IS_PROJECT (object));
-
-	project_unload (AMP_PROJECT (object));
-
-	G_OBJECT_CLASS (parent_class)->dispose (object);	
-}
-
-static void
-amp_project_get_property (GObject    *object,
-			     guint       prop_id,
-			     GValue     *value,
-			     GParamSpec *pspec)
-{
-	AmpProject *project = AMP_PROJECT (object);
-	gchar *uri;
-
-	switch (prop_id) {
-		case PROP_PROJECT_DIR:
-			uri = g_file_get_uri (project->root_file);
-			g_value_take_string (value, uri);
-			break;
-		default:
-			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-			break;
-	}
 }
 
 /* Public functions
@@ -3115,6 +2303,64 @@ amp_project_move (AmpProject *project, const gchar *path)
 	return TRUE;
 }
 
+AmpProject *
+amp_project_new (void)
+{
+	return AMP_PROJECT (g_object_new (AMP_TYPE_PROJECT, NULL));
+}
+
+/* Project access functions
+ *---------------------------------------------------------------------------*/
+
+AmpGroup *
+amp_project_get_root (AmpProject *project)
+{
+	AmpGroup *g_node = NULL;
+	
+	if (project->root_file != NULL)
+	{
+		gchar *id = g_file_get_uri (project->root_file);
+		g_node = (AmpGroup *)g_hash_table_lookup (project->groups, id);
+		g_free (id);
+	}
+
+	return g_node;
+}
+
+AmpGroup *
+amp_project_get_group (AmpProject *project, const gchar *id)
+{
+	return (AmpGroup *)g_hash_table_lookup (project->groups, id);
+}
+
+AmpTarget *
+amp_project_get_target (AmpProject *project, const gchar *id)
+{
+	AmpTarget **buffer;
+	AmpTarget *target;
+	gsize dummy;
+
+	buffer = (AmpTarget **)g_base64_decode (id, &dummy);
+	target = *buffer;
+	g_free (buffer);
+
+	return target;
+}
+
+AmpSource *
+amp_project_get_source (AmpProject *project, const gchar *id)
+{
+	AmpSource **buffer;
+	AmpSource *source;
+	gsize dummy;
+
+	buffer = (AmpSource **)g_base64_decode (id, &dummy);
+	source = *buffer;
+	g_free (buffer);
+
+	return source;
+}
+
 gchar *
 amp_project_get_node_id (AmpProject *project, const gchar *path)
 {
@@ -3173,12 +2419,142 @@ amp_project_get_uri (AmpProject *project)
 	return project->root_file != NULL ? g_file_get_uri (project->root_file) : NULL;
 }
 
+/* Node access functions
+ *---------------------------------------------------------------------------*/
 
-GbfProject *
-amp_project_new (void)
+AmpNode *
+amp_node_parent(AmpNode *node)
 {
-	return GBF_PROJECT (g_object_new (AMP_TYPE_PROJECT, NULL));
+	return node->parent;
 }
 
+AmpNode *
+amp_node_first_child(AmpNode *node)
+{
+	return g_node_first_child (node);
+}
+
+AmpNode *
+amp_node_last_child(AmpNode *node)
+{
+	return g_node_last_child (node);
+}
+
+AmpNode *
+amp_node_next_sibling (AmpNode *node)
+{
+	return g_node_next_sibling (node);
+}
+
+AmpNode *
+amp_node_prev_sibling (AmpNode *node)
+{
+	return g_node_prev_sibling (node);
+}
+
+AmpNodeType
+amp_node_get_type (AmpNode *node)
+{
+	return AMP_NODE_DATA (node)->type;
+}
+
+void
+amp_node_all_foreach (AmpNode *node, AmpNodeFunc func, gpointer data)
+{
+	g_node_traverse (node, G_PRE_ORDER, G_TRAVERSE_ALL, -1, func, data);
+}
+
+/* Group access functions
+ *---------------------------------------------------------------------------*/
+
+GFile*
+amp_group_get_directory (AmpGroup *group)
+{
+	return AMP_GROUP_DATA (group)->directory;
+}
+
+GFile*
+amp_group_get_makefile (AmpGroup *group)
+{
+	return AMP_GROUP_DATA (group)->makefile;
+}
+
+gchar *
+amp_group_get_id (AmpGroup *group)
+{
+	return g_file_get_uri (AMP_GROUP_DATA (group)->directory);
+}
+
+/* Target access functions
+ *---------------------------------------------------------------------------*/
+
+const gchar *
+amp_target_get_name (AmpTarget *target)
+{
+	return AMP_TARGET_DATA (target)->name;
+}
+
+const gchar *
+amp_target_get_type (AmpTarget *target)
+{
+	return AMP_TARGET_DATA (target)->type;
+}
+
+gchar *
+amp_target_get_id (AmpTarget *target)
+{
+	return g_base64_encode ((guchar *)&target, sizeof (target));
+}
+
+/* Source access functions
+ *---------------------------------------------------------------------------*/
+
+gchar *
+amp_source_get_id (AmpSource *source)
+{
+	return g_base64_encode ((guchar *)&source, sizeof (source));
+}
+
+GFile*
+amp_source_get_file (AmpSource *source)
+{
+	return AMP_SOURCE_DATA (source)->file;
+}
+
+/* GbfProject implementation
+ *---------------------------------------------------------------------------*/
+
+static void
+amp_project_dispose (GObject *object)
+{
+	g_return_if_fail (AMP_IS_PROJECT (object));
+
+	amp_project_unload (AMP_PROJECT (object));
+
+	G_OBJECT_CLASS (parent_class)->dispose (object);	
+}
+
+static void
+amp_project_instance_init (AmpProject *project)
+{
+	g_return_if_fail (project != NULL);
+	g_return_if_fail (AMP_IS_PROJECT (project));
+	
+	/* project data */
+	project->root_file = NULL;
+	project->configure_file = NULL;
+	project->root_node = NULL;
+}
+
+static void
+amp_project_class_init (AmpProjectClass *klass)
+{
+	GObjectClass *object_class;
+	
+	parent_class = g_type_class_peek_parent (klass);
+
+	object_class = G_OBJECT_CLASS (klass);
+	object_class->dispose = amp_project_dispose;
+}
 
 GBF_BACKEND_BOILERPLATE (AmpProject, amp_project);
