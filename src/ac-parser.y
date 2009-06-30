@@ -135,7 +135,6 @@ pkg_check_modules:
 
 obsolete_ac_output:
 	OBSOLETE_AC_OUTPUT  space_list  list_optional_optional {
-		g_message ("get obsolete ac output");
 		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT); 
 		anjuta_token_merge ($1, $3);
 	}

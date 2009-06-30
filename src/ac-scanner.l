@@ -172,7 +172,6 @@ NUMBER      [0-9][0-9.]*
 
 <INITIAL>AC_OUTPUT {
     AnjutaToken *token;
-    yy_push_state (ARGUMENT, yyscanner);
     token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_KEYWORD);
     yylval->token = token;
     return AC_OUTPUT;
