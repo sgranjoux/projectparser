@@ -1,5 +1,5 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4; coding: utf-8 -*- */
-/* am-dialog.c
+/* am-dialogs.h
  *
  * Copyright (C) 2009  Sébastien Granjoux
  *
@@ -17,45 +17,21 @@
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
- *
  */
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#ifndef _AM_DIALOGS_H_
+#define _AM_DIALOGS_H_
 
-#include "am-dialog.h"
+#include <gtk/gtk.h>
+#include "am-project.h"
 
-#include <libanjuta/anjuta-debug.h>
+G_BEGIN_DECLS
 
+GtkWidget *amp_configure_project_dialog (AmpProject *project, GError **error);
+GtkWidget *amp_configure_group_dialog (AmpProject *project, AmpGroup *group, GError **error);
+GtkWidget *amp_configure_target_dialog (AmpProject *project, AmpTarget *target, GError **error);
+GtkWidget *amp_configure_source_dialog (AmpProject *project, AmpSource *target, GError **error);
 
-/* Helper functions
- *---------------------------------------------------------------------------*/
+G_END_DECLS
 
-
-/* Public functions
- *---------------------------------------------------------------------------*/
-
-GtkWidget *
-amp_configure_project_dialog (AmpProject *project, GError **error)
-{
-	return NULL;
-}
-
-GtkWidget *
-amp_configure_group_dialog (AmpProject *project, AmpGroup *group, GError **error)
-{
-	return NULL;
-}
-
-GtkWidget *
-amp_configure_target_dialog (AmpProject *project, AmpTarget *target, GError **error)
-{
-	return NULL;
-}
-
-GtkWidget *
-amp_configure_source_dialog (AmpProject *project, AmpSource *target, GError **error)
-{
-	return NULL;
-}
+#endif /* _AM_DIALOGS_H_ */

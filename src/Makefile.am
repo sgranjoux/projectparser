@@ -2,6 +2,9 @@
 
 ## Created by Anjuta
 
+uidir = $(datadir)/projectparser
+ui_DATA = am-dialogs.ui
+
 AM_CPPFLAGS = \
 	-DDEBUG \
 	-DPACKAGE_LOCALE_DIR=\""$(prefix)/$(DATADIRNAME)/locale"\" \
@@ -27,8 +30,8 @@ projectparser_SOURCES = \
 	ac-scanner.l \
 	ac-parser.y \
 	ac-scanner.h \
-	am-dialog.c \
-	am-dialog.h \
+	am-dialogs.c \
+	am-dialogs.h \
 	gbf-am-project.c \
 	gbf-am-project.h
 
