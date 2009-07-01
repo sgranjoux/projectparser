@@ -42,8 +42,7 @@
 #include "ac-scanner.h"
 #include "am-scanner.h"
 #include "am-project.h"
-//#include "am-config.h"
-//#include "am-properties.h"
+#include "am-dialog.h"
 
 
 #define UNIMPLEMENTED  G_STMT_START { g_warning (G_STRLOC": unimplemented"); } G_STMT_END
@@ -585,17 +584,9 @@ impl_remove_source (GbfProject  *_project,
 static GtkWidget *
 impl_configure (GbfProject *_project, GError **error)
 {
-	GtkWidget *wid = NULL;
-	GError *err = NULL;
-	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-	g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 	
-	//wid = am_properties_get_widget (AMP_PROJECT (_project), &err);
-	if (err) {
-		g_propagate_error (error, err);
-	}
-	return wid;
+	return amp_configure_project_dialog (AMP_PROJECT (_project), error);
 }
 
 static GList *

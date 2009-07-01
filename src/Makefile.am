@@ -27,6 +27,8 @@ projectparser_SOURCES = \
 	ac-scanner.l \
 	ac-parser.y \
 	ac-scanner.h \
+	am-dialog.c \
+	am-dialog.h \
 	gbf-am-project.c \
 	gbf-am-project.h
 
