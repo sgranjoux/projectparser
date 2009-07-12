@@ -42,7 +42,7 @@
 #include "ac-scanner.h"
 #include "am-scanner.h"
 #include "am-project.h"
-#include "am-dialog.h"
+#include "am-dialogs.h"
 
 
 #define UNIMPLEMENTED  G_STMT_START { g_warning (G_STRLOC": unimplemented"); } G_STMT_END

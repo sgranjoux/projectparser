@@ -30,6 +30,14 @@
 
 #define GLADE_FILE  PACKAGE_DATA_DIR "/glade/am-dialogs.ui"
 
+/* Types
+  *---------------------------------------------------------------------------*/
+
+typedef struct _AmpConfigureProjectDialog
+{
+	AmpProject *project;
+} AmpConfigureProjectDialog;
+
 
 /* Helper functions
  *---------------------------------------------------------------------------*/
@@ -41,6 +49,18 @@
 GtkWidget *
 amp_configure_project_dialog (AmpProject *project, GError **error)
 {
+	GtkBuilder *bxml = gtk_builder_new ();
+	GtkWidget *top_level;
+	GError *err = NULL;
+
+	if (!gtk_builder_add_from_file (bxml, GLADE_FILE, &err))
+	{
+		g_warning ("Couldn't load builder file: %s", err->message);
+		g_error_free (err);
+	}
+	top_level = GTK_WIDGET (gtk_builder_get_object (bxml, "top_level"));
+
+	
 	return NULL;
 }
 

@@ -3,9 +3,12 @@
 ## Created by Anjuta
 
 AM_CPPFLAGS = \
-	-DDEBUG \
+	-I$(top_srcdir) \
 	$(GLIB_CFLAGS) \
-	$(GTK_CFLAGS)
+	$(GTK_CFLAGS) \
+	$(GCONF_CFLAGS) \
+	-DDEBUG \
+	-DDATADIR=\""$(datadir)/projectparser"\"
 
 AM_CFLAGS =\
 	 -Wall\
@@ -19,6 +22,8 @@ libanjuta_a_SOURCES = \
 	anjuta-token.c \
 	anjuta-token.h \
 	anjuta-debug.c \
-	anjuta-debug.h
+	anjuta-debug.h \
+	anjuta-utils.c \
+	anjuta-utils.h
 
 -include $(top_srcdir)/git.mk

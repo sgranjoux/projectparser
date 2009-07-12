@@ -2,14 +2,14 @@
 
 ## Created by Anjuta
 
-uidir = $(datadir)/projectparser
+uidir = $(datadir)/projectparser/glade
 ui_DATA = am-dialogs.ui
 
 AM_CPPFLAGS = \
 	-DDEBUG \
 	-DPACKAGE_LOCALE_DIR=\""$(prefix)/$(DATADIRNAME)/locale"\" \
 	-DPACKAGE_SRC_DIR=\""$(srcdir)"\" \
-	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
+	-DPACKAGE_DATA_DIR=\""$(datadir)/projectparser"\" \
 	-I$(srcdir)/.. \
 	$(GLIB_CFLAGS) \
 	$(GTK_CFLAGS)
