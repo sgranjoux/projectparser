@@ -46,6 +46,14 @@ typedef GNode AmpNode;
 typedef GNode AmpGroup;
 typedef GNode AmpTarget;
 typedef GNode AmpSource;
+typedef struct _AmpProperty AmpProperty;
+
+typedef enum {
+	AMP_PROPERTY_NAME,
+	AMP_PROPERTY_VERSION,
+	AMP_PROPERTY_BUG_REPORT,
+	AMP_PROPERTY_TARNAME
+} AmpPropertyType;
 
 typedef GNodeTraverseFunc AmpNodeFunc;
 
@@ -64,6 +72,8 @@ struct _AmpProject {
 
 	/* project data */
 	AnjutaTokenFile		*configure_file;		/* configure.in file */
+
+	AmpProperty			*property;
 	
 	AmpGroup              *root_node;         	/* tree containing project data;
 								 * each GNode's data is a
@@ -113,6 +123,9 @@ void amp_project_remove_source (AmpProject  *project, const gchar *id, GError **
 
 GList *amp_project_get_config_modules (AmpProject *project, GError **error);
 GList *amp_project_get_config_packages  (AmpProject *project, const gchar* module, GError **error);
+
+gchar* amp_project_get_property (AmpProject *project, AmpPropertyType type);
+gboolean amp_project_set_property (AmpProject *project, AmpPropertyType type, const gchar* value);
 
 gchar * amp_project_get_node_id (AmpProject *project, const gchar *path);
 

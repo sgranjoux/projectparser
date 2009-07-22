@@ -74,6 +74,14 @@ struct _AmpModule {
     AnjutaToken *module;
 };
 
+struct _AmpProperty {
+	AnjutaToken *ac_init;				/* AC_INIT macro */
+	gchar *name;
+	gchar *version;
+	gchar *bug_report;
+	gchar *tarname;
+};
+
 typedef struct _AmpNodeData AmpNodeData;
 
 struct _AmpNodeData {
@@ -408,6 +416,20 @@ split_automake_variable (gchar *name, gint *flags, gchar **module, gchar **prima
 	return TRUE;
 }
 
+gchar*
+ac_init_default_tarname (const gchar *name)
+{
+	gchar *tarname;
+
+	/* Remove GNU prefix */
+	if (strncmp (name, "GNU ", 4) == 0) name += 4;
+
+	tarname = g_ascii_strdown (name, -1);
+	g_strcanon (tarname, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", '-');
+	
+	return tarname;
+}
+
 /* Config file objects
  *---------------------------------------------------------------------------*/
 
@@ -510,6 +532,68 @@ amp_project_free_module_hash (AmpProject *project)
 		g_hash_table_destroy (project->modules);
 		project->modules = NULL;
 	}
+}
+
+/* Property objects
+ *---------------------------------------------------------------------------*/
+
+static AmpProperty*
+amp_property_new (AnjutaToken *token)
+{
+	AmpProperty *prop;
+	AnjutaToken *arg;
+	
+	prop = g_slice_new0(AmpProperty); 
+	prop->ac_init = token;
+
+	for (arg = anjuta_token_next_child (token); arg != NULL; arg = anjuta_token_next_sibling (arg))
+	{
+		g_message ("token2 ==%s==", anjuta_token_evaluate (arg));
+	}
+
+	
+	if (token != NULL)
+	{
+		AnjutaToken *arg;
+		
+		arg = anjuta_token_next_child (token);
+		prop->name = anjuta_token_evaluate (arg);
+		
+		arg = anjuta_token_next_sibling (arg);
+		arg = anjuta_token_next_sibling (arg);
+		if (arg != NULL)
+		{
+			prop->version = anjuta_token_evaluate (arg);
+
+			arg = anjuta_token_next_sibling (arg);
+			arg = anjuta_token_next_sibling (arg);
+			if (arg != NULL)
+			{
+				prop->bug_report = anjuta_token_evaluate (arg);
+
+				arg = anjuta_token_next_sibling (arg);
+				arg = anjuta_token_next_sibling (arg);
+				if (arg != NULL)
+				{
+					prop->tarname = anjuta_token_evaluate (arg);
+					
+					arg = anjuta_token_next_sibling (arg);
+				}
+			}
+		}
+	}			
+
+	return prop;
+}
+
+static void
+amp_property_free (AmpProperty *prop)
+{
+	g_free (prop->name);
+	g_free (prop->version);
+	g_free (prop->bug_report);
+	g_free (prop->tarname);
+    g_slice_free (AmpProperty, prop);
 }
 
 /* Group objects
@@ -857,6 +941,24 @@ project_node_destroy (AmpProject *project, GNode *g_node)
 		/* now destroy the tree itself */
 		//g_node_destroy (g_node);
 	}
+}
+
+static gboolean
+project_reload_property (AmpProject *project)
+{
+	AnjutaToken *ac_init_tok;
+	AnjutaToken *sequence;
+	AnjutaToken *init;
+
+	ac_init_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "AC_INIT(");
+	                                       
+	sequence = anjuta_token_file_first (project->configure_file);
+	if (anjuta_token_match (ac_init_tok, ANJUTA_SEARCH_OVER, sequence, &init))
+	{
+		project->property = amp_property_new (init);
+	}
+
+	return TRUE;                                       
 }
 
 static void
@@ -1468,6 +1570,8 @@ amp_project_reload (AmpProject *project, GError **error)
 		     
 	monitors_setup (project);
 
+	project_reload_property (project);
+	
 	amp_project_new_module_hash (project);
 	project_reload_packages (project);
 	
@@ -1516,6 +1620,9 @@ amp_project_unload (AmpProject *project)
 
 	if (project->root_file) g_object_unref (project->root_file);
 	project->root_file = NULL;
+
+	if (project->property) amp_property_free (project->property);
+	project->property = NULL;
 	
 	/* shortcut hash tables */
 	if (project->groups) g_hash_table_destroy (project->groups);
@@ -2419,6 +2526,41 @@ amp_project_get_uri (AmpProject *project)
 	return project->root_file != NULL ? g_file_get_uri (project->root_file) : NULL;
 }
 
+gchar *
+amp_project_get_property (AmpProject *project, AmpPropertyType type)
+{
+	const gchar *value = NULL;
+
+	if (project->property != NULL)
+	{
+		switch (type)
+		{
+			case AMP_PROPERTY_NAME:
+				value = project->property->name;
+				break;
+			case AMP_PROPERTY_VERSION:
+				value = project->property->version;
+				break;
+			case AMP_PROPERTY_BUG_REPORT:
+				value = project->property->bug_report;
+				break;
+			case AMP_PROPERTY_TARNAME:
+				value = project->property->tarname;
+				if (value == NULL) return ac_init_default_tarname (project->property->name);
+				break;
+		}
+	}
+
+	return value == NULL ? NULL : g_strdup (value);
+}
+
+gboolean
+amp_project_set_property (AmpProject *project, AmpPropertyType type, const gchar *value)
+{
+	return TRUE;
+}
+
+
 /* Node access functions
  *---------------------------------------------------------------------------*/
 
@@ -2544,6 +2686,7 @@ amp_project_instance_init (AmpProject *project)
 	project->root_file = NULL;
 	project->configure_file = NULL;
 	project->root_node = NULL;
+	project->property = NULL;
 }
 
 static void

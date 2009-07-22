@@ -58,8 +58,8 @@
 %token  <token> NAME
 %token  KEYWORD
 %token  TOPNAME
-%token  IDENTIFIER
-%token  NUMBER
+%token  <token> IDENTIFIER
+%token  <token> NUMBER
 %token  <token> MACRO
 %token  <token> OPERATOR
 
@@ -70,13 +70,15 @@
 %token	<token> AC_SUBST
 %token	<token> AC_INIT
 
-%type <token> pkg_check_modules obsolete_ac_output ac_config_files 
+%type <token> pkg_check_modules obsolete_ac_output ac_config_files ac_init
 %type <token> name strip_name
-%type <token> space_list strip_space_list
+%type <token> optional_space_list space_list strip_space_list
 %type <token> list_empty_optional list_arg_optional list_optional_optional
+%type <token> optional_list
 %type <token> spaces
 %type <token> optional_space
-
+%type <token> separator
+%type <token> arg_string arg
 
 %defines
 
@@ -109,6 +111,7 @@ file:
    
 statement:
 	line_or_empty
+	| ac_init
 	| pkg_check_modules 
 	| obsolete_ac_output
 	| ac_output
@@ -133,8 +136,14 @@ pkg_check_modules:
 	| PKG_CHECK_MODULES  name  COMMA  space_list  list_arg_optional
 	;
 
+ac_init:
+	AC_INIT optional_list {
+		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
+		anjuta_token_merge ($1, $2);
+	}
+
 obsolete_ac_output:
-	OBSOLETE_AC_OUTPUT  space_list  list_optional_optional {
+	OBSOLETE_AC_OUTPUT  optional_space_list  list_optional_optional {
 		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT); 
 		anjuta_token_merge ($1, $3);
 	}
@@ -153,11 +162,11 @@ ac_config_files:
 	
 list_empty_optional:
 	RIGHT_PAREN
-	| COMMA optional_space  RIGHT_PAREN {
-		$$ = $3;
+	| separator RIGHT_PAREN {
+		$$ = $2;
 	}
-	| COMMA  optional_space  COMMA  arg_string_or_empty  RIGHT_PAREN {
-		$$ = $5;
+	| separator separator arg_string_or_empty  RIGHT_PAREN {
+		$$ = $4;
 	}
 	;
 
@@ -180,22 +189,33 @@ list_optional_optional:
 	}
 	;
 
-arg_string_or_empty:
-	/* empty */
-	| arg_string_or_space
+optional_list:
+	optional_arg_list RIGHT_PAREN {
+		$$ = $2;
+	}
+	
+optional_arg_list:
+	arg_string {
+		anjuta_token_insert_before ($1,
+			anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL));
+	}
+	spaces arg_string
+	| optional_arg_list separator arg_string_or_empty
 	;
 
-arg_string_or_space:
-	SPACE
-	| arg
-	| arg_string_or_space arg
-	| arg_string_or_space SPACE
+arg_string_or_empty:
+	/* empty */
+	| arg_string
 	;
 
 arg_string:
-	optional_space arg
-	| arg_string arg
-	| arg_string SPACE
+	arg
+	| arg_string arg {
+		anjuta_token_merge ($1, $2);
+	}
+	| arg_string SPACE {
+		anjuta_token_merge ($1, $2);
+	}
 	;
 
 name:
@@ -230,6 +250,11 @@ strip_name:
 	}
 	;
 
+optional_space_list:
+	optional_space
+	| space_list
+	;
+
 space_list:
 	optional_space strip_space_list optional_space {
 		if ($1) anjuta_token_merge_previous ($2, $1);
@@ -257,6 +282,12 @@ optional_space:
 		anjuta_token_set_flags ($1, ANJUTA_TOKEN_IRRELEVANT);
 	}
 	;
+
+separator:
+	COMMA
+	| COMMA spaces {
+		anjuta_token_merge ($1, $2);
+	}
 
 spaces:
 	SPACE
@@ -289,7 +320,8 @@ token:
 static void
 amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s)
 {
-    g_message ("(%d:%d-%d:%d) %s\n", loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
+	g_message ("scanner %p", scanner);
+    g_message ("%s (%d:%d-%d:%d) %s\n", amp_ac_scanner_get_filename ((AmpAcScanner *)scanner), loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
 }
 
 /* Public functions

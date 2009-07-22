@@ -37,6 +37,8 @@ void amp_ac_scanner_free (AmpAcScanner *scanner);
 
 gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error);
 
+const gchar* amp_ac_scanner_get_filename (void *yyscanner);
+
 G_END_DECLS
 
 #endif

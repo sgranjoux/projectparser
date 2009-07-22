@@ -118,7 +118,7 @@ NUMBER      [0-9][0-9.]*
     amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT | ANJUTA_TOKEN_IRRELEVANT);   
 }
 
-<INITIAL,ARGUMENT>\[              {
+<INITIAL,ARGUMENT,STRING>\[              {
 	AnjutaToken *token;
     yy_push_state (STRING, yyscanner);
     token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_OPEN | ANJUTA_TOKEN_IRRELEVANT); 
@@ -175,6 +175,14 @@ NUMBER      [0-9][0-9.]*
     token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_KEYWORD);
     yylval->token = token;
     return AC_OUTPUT;
+}
+
+<INITIAL>AC_INIT\( {
+    AnjutaToken *token;
+    yy_push_state (ARGUMENT, yyscanner);
+    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_OPEN);
+    yylval->token = token;
+    return AC_INIT;
 }
 
 <INITIAL>AC_CONFIG_FILES\( {
@@ -235,6 +243,7 @@ struct _AmpAcScanner
     yyscan_t scanner;
     YY_BUFFER_STATE	 buffer;
     AnjutaTokenFile *file;
+	gchar *filename;
 };
 
 /* Private functions
@@ -305,6 +314,18 @@ amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **err
 	return amp_ac_yyparse (scanner->scanner) == 0;
 }
 
+const gchar*
+amp_ac_scanner_get_filename (void *yyscanner)
+{
+	AmpAcScanner *scanner = yyget_extra (yyscanner);
+	
+	g_free (scanner->filename);
+	scanner->filename = g_file_get_path (anjuta_token_file_get_file (scanner->file));
+	
+	return scanner->filename;
+}
+
+
 /* Constructor & Destructor
  *---------------------------------------------------------------------------*/
 
@@ -330,5 +351,8 @@ amp_ac_scanner_free (AmpAcScanner *scanner)
     if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
     yylex_destroy(scanner->scanner);
 
+	g_free (scanner->filename);
+	scanner->filename = NULL;
+	
 	g_free (scanner);
 }

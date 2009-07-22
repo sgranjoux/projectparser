@@ -12,7 +12,8 @@ AM_CPPFLAGS = \
 	-DPACKAGE_DATA_DIR=\""$(datadir)/projectparser"\" \
 	-I$(srcdir)/.. \
 	$(GLIB_CFLAGS) \
-	$(GTK_CFLAGS)
+	$(GTK_CFLAGS) \
+	$(GCONF_CFLAGS)
 
 AM_CFLAGS =\
 	 -Wall\
@@ -40,7 +41,8 @@ projectparser_LDFLAGS =
 projectparser_LDADD = \
 	../libanjuta/libanjuta.a \
 	$(GLIB_LIBS) \
-	$(GTK_LIBS)
+	$(GTK_LIBS) \
+	$(GCONF_LIBS)
 
 AM_YFLAGS = -t -v -g -rall
 

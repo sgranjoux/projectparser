@@ -123,6 +123,26 @@ void list_group (GbfProject *project, const gchar *id, gint indent, const gchar 
 	}
 }
 
+void list_property (AmpProject *project)
+{
+	gchar *value;
+
+	value = amp_project_get_property (project, AMP_PROPERTY_NAME);
+	if (value) print ("%*sNAME: %s", INDENT, "", value);
+	g_free (value);
+
+	value = amp_project_get_property (project, AMP_PROPERTY_VERSION);
+	if (value) print ("%*sVERSION: %s", INDENT, "", value);
+	g_free (value);
+
+	value = amp_project_get_property (project, AMP_PROPERTY_BUG_REPORT);
+	if (value) print ("%*sBUG_REPORT: %s", INDENT, "", value);
+	g_free (value);
+
+	value = amp_project_get_property (project, AMP_PROPERTY_TARNAME);
+	if (value) print ("%*sTARNAME: %s", INDENT, "", value);
+	g_free (value);
+}
 
 void list_module (GbfProject *project)
 {
@@ -195,6 +215,8 @@ main(int argc, char *argv[])
 		}
 		else if (g_ascii_strcasecmp (*command, "list") == 0)
 		{
+			list_property (AMP_PROJECT (project));
+			
 			list_module (project);
 
 			list_group (project, "", 0, "0");
