@@ -76,14 +76,6 @@ struct _AmpModule {
     AnjutaToken *module;
 };
 
-struct _AmpProperty {
-	AnjutaToken *ac_init;				/* AC_INIT macro */
-	gchar *name;
-	gchar *version;
-	gchar *bug_report;
-	gchar *tarname;
-};
-
 typedef struct _AmpNodeData AmpNodeData;
 
 struct _AmpNodeData {

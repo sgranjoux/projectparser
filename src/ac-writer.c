@@ -38,6 +38,9 @@
 /* Helper functions
  *---------------------------------------------------------------------------*/
 
+/* Private functions
+ *---------------------------------------------------------------------------*/
+
 
 /* Public functions
  *---------------------------------------------------------------------------*/
@@ -45,6 +48,12 @@
 gboolean
 amp_project_update_property (AmpProject *project, AmpPropertyType type)
 {
+	
+	if (project->property == NULL)
+	{
+		return FALSE;
+	}
+	
 	return TRUE;
 }
 

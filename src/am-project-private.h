@@ -26,6 +26,14 @@
 
 G_BEGIN_DECLS
 
+struct _AmpProperty {
+	AnjutaToken *ac_init;				/* AC_INIT macro */
+	gchar *name;
+	gchar *version;
+	gchar *bug_report;
+	gchar *tarname;
+};
+
 struct _AmpProject {
 	GbfProject         parent;
 
