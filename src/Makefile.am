@@ -25,12 +25,15 @@ projectparser_SOURCES = \
 	main.c \
 	am-project.c \
 	am-project.h \
+	am-project-private.h \
 	am-scanner.l \
 	am-parser.y \
 	am-scanner.h \
 	ac-scanner.l \
 	ac-parser.y \
 	ac-scanner.h \
+	ac-writer.h \
+	ac-writer.c \
 	am-dialogs.c \
 	am-dialogs.h \
 	gbf-am-project.c \

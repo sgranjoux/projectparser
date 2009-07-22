@@ -63,33 +63,6 @@ typedef enum {
 	AMP_NODE_SOURCE
 } AmpNodeType;
 
-struct _AmpProject {
-	GbfProject         parent;
-
-	/* uri of the project; this can be a full uri, even though we
-	 * can only work with native local files */
-	GFile			*root_file;
-
-	/* project data */
-	AnjutaTokenFile		*configure_file;		/* configure.in file */
-
-	AmpProperty			*property;
-	
-	AmpGroup              *root_node;         	/* tree containing project data;
-								 * each GNode's data is a
-								 * AmpNode, and the root of
-								 * the tree is the root group. */
-
-	/* shortcut hash tables, mapping id -> GNode from the tree above */
-	GHashTable		*groups;
-	GHashTable		*files;
-	GHashTable		*configs;		/* Config file from configure_file */
-	
-	GHashTable	*modules;
-	
-	/* project files monitors */
-	GHashTable         *monitors;
-};
 
 GType         amp_project_get_type (GTypeModule *plugin);
 AmpProject   *amp_project_new      (void);

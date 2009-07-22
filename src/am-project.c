@@ -26,6 +26,8 @@
 
 #include "am-project.h"
 
+#include "am-project-private.h"
+
 #include <libanjuta/anjuta-debug.h>
 
 #include <string.h>

@@ -26,6 +26,8 @@
 
 #include "gbf-am-project.h"
 
+#include "am-project-private.h"
+
 #include <libanjuta/anjuta-debug.h>
 
 #include <string.h>
@@ -41,7 +43,6 @@
 #include <glib.h>
 #include "ac-scanner.h"
 #include "am-scanner.h"
-#include "am-project.h"
 #include "am-dialogs.h"
 
 
