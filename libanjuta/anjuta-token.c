@@ -286,13 +286,13 @@ anjuta_token_previous (AnjutaToken *token)
 AnjutaToken *
 anjuta_token_next_sibling (AnjutaToken *token)
 {
-	return token->next;
+	return token ? token->next : NULL;
 }
 
 AnjutaToken *
 anjuta_token_next_child (AnjutaToken *token)
 {
-	return token->children;
+	return token ? token->children : NULL;
 }
 
 AnjutaToken *
@@ -373,10 +373,10 @@ anjuta_token_get_length (AnjutaToken *token)
 static void
 anjuta_token_evaluate_token (AnjutaToken *token, GString *value)
 {
-	//if (!(anjuta_token_get_flags (token) & ANJUTA_TOKEN_IRRELEVANT) && (anjuta_token_get_string (token) != NULL))
-	//{
-	g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
-	//}
+	if (token != NULL)
+	{
+		g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
+	}
 }	
 
 gchar *
@@ -411,11 +411,16 @@ gchar *
 anjuta_token_evaluate (AnjutaToken *token)
 {
 	GString *value = g_string_new (NULL);
+	gchar *str;
 
-	anjuta_token_evaluate_token (token, value);
-	if (token->children) anjuta_token_evaluate_child (token->children, value);
-	
-	return g_string_free (value, FALSE);
+	if (token != NULL)
+	{
+		anjuta_token_evaluate_token (token, value);
+		if (token->children) anjuta_token_evaluate_child (token->children, value);
+	}
+
+	str = g_string_free (value, FALSE);
+	return *str == '\0' ? NULL : str; 	
 }
 
 static  void

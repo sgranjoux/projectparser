@@ -74,7 +74,7 @@
 %type <token> name strip_name
 %type <token> optional_space_list space_list strip_space_list
 %type <token> list_empty_optional list_arg_optional list_optional_optional
-%type <token> optional_list
+%type <token> optional_list optional_arg_list
 %type <token> spaces
 %type <token> optional_space
 %type <token> separator
@@ -140,7 +140,9 @@ ac_init:
 	AC_INIT optional_list {
 		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
 		anjuta_token_merge ($1, $2);
+		g_message ("ac_init");
 	}
+	;
 
 obsolete_ac_output:
 	OBSOLETE_AC_OUTPUT  optional_space_list  list_optional_optional {
@@ -171,35 +173,44 @@ list_empty_optional:
 	;
 
 list_arg_optional:
-	COMMA arg_string  RIGHT_PAREN {
+	separator arg_string  RIGHT_PAREN {
 		$$ = $3;
 	}
-	| COMMA  arg_string  COMMA  arg_string_or_empty  RIGHT_PAREN {
+	| separator  arg_string  separator  arg_string_or_empty  RIGHT_PAREN {
 		$$ = $5;
 	}
 	;
 
 list_optional_optional:
 	RIGHT_PAREN
-	| COMMA  arg_string_or_empty  RIGHT_PAREN {
+	| separator  arg_string_or_empty  RIGHT_PAREN {
 		$$ =$3;
 	}
-	| COMMA  arg_string_or_empty  COMMA  arg_string_or_empty RIGHT_PAREN {
+	| separator  arg_string_or_empty  separator  arg_string_or_empty RIGHT_PAREN {
 		$$ = $5;
 	}
 	;
 
 optional_list:
-	optional_arg_list RIGHT_PAREN {
-		$$ = $2;
+	RIGHT_PAREN {
+		anjuta_token_set_type ($$, ANJUTA_TOKEN_SEPARATOR);
 	}
+	| spaces RIGHT_PAREN {
+		anjuta_token_merge ($1, $2);
+		anjuta_token_set_type ($$, ANJUTA_TOKEN_SEPARATOR);
+	}
+	| optional_arg_list RIGHT_PAREN {
+		$$ = $2;
+		anjuta_token_set_type ($$, ANJUTA_TOKEN_SEPARATOR);
+	}
+	;
 	
 optional_arg_list:
 	arg_string {
 		anjuta_token_insert_before ($1,
 			anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL));
 	}
-	spaces arg_string
+	| spaces arg_string
 	| optional_arg_list separator arg_string_or_empty
 	;
 
@@ -261,6 +272,7 @@ space_list:
 		if ($3) anjuta_token_merge ($2, $3);
 		$$ = $2;
 	}
+	;
 
 strip_space_list:
 	strip_name {
@@ -284,10 +296,14 @@ optional_space:
 	;
 
 separator:
-	COMMA
+	COMMA {
+		anjuta_token_set_type ($$, ANJUTA_TOKEN_SEPARATOR);
+	}
 	| COMMA spaces {
 		anjuta_token_merge ($1, $2);
+		anjuta_token_set_type ($$, ANJUTA_TOKEN_SEPARATOR);
 	}
+	;
 
 spaces:
 	SPACE
