@@ -535,10 +535,16 @@ static AmpProperty*
 amp_property_new (AnjutaToken *token)
 {
 	AmpProperty *prop;
+	AnjutaToken *arg;
 	
 	prop = g_slice_new0(AmpProperty); 
 	prop->ac_init = token;
 
+	for (arg = anjuta_token_next_child (token); arg != NULL; arg = anjuta_token_next_sibling (arg))
+	{
+		g_message ("token2 ==%s==", anjuta_token_evaluate (arg));
+	}
+	
 	if (token != NULL)
 	{
 		AnjutaToken *arg;
@@ -940,11 +946,12 @@ project_reload_property (AmpProject *project)
 	AnjutaToken *sequence;
 	AnjutaToken *init;
 
-	ac_init_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "AC_INIT(");
+	ac_init_tok = anjuta_token_new_static (AC_TOKEN_AC_INIT, NULL);
 	                                       
 	sequence = anjuta_token_file_first (project->configure_file);
 	if (anjuta_token_match (ac_init_tok, ANJUTA_SEARCH_OVER, sequence, &init))
 	{
+		g_message ("find ac_init");
 		project->property = amp_property_new (init);
 	}
 

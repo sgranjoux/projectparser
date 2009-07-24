@@ -206,6 +206,11 @@ anjuta_token_compare (AnjutaToken *toka, AnjutaToken *tokb)
 	AnjutaTokenData *data = ANJUTA_TOKEN_DATA (toka);
 	AnjutaTokenData *datb = ANJUTA_TOKEN_DATA (tokb);
 
+	if (datb->type)
+	{
+		if (datb->type != data->type) return FALSE;
+	}
+	
 	if (datb != ANJUTA_TOKEN_NONE)
 	{
 		if (datb->length != 0)

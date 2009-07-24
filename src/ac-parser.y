@@ -62,15 +62,17 @@
 %token  <token> NUMBER
 %token  <token> MACRO
 %token  <token> OPERATOR
+%token	<token> AC_MACRO_WITH_ARG
+%token	<token> AC_MACRO_WITHOUT_ARG
 
 %token	<token> PKG_CHECK_MODULES
 %token	<token> OBSOLETE_AC_OUTPUT
 %token	<token> AC_OUTPUT
 %token	<token> AC_CONFIG_FILES
 %token	<token> AC_SUBST
-%token	<token> AC_INIT
 
-%type <token> pkg_check_modules obsolete_ac_output ac_config_files ac_init
+%type <token> pkg_check_modules obsolete_ac_output ac_config_files
+%type <token> ac_macro_with_arg ac_macro_without_arg
 %type <token> name strip_name
 %type <token> optional_space_list space_list strip_space_list
 %type <token> list_empty_optional list_arg_optional list_optional_optional
@@ -111,7 +113,8 @@ file:
    
 statement:
 	line_or_empty
-	| ac_init
+	| ac_macro_with_arg
+	| ac_macro_without_arg
 	| pkg_check_modules 
 	| obsolete_ac_output
 	| ac_output
@@ -136,11 +139,13 @@ pkg_check_modules:
 	| PKG_CHECK_MODULES  name  COMMA  space_list  list_arg_optional
 	;
 
-ac_init:
-	AC_INIT optional_list {
-		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
+ac_macro_without_arg:
+	AC_MACRO_WITHOUT_ARG
+	;
+
+ac_macro_with_arg:
+	AC_MACRO_WITH_ARG optional_list {
 		anjuta_token_merge ($1, $2);
-		g_message ("ac_init");
 	}
 	;
 

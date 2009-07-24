@@ -39,6 +39,11 @@ gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GEr
 
 const gchar* amp_ac_scanner_get_filename (void *yyscanner);
 
+enum 
+{
+	AC_TOKEN_AC_INIT = ANJUTA_TOKEN_USER
+};
+
 G_END_DECLS
 
 #endif

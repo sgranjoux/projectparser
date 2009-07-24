@@ -180,9 +180,9 @@ NUMBER      [0-9][0-9.]*
 <INITIAL>AC_INIT\( {
     AnjutaToken *token;
     yy_push_state (ARGUMENT, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_OPEN);
+    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_INIT | ANJUTA_TOKEN_OPEN);
     yylval->token = token;
-    return AC_INIT;
+    return AC_MACRO_WITH_ARG;
 }
 
 <INITIAL>AC_CONFIG_FILES\( {
