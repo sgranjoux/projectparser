@@ -41,6 +41,57 @@
 /* Private functions
  *---------------------------------------------------------------------------*/
 
+static gboolean
+remove_list_item (AnjutaToken *token, AnjutaTokenStyle *user_style)
+{
+	AnjutaTokenStyle *style;
+	AnjutaToken *space;
+
+	DEBUG_PRINT ("remove list item");
+
+	style = user_style != NULL ? user_style : anjuta_token_style_new (0);
+	anjuta_token_style_update (style, anjuta_token_parent (token));
+	
+	anjuta_token_remove (token);
+	space = anjuta_token_next_sibling (token);
+	if (space && (anjuta_token_get_type (space) == ANJUTA_TOKEN_SPACE) && (anjuta_token_next (space) != NULL))
+	{
+		/* Remove following space */
+		anjuta_token_remove (space);
+	}
+	else
+	{
+		space = anjuta_token_previous_sibling (token);
+		if (space && (anjuta_token_get_type (space) == ANJUTA_TOKEN_SPACE) && (anjuta_token_previous (space) != NULL))
+		{
+			anjuta_token_remove (space);
+		}
+	}
+	
+	anjuta_token_style_format (style, anjuta_token_parent (token));
+	if (user_style == NULL) anjuta_token_style_free (style);
+	
+	return TRUE;
+}
+
+static gboolean
+add_list_item (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_style)
+{
+	AnjutaTokenStyle *style;
+	AnjutaToken *space;
+
+	style = user_style != NULL ? user_style : anjuta_token_style_new (0);
+	anjuta_token_style_update (style, anjuta_token_parent (list));
+	
+	space = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
+	space = anjuta_token_insert_after (list, space);
+	anjuta_token_insert_after (space, token);
+
+	anjuta_token_style_format (style, anjuta_token_parent (list));
+	if (user_style == NULL) anjuta_token_style_free (style);
+	
+	return TRUE;
+}
 
 /* Public functions
  *---------------------------------------------------------------------------*/
