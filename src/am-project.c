@@ -964,7 +964,7 @@ project_reload_packages   (AmpProject *project)
 	AnjutaToken *pkg_check_tok;
 	AnjutaToken *sequence;
 	
-	pkg_check_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "PKG_CHECK_MODULES(");
+	pkg_check_tok = anjuta_token_new_static (AC_TOKEN_PKG_CHECK_MODULES, "PKG_CHECK_MODULES(");
 	
     sequence = anjuta_token_file_first (project->configure_file);
 	for (;;)
@@ -1055,7 +1055,7 @@ project_list_config_files (AmpProject *project)
 
 	//g_message ("load config project %p root file %p", project, project->root_file);	
 	/* Search the new AC_CONFIG_FILES macro */
-	config_files_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "AC_CONFIG_FILES(");
+	config_files_tok = anjuta_token_new_static (AC_TOKEN_AC_CONFIG_FILES, NULL);
 
     sequence = anjuta_token_file_first (project->configure_file);
 	while (sequence != NULL)
@@ -1070,7 +1070,7 @@ project_list_config_files (AmpProject *project)
 	
 	/* Search the old AC_OUTPUT macro */
     anjuta_token_free(config_files_tok);
-    config_files_tok = anjuta_token_new_static (ANJUTA_TOKEN_KEYWORD | ANJUTA_TOKEN_SIGNIFICANT, "AC_OUTPUT(");
+    config_files_tok = anjuta_token_new_static (AC_TOKEN_OBSOLETE_AC_OUTPUT, NULL);
 		
     sequence = anjuta_token_file_first (project->configure_file);
 	while (sequence != NULL)
@@ -1462,7 +1462,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean
 	amp_am_scanner_free (scanner);
 
 	/* Find significant token */
-	significant_tok = anjuta_token_new_static (ANJUTA_TOKEN_SIGNIFICANT, NULL);
+	significant_tok = anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT, NULL);
 	
 	arg = anjuta_token_file_first (AMP_GROUP_DATA (group)->tfile);
 	//anjuta_token_old_dump_range (arg, NULL);
@@ -1831,7 +1831,7 @@ amp_project_add_group (AmpProject  *project,
 			}
 		}
 
-		token = anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT | ANJUTA_TOKEN_SIGNIFICANT | ANJUTA_TOKEN_ADDED, NULL);
+		token = anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT | ANJUTA_TOKEN_ADDED, NULL);
 		if (prev_token == NULL)
 		{
 			prev_token = anjuta_token_insert_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile), token);
@@ -1841,7 +1841,7 @@ amp_project_add_group (AmpProject  *project,
 			prev_token = anjuta_token_insert_after (prev_token, token);
 		}
 		list = prev_token;
-		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (AM_TOKEN_SUBDIRS | ANJUTA_TOKEN_SIGNIFICANT | ANJUTA_TOKEN_ADDED, "SUBDIRS"));
+		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (AM_TOKEN_SUBDIRS | ANJUTA_TOKEN_ADDED, "SUBDIRS"));
 		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
 		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_ADDED, "="));
 		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL));
@@ -2116,7 +2116,7 @@ amp_project_add_target (AmpProject  *project,
 			prev_token = anjuta_token_insert_after (prev_token, list);
 		}
 
-		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT | ANJUTA_TOKEN_SIGNIFICANT | ANJUTA_TOKEN_ADDED, NULL));
+		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT | ANJUTA_TOKEN_ADDED, NULL));
 		list = prev_token;
 		prev_token = anjuta_token_insert_after (prev_token, token);
 		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));

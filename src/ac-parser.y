@@ -133,10 +133,11 @@ line:
 
 pkg_check_modules:
 	PKG_CHECK_MODULES  name  COMMA  space_list   list_empty_optional  {
-		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT);
 		anjuta_token_merge ($1, $5);
 	}
-	| PKG_CHECK_MODULES  name  COMMA  space_list  list_arg_optional
+	| PKG_CHECK_MODULES  name  COMMA  space_list  list_arg_optional {
+		anjuta_token_set_type ($$, ANJUTA_TOKEN_KEYWORD);
+    }
 	;
 
 ac_macro_without_arg:
@@ -151,7 +152,6 @@ ac_macro_with_arg:
 
 obsolete_ac_output:
 	OBSOLETE_AC_OUTPUT  optional_space_list  list_optional_optional {
-		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT); 
 		anjuta_token_merge ($1, $3);
 	}
 	;
@@ -162,7 +162,6 @@ ac_output:
 	
 ac_config_files:
 	AC_CONFIG_FILES  space_list  list_optional_optional {
-		anjuta_token_set_flags ($1, ANJUTA_TOKEN_SIGNIFICANT); 
 		anjuta_token_merge ($1, $3);
 	}
 	;
