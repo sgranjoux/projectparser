@@ -83,7 +83,7 @@ NUMBER      [0-9][0-9.]*
 }
 
 <INITIAL>{WS}+ {
-	amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT);
+	amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);
 }
 
 <ARGUMENT>{WSNL}+ {
@@ -91,7 +91,7 @@ NUMBER      [0-9][0-9.]*
     
 /*    if (amp_ac_scanner_last_flags(yyextra) & (ANJUTA_TOKEN_OPEN | ANJUTA_TOKEN_NEXT))
     {
-        amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT);
+        amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE;
     }
     else*/
     {
@@ -110,18 +110,18 @@ NUMBER      [0-9][0-9.]*
 }
 
 <INITIAL>{COMMENT} {
-    amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT | ANJUTA_TOKEN_IRRELEVANT);   
+    amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);   
     return EOL;
 }
 
 <ARGUMENT>{COMMENT} {
-    amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT | ANJUTA_TOKEN_IRRELEVANT);   
+    amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);   
 }
 
 <INITIAL,ARGUMENT,STRING>\[              {
 	AnjutaToken *token;
     yy_push_state (STRING, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_OPEN | ANJUTA_TOKEN_IRRELEVANT); 
+    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE); 
 	yylval->token = token;
 	return SPACE;
 }
@@ -129,7 +129,7 @@ NUMBER      [0-9][0-9.]*
 <STRING>\]  {
 	AnjutaToken *token;
     yy_pop_state (yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_CLOSE | ANJUTA_TOKEN_IRRELEVANT);   
+    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);   
 	yylval->token = token;
 	return SPACE;
 }
@@ -150,7 +150,7 @@ NUMBER      [0-9][0-9.]*
 }
 
 <INITIAL>dnl.*\n {
-    amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT | ANJUTA_TOKEN_IRRELEVANT);   
+    amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);   
 }
 
 <INITIAL>PKG_CHECK_MODULES\( {

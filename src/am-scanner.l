@@ -79,7 +79,7 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
 }
 
 <INITIAL>([ \t])*#.*\n {
-    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT | ANJUTA_TOKEN_IRRELEVANT);   
+    yylval->token = amp_am_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);   
     return EOL;
 }
 

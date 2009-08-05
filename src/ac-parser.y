@@ -294,9 +294,7 @@ optional_space:
 	/* empty */ {
 		$$ = NULL;
 	}
-	| spaces {
-		anjuta_token_set_flags ($1, ANJUTA_TOKEN_IRRELEVANT);
-	}
+	| spaces
 	;
 
 separator:

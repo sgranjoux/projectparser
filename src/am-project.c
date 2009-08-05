@@ -297,7 +297,7 @@ add_list_item (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_sty
 	style = user_style != NULL ? user_style : anjuta_token_style_new (0);
 	anjuta_token_style_update (style, anjuta_token_parent (list));
 	
-	space = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
+	space = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " ");
 	space = anjuta_token_insert_after (list, space);
 	anjuta_token_insert_after (space, token);
 
@@ -2230,10 +2230,10 @@ amp_project_add_source (AmpProject  *project,
 		g_free (canon_name);
 		tok = anjuta_token_insert_after (tok, anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, target_var));
 		g_free (target_var);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " "));
+		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
 		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_ADDED, "="));
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " "));
-		token = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_IRRELEVANT | ANJUTA_TOKEN_ADDED, " ");
+		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
+		token = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " ");
 		tok = anjuta_token_insert_after (tok, token);
 		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, uri);
 		tok = anjuta_token_insert_after (tok, token);

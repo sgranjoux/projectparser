@@ -229,11 +229,8 @@ prerequisite:
 	;
 		
 space:
-	space_token {
-		anjuta_token_set_flags ($1, ANJUTA_TOKEN_IRRELEVANT);
-	}
+	space_token
 	| space space_token	{
-		anjuta_token_set_flags ($2, ANJUTA_TOKEN_IRRELEVANT);
 		anjuta_token_merge ($1, $2);
 	}
 	;
