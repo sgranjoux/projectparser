@@ -104,84 +104,36 @@ make_directory_with_parents (GFile *file,
 gboolean
 anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end)
 {
-	gint level = 0;
-	gboolean recheck = FALSE;
-	
+
 	for (; sequence != NULL; /*sequence = flags & ANJUTA_SEARCH_BACKWARD ? anjuta_token_previous (sequence) : anjuta_token_next (sequence)*/)
 	{
 		AnjutaToken *toka;
 		AnjutaToken *tokb = token;
 
-		if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_SIGNIFICANT) g_message("match significant %p %s level %d", sequence, anjuta_token_get_value (sequence), level);
-		if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_OPEN) g_message("match %p open %s level %d", sequence, anjuta_token_get_value (sequence), level);
-		if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_CLOSE) g_message("match %p close %s level %d", sequence, anjuta_token_get_value (sequence), level);
-
-		if (level == 0)
+		for (toka = sequence; toka != NULL; toka = anjuta_token_next_sibling (toka))
 		{
-			for (toka = sequence; toka != NULL; toka = anjuta_token_next (toka))
+			if (anjuta_token_compare (toka, tokb))
 			{
-				if (anjuta_token_compare (toka, tokb))
+				tokb = anjuta_token_next (tokb);
+				if (tokb == NULL)
 				{
-					tokb = anjuta_token_next (tokb);
-					if (tokb == NULL)
-					{
-						if (end) *end = sequence;
-						return TRUE;
-					}
+					if (end) *end = sequence;
+					return TRUE;
 				}
-				else
-				{
-					if (!(anjuta_token_get_flags (toka) & ANJUTA_TOKEN_IRRELEVANT) || (toka == sequence))
-						break;
-				}
+			}
+			else
+			{
+				break;
 			}
 		}
 
 		if (flags & ANJUTA_SEARCH_BACKWARD)
 		{
-			if (!recheck)
-			{
-				if (!(flags & ANJUTA_SEARCH_INTO) && (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_CLOSE)) level++;
-				if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_OPEN)
-				{
-					level--;
-					/* Check the OPEN token */
-					if (level < 0)
-					{
-						break;
-					}
-					else if (level == 0)
-					{
-						recheck = TRUE;
-						continue;
-					}
-				}
-			}
-			recheck = FALSE;
-			sequence = anjuta_token_previous (sequence);
+			sequence = flags & ANJUTA_SEARCH_INTO ? anjuta_token_previous (sequence) : anjuta_token_previous_sibling (sequence);
 		}
 		else
 		{
-			if (!recheck)
-			{
-				if (!(flags & ANJUTA_SEARCH_INTO) && (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_OPEN)) level++;
-				if (anjuta_token_get_flags (sequence) & ANJUTA_TOKEN_CLOSE)
-				{
-					level--;
-					/* Check the CLOSE token */
-					if (level < 0)
-					{
-						break;
-					}
-					else if (level == 0)
-					{
-						recheck = TRUE;
-						continue;
-					}
-				}
-			}
-			recheck = FALSE;
-			sequence = anjuta_token_next (sequence);
+			sequence = flags & ANJUTA_SEARCH_INTO ? anjuta_token_next (sequence) : anjuta_token_next_sibling (sequence);
 		}
 	}
 	/*g_message ("matched %p %d", sequence, level);*/

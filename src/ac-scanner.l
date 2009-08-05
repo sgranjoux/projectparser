@@ -144,7 +144,7 @@ NUMBER      [0-9][0-9.]*
 <ARGUMENT>\) {
 	AnjutaToken *token;
     yy_pop_state (yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_CLOSE);   
+    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
 	yylval->token = token;
     return RIGHT_PAREN;
 }
@@ -157,7 +157,7 @@ NUMBER      [0-9][0-9.]*
     AnjutaToken *token;
     DEBUG_PRINT ("PKG_CHECK_MODULES %.*s", yyleng, yytext);
     yy_push_state (ARGUMENT, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_PKG_CHECK_MODULES | ANJUTA_TOKEN_OPEN);
+    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_PKG_CHECK_MODULES);
     yylval->token = token;
     return PKG_CHECK_MODULES;
 }
@@ -165,7 +165,7 @@ NUMBER      [0-9][0-9.]*
 <INITIAL>AC_OUTPUT\( {
     AnjutaToken *token;
     yy_push_state (ARGUMENT, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_OBSOLETE_AC_OUTPUT | ANJUTA_TOKEN_OPEN);
+    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_OBSOLETE_AC_OUTPUT);
     yylval->token = token;
     return OBSOLETE_AC_OUTPUT;
 }
@@ -180,7 +180,7 @@ NUMBER      [0-9][0-9.]*
 <INITIAL>AC_INIT\( {
     AnjutaToken *token;
     yy_push_state (ARGUMENT, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_INIT | ANJUTA_TOKEN_OPEN);
+    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_INIT);
     yylval->token = token;
     return AC_MACRO_WITH_ARG;
 }
@@ -188,7 +188,7 @@ NUMBER      [0-9][0-9.]*
 <INITIAL>AC_CONFIG_FILES\( {
     AnjutaToken *token;
     yy_push_state (ARGUMENT, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_CONFIG_FILES | ANJUTA_TOKEN_OPEN);
+    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_CONFIG_FILES);
     yylval->token = token;
     return AC_CONFIG_FILES;
 }

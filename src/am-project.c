@@ -949,7 +949,7 @@ project_reload_property (AmpProject *project)
 	ac_init_tok = anjuta_token_new_static (AC_TOKEN_AC_INIT, NULL);
 	                                       
 	sequence = anjuta_token_file_first (project->configure_file);
-	if (anjuta_token_match (ac_init_tok, ANJUTA_SEARCH_OVER, sequence, &init))
+	if (anjuta_token_match (ac_init_tok, ANJUTA_SEARCH_INTO, sequence, &init))
 	{
 		g_message ("find ac_init");
 		project->property = amp_property_new (init);
@@ -976,7 +976,7 @@ project_reload_packages   (AmpProject *project)
 		AmpPackage *pack;
 		gchar *compare;
 		
-		if (!anjuta_token_match (pkg_check_tok, ANJUTA_SEARCH_OVER, sequence, &module)) break;
+		if (!anjuta_token_match (pkg_check_tok, ANJUTA_SEARCH_INTO, sequence, &module)) break;
 
 		arg = anjuta_token_next_child (module);	/* Name */
 
@@ -1062,7 +1062,7 @@ project_list_config_files (AmpProject *project)
 	{
 		AnjutaToken *arg;
 
-		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence)) break;
+		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_INTO, sequence, &sequence)) break;
 		arg = anjuta_token_next_child (sequence);	/* List */
 		amp_project_add_config_files (project, arg);
 		sequence = anjuta_token_next_sibling (sequence);
@@ -1077,7 +1077,7 @@ project_list_config_files (AmpProject *project)
 	{
 		AnjutaToken *arg;
 
-		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_OVER, sequence, &sequence)) break;
+		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_INTO, sequence, &sequence)) break;
 		arg = anjuta_token_next_child (sequence);	/* List */
 		amp_project_add_config_files (project, arg);
 		sequence = anjuta_token_next_sibling (sequence);
@@ -1470,7 +1470,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean
 	/* Create hash table for sources list */
 	orphan_sources = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify)g_free, (GDestroyNotify)free_source_list);
 	
-	for (found = anjuta_token_match (significant_tok, ANJUTA_SEARCH_OVER, arg, &arg); found; found = anjuta_token_match (significant_tok, ANJUTA_SEARCH_OVER, anjuta_token_next_sibling (arg), &arg))
+	for (found = anjuta_token_match (significant_tok, ANJUTA_SEARCH_INTO, arg, &arg); found; found = anjuta_token_match (significant_tok, ANJUTA_SEARCH_INTO, anjuta_token_next_sibling (arg), &arg))
 	{
 		AnjutaToken *name = anjuta_token_next_child (arg);
 		
@@ -2219,7 +2219,7 @@ amp_project_add_source (AmpProject  *project,
 		tok = (AnjutaToken *)amp_target_get_token (target)->data;
 		close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
 		eol_tok = anjuta_token_new_static (ANJUTA_TOKEN_EOL, NULL);
-		anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, tok, &tok);
+		//anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, tok, &tok);
 		anjuta_token_match (eol_tok, ANJUTA_SEARCH_OVER, tok, &tok);
 		anjuta_token_free (close_tok);
 		anjuta_token_free (eol_tok);
