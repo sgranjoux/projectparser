@@ -136,7 +136,7 @@ NUMBER      [0-9][0-9.]*
 
 <ARGUMENT>, {
 	AnjutaToken *token;
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMA | ANJUTA_TOKEN_NEXT);   
+    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMA);   
 	yylval->token = token;
     return COMMA;
 }

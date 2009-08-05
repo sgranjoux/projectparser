@@ -154,7 +154,6 @@ strip_value_list:
 			$1);
 	}
 	| strip_value_list  space  value {
-		anjuta_token_set_flags ($2, ANJUTA_TOKEN_NEXT);
 		anjuta_token_merge ($1, $3);
 	}
 	;
@@ -168,7 +167,6 @@ target_list:
 target_list2:
 	target
 	| target_list2  space  target {
-		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
 		anjuta_token_merge ($1, $3);
 	}
 	;
@@ -181,7 +179,6 @@ token_list:
 prerequisite_list:
 	prerequisite
 	| prerequisite_list space prerequisite {
-		anjuta_token_set_flags ($2.first, ANJUTA_TOKEN_NEXT);
 		anjuta_token_merge ($1, $3);
 	}
 	;
