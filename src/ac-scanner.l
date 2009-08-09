@@ -62,181 +62,114 @@ static void amp_update_location (YYLTYPE *loc, const gchar *text, gint length);
 
 %option debug
 
-WS              [ \t]
-EOL             \n
-WSNL          [ \t\n]
-DIGIT           [0-9]
-LETTER         [A-Za-z]
-COMMENT     #.*\n
-IDENTIFIER  [A-Za-z_][A-Za-z0-9_]*
-NAME          [A-Za-z_.0-9+][A-Za-z_.0-9+-]*
-NUMBER      [0-9][0-9.]*
+WS          [ \t\r\v]+
+NL          \n
+COMMENT     #
+OPENQUOTE   \[
+CLOSEQUOTE  \]
+OPENPARG   \(
+CLOSEPARG  \)
+COMMA       ,
+EQUAL       =
+NAME        [A-Za-z_][A-Za-z0-9_]*
+VARIABLE    $[A-Za-z_0-9]+
+OTHER       [^ \t\r\v\n#\[\](),=$_A-Za-z_]+
 
-%x ARGUMENT     
-%x STRING
-    
 %%
 
-<INITIAL>{EOL} {
-	amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_EOL);
-	return EOL;
-}
-
-<INITIAL>{WS}+ {
-	amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);
-}
-
-<ARGUMENT>{WSNL}+ {
-    //g_message ("space %.*s last %x,%x NEXT %x", yyleng + 4, yytext, amp_ac_scanner_last_token (yyextra), amp_ac_scanner_last_flags (yyextra), ANJUTA_TOKEN_NEXT);
-    
-/*    if (amp_ac_scanner_last_flags(yyextra) & (ANJUTA_TOKEN_OPEN | ANJUTA_TOKEN_NEXT))
-    {
-        amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE;
-    }
-    else*/
-    {
-		AnjutaToken *token;
-        token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);   
-		yylval->token = token;
-        return SPACE;
-    }
-}
-
-<STRING>{WSNL}+ {
-	AnjutaToken *token;
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);
-	yylval->token = token;
+{WS} {
+	yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);
     return SPACE;
 }
 
-<INITIAL>{COMMENT} {
-    amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);   
-    return EOL;
+{NL} {
+	yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_EOL);
+	return EOL;
 }
 
-<ARGUMENT>{COMMENT} {
-    amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);   
+{COMMENT} {
+	yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);
+	return HASH;
 }
 
-<INITIAL,ARGUMENT,STRING>\[              {
-	AnjutaToken *token;
-    yy_push_state (STRING, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE); 
-	yylval->token = token;
-	return SPACE;
+{OPENQUOTE} {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+	return LEFT_BRACE;
 }
 
-<STRING>\]  {
-	AnjutaToken *token;
-    yy_pop_state (yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);   
-	yylval->token = token;
-	return SPACE;
+{CLOSEQUOTE} {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+	return RIGHT_BRACE;
 }
 
-<ARGUMENT>, {
-	AnjutaToken *token;
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMA);   
-	yylval->token = token;
-    return COMMA;
+{OPENPARG} {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+	return LEFT_PAREN;
 }
 
-<ARGUMENT>\) {
-	AnjutaToken *token;
-    yy_pop_state (yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-	yylval->token = token;
-    return RIGHT_PAREN;
+{CLOSEPARG} {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+	return RIGHT_PAREN;
 }
 
-<INITIAL>dnl.*\n {
-    amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);   
+{COMMA} {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SEPARATOR); 
+	return COMMA;
 }
 
-<INITIAL>PKG_CHECK_MODULES\( {
-    AnjutaToken *token;
-    DEBUG_PRINT ("PKG_CHECK_MODULES %.*s", yyleng, yytext);
-    yy_push_state (ARGUMENT, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_PKG_CHECK_MODULES);
-    yylval->token = token;
+{EQUAL} {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+	return EQUAL;
+}
+
+dnl {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_MACRO);
+    return DNL;
+}
+    
+
+PKG_CHECK_MODULES\( {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_PKG_CHECK_MODULES);
     return PKG_CHECK_MODULES;
 }
 
-<INITIAL>AC_OUTPUT\( {
-    AnjutaToken *token;
-    yy_push_state (ARGUMENT, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_OBSOLETE_AC_OUTPUT);
-    yylval->token = token;
+AC_OUTPUT\( {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_OBSOLETE_AC_OUTPUT);
     return OBSOLETE_AC_OUTPUT;
 }
-
-<INITIAL>AC_OUTPUT {
-    AnjutaToken *token;
-    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_OUTPUT);
-    yylval->token = token;
+ 
+AC_OUTPUT {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_OUTPUT);
     return AC_OUTPUT;
 }
 
-<INITIAL>AC_INIT\( {
-    AnjutaToken *token;
-    yy_push_state (ARGUMENT, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_INIT);
-    yylval->token = token;
+AC_INIT\( {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_INIT);
     return AC_MACRO_WITH_ARG;
 }
-
-<INITIAL>AC_CONFIG_FILES\( {
-    AnjutaToken *token;
-    yy_push_state (ARGUMENT, yyscanner);
-    token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_CONFIG_FILES);
-    yylval->token = token;
+ 
+AC_CONFIG_FILES\( {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_CONFIG_FILES);
     return AC_CONFIG_FILES;
 }
 
-<INITIAL>{IDENTIFIER} {
-	AnjutaToken *token;
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_NAME);   
-    yylval->token = token;
-    return IDENTIFIER;
+{NAME} {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_NAME); 
+	return NAME;
 }
 
-<INITIAL,ARGUMENT,STRING>{NAME} {
-	AnjutaToken *token;
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_NAME);   
-    yylval->token = token;
-    return NAME;
+{VARIABLE} {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE); 
+	return VARIABLE;
 }
 
-<INITIAL,ARGUMENT,STRING>\${IDENTIFIER} {
-	AnjutaToken *token;
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_MACRO);   
-    yylval->token = token;
-    return MACRO;
+{OTHER} {
+    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_WORD); 
+	return WORD;
 }
 
-<INITIAL,ARGUMENT,STRING>{NUMBER} {
-	AnjutaToken *token;
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_NUMBER);   
-    yylval->token = token;
-    return NUMBER;
-}
-
-<INITIAL,ARGUMENT,STRING>=|>|<|(>=)|(<=) {
-	AnjutaToken *token;
-    token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    yylval->token = token;
-    return OPERATOR;
-}
-
-<INITIAL,ARGUMENT,STRING>. {
-	AnjutaToken *token;
-    token = amp_ac_scanner_append_token  (yyextra, *yytext);   
-    yylval->token = token;
-    return OPERATOR;
-}
-     
 %%
-     
+
 struct _AmpAcScanner
 {
     const gchar *pos;

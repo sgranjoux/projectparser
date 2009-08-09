@@ -27,7 +27,7 @@
 
 //static void amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s);
 
-//amp_ac_yydebug = 1;
+amp_ac_yydebug = 1;
 
 %}
 
@@ -36,32 +36,33 @@
 	AnjutaTokenRange range;
 }
 
-%token  EOL '\n'
+%token  <token> EOL '\n'
 
 %token  <token> SPACE ' '
 
-%token  HASH               '#'
-%token  LEFT_PAREN     '('
+%token  <token> HASH '#'
+%token  <token> LEFT_PAREN     '('
 %token  <token> RIGHT_PAREN    ')'
-%token  LEFT_CURLY		'{'
-%token  RIGHT_CURLY    '}'
-%token  LEFT_BRACE     '['
-%token  RIGHT_BRACE    ']'
-%token  EQUAL             '='
+%token  <token> LEFT_CURLY		'{'
+%token  <token> RIGHT_CURLY    '}'
+%token  <token> LEFT_BRACE     '['
+%token  <token> RIGHT_BRACE    ']'
+%token  <token> EQUAL             '='
 %token  <token> COMMA             ','
-%token  LOWER              '<'
-%token  GREATER           '>'
-%token  LOWER_OR_EQUAL
-%token  GREATER_OR_EQUAL	
     
-%token  COMMENT
 %token  <token> NAME
-%token  KEYWORD
-%token  TOPNAME
-%token  <token> IDENTIFIER
-%token  <token> NUMBER
+%token  <token> VARIABLE
 %token  <token> MACRO
 %token  <token> OPERATOR
+%token  <token> WORD
+
+/* M4 macros */
+
+%token  <token> DNL
+
+
+/* Autoconf macros */
+
 %token	<token> AC_MACRO_WITH_ARG
 %token	<token> AC_MACRO_WITHOUT_ARG
 
@@ -71,16 +72,17 @@
 %token	<token> AC_CONFIG_FILES
 %token	<token> AC_SUBST
 
-%type <token> pkg_check_modules obsolete_ac_output ac_config_files
+%type <token> pkg_check_modules obsolete_ac_output ac_output ac_config_files
+%type <token> dnl
 %type <token> ac_macro_with_arg ac_macro_without_arg
-%type <token> name strip_name
-%type <token> optional_space_list space_list strip_space_list
-%type <token> list_empty_optional list_arg_optional list_optional_optional
-%type <token> optional_list optional_arg_list
 %type <token> spaces
-%type <token> optional_space
 %type <token> separator
-%type <token> arg_string arg
+%type <token> arg_string arg arg_list arg_list_body shell_string_body raw_string_body
+
+%type <token> expression comment macro
+%type <token> arg_string_body arg_body expression_body
+
+%type <token> any_space
 
 %defines
 
@@ -107,12 +109,28 @@ static void amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s);
 %%
 
 file:
-	statement
-	| file EOL statement
+    /* empty */
+	| file statement
 	;
    
 statement:
-	line_or_empty
+    line
+    | macro
+    ;
+
+line:
+    any_space
+    | comment
+    | shell_string
+    | args_token
+    | EQUAL
+    | NAME
+    | VARIABLE
+    | WORD
+    ;
+
+macro:
+    dnl
 	| ac_macro_with_arg
 	| ac_macro_without_arg
 	| pkg_check_modules 
@@ -121,23 +139,22 @@ statement:
 	| ac_config_files
 	;
 
-line_or_empty:
-	/* empty */
-	| line
-	;
+/* Macros
+ *----------------------------------------------------------------------------*/
 
-line:
-	token
-	| line token
-	;
+dnl:
+    DNL not_eol_list EOL
+    ;
+    
 
 pkg_check_modules:
-	PKG_CHECK_MODULES  name  COMMA  space_list   list_empty_optional  {
+    PKG_CHECK_MODULES arg_list
+/*	PKG_CHECK_MODULES  name  COMMA  space_list   list_empty_optional  {
 		anjuta_token_merge ($1, $5);
 	}
 	| PKG_CHECK_MODULES  name  COMMA  space_list  list_arg_optional {
 		anjuta_token_set_type ($$, ANJUTA_TOKEN_KEYWORD);
-    }
+    }*/
 	;
 
 ac_macro_without_arg:
@@ -145,15 +162,16 @@ ac_macro_without_arg:
 	;
 
 ac_macro_with_arg:
-	AC_MACRO_WITH_ARG optional_list {
+	AC_MACRO_WITH_ARG arg_list {
 		anjuta_token_merge ($1, $2);
 	}
 	;
 
 obsolete_ac_output:
-	OBSOLETE_AC_OUTPUT  optional_space_list  list_optional_optional {
+    OBSOLETE_AC_OUTPUT  arg_list
+/*	OBSOLETE_AC_OUTPUT  optional_space_list  list_optional_optional {
 		anjuta_token_merge ($1, $3);
-	}
+	}*/
 	;
 
 ac_output:
@@ -161,177 +179,199 @@ ac_output:
 	;
 	
 ac_config_files:
-	AC_CONFIG_FILES  space_list  list_optional_optional {
+    AC_CONFIG_FILES  arg_list
+/*	AC_CONFIG_FILES  space_list  list_optional_optional {
 		anjuta_token_merge ($1, $3);
-	}
-	;
-	
-list_empty_optional:
-	RIGHT_PAREN
-	| separator RIGHT_PAREN {
-		$$ = $2;
-	}
-	| separator separator arg_string_or_empty  RIGHT_PAREN {
-		$$ = $4;
-	}
+	}*/
 	;
 
-list_arg_optional:
-	separator arg_string  RIGHT_PAREN {
-		$$ = $3;
-	}
-	| separator  arg_string  separator  arg_string_or_empty  RIGHT_PAREN {
-		$$ = $5;
-	}
-	;
+/* Lists
+ *----------------------------------------------------------------------------*/
 
-list_optional_optional:
-	RIGHT_PAREN
-	| separator  arg_string_or_empty  RIGHT_PAREN {
-		$$ =$3;
-	}
-	| separator  arg_string_or_empty  separator  arg_string_or_empty RIGHT_PAREN {
-		$$ = $5;
-	}
-	;
+arg_list:
+    arg_list_body RIGHT_PAREN
+    | spaces arg_list_body RIGHT_PAREN
+    ;
 
-optional_list:
-	RIGHT_PAREN {
-		anjuta_token_set_type ($$, ANJUTA_TOKEN_SEPARATOR);
-	}
-	| spaces RIGHT_PAREN {
-		anjuta_token_merge ($1, $2);
-		anjuta_token_set_type ($$, ANJUTA_TOKEN_SEPARATOR);
-	}
-	| optional_arg_list RIGHT_PAREN {
-		$$ = $2;
-		anjuta_token_set_type ($$, ANJUTA_TOKEN_SEPARATOR);
-	}
-	;
-	
-optional_arg_list:
-	arg_string {
-		anjuta_token_insert_before ($1,
-			anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL));
-	}
-	| spaces arg_string
-	| optional_arg_list separator arg_string_or_empty
-	;
+arg_list_body:
+    arg
+    | arg_list_body separator arg
+    ;
+    
+comment:
+    HASH not_eol_list EOL
+    ;
 
-arg_string_or_empty:
-	/* empty */
-	| arg_string
-	;
+not_eol_list:
+    /* empty */
+    | not_eol_list not_eol
+    ;
+
+
+shell_string:
+    LEFT_BRACE shell_string_body RIGHT_BRACE
+    ;
+
+shell_string_body:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | shell_string_body not_brace
+    | shell_string_body shell_string
+    ;
+
+raw_string:
+    LEFT_BRACE raw_string_body RIGHT_BRACE
+    ;
+
+raw_string_body:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | raw_string_body not_brace
+    | raw_string_body raw_string
+    ;
 
 arg_string:
-	arg
-	| arg_string arg {
-		anjuta_token_merge ($1, $2);
-	}
-	| arg_string SPACE {
-		anjuta_token_merge ($1, $2);
-	}
-	;
+    LEFT_BRACE arg_string_body RIGHT_BRACE
+    ;
 
-name:
-	optional_space strip_name optional_space {
-		if ($1)
-		{
-			anjuta_token_merge ($1, $3 != NULL ? $3 : $2);
-		}
-		else if ($3)
-		{
-			$$ = anjuta_token_merge ($2, $3);
-		}
-		else
-		{
-			$$ = $2;
-		}
-	}
-	;
-
-strip_name: 
-	NAME
-	| MACRO
-	| OPERATOR
-	| strip_name MACRO {
-		$$ = anjuta_token_merge ($1, $2);
-	}
-	| strip_name OPERATOR {
-		$$ = anjuta_token_merge ($1, $2);
-	}
-	| strip_name NAME {
-		$$ = anjuta_token_merge ($1, $2);
-	}
-	;
-
-optional_space_list:
-	optional_space
-	| space_list
-	;
-
-space_list:
-	optional_space strip_space_list optional_space {
-		if ($1) anjuta_token_merge_previous ($2, $1);
-		if ($3) anjuta_token_merge ($2, $3);
-		$$ = $2;
-	}
-	;
-
-strip_space_list:
-	strip_name {
-		$$ = anjuta_token_merge (
-			anjuta_token_insert_before ($1,
-					anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL)),
-			$1);
-	}
-	| strip_space_list spaces strip_name {
-		anjuta_token_merge ($1, $3);
-	}
-	;
-
-optional_space:
-	/* empty */ {
-		$$ = NULL;
-	}
-	| spaces
-	;
-
-separator:
-	COMMA {
-		anjuta_token_set_type ($$, ANJUTA_TOKEN_SEPARATOR);
-	}
-	| COMMA spaces {
-		anjuta_token_merge ($1, $2);
-		anjuta_token_set_type ($$, ANJUTA_TOKEN_SEPARATOR);
-	}
-	;
-
-spaces:
-	SPACE
-	| spaces SPACE {
-		anjuta_token_merge ($1, $2);
-	}
-	;
+arg_string_body:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | arg_string_body any_space
+    | arg_string_body HASH
+    | arg_string_body LEFT_PAREN
+    | arg_string_body RIGHT_PAREN
+    | arg_string_body COMMA
+    | arg_string_body EQUAL
+    | arg_string_body NAME
+    | arg_string_body VARIABLE
+    | arg_string_body WORD
+    | arg_string_body macro
+    | arg_string_body raw_string
+    ;
 
 arg:
-	IDENTIFIER
-	| OPERATOR
-	| NUMBER
-	| NAME
-	| MACRO            
+    /* empty */ {
+        $$ = NULL;
+    }
+    | arg_string arg_body
+    | expression arg_body
+    | comment arg_body
+    | macro arg_body
+    | EQUAL arg_body
+    | NAME arg_body
+    | VARIABLE arg_body
+    | WORD arg_body
+    ;
+
+arg_body:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | arg_body any_space
+    | arg_body arg_string
+    | arg_body expression
+    | arg_body comment
+    | arg_body macro
+    | arg_body EQUAL
+    | arg_body NAME
+    | arg_body VARIABLE
+    | arg_body WORD
+    ;
+
+separator:
+    COMMA
+    | COMMA spaces
+    ;
+
+expression:
+    LEFT_PAREN expression_body RIGHT_PAREN
+    ;
+
+expression_body:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | expression_body any_space
+    | expression_body comment
+    | expression_body COMMA
+    | expression_body EQUAL
+    | expression_body NAME
+    | expression_body VARIABLE
+    | expression_body WORD
+    | expression_body macro
+    | expression_body expression
+    ;
+
+
+/* Items
+ *----------------------------------------------------------------------------*/
+    
+
+spaces:
+	any_space
+	| spaces any_space {
+		anjuta_token_merge ($1, $2);
+	}
 	;
 
-token:
-	SPACE
-	| IDENTIFIER
-	| OPERATOR
-	| NUMBER
-	| NAME
-	| MACRO
-	| COMMA
-	| RIGHT_PAREN
-	;            
+
+/* Tokens
+ *----------------------------------------------------------------------------*/
+
+not_eol:
+    SPACE
+    | any_word    
+    ;
+
+not_brace:
+    any_space
+    | args_token
+    | HASH
+    | EQUAL
+    | NAME
+    | VARIABLE
+    | WORD
+    | any_macro
+    ;
+
+any_space:
+    SPACE
+    | EOL
+    ;
+
+args_token:
+    LEFT_PAREN
+    | RIGHT_PAREN
+    | COMMA
+    ;
+
+any_word:
+    HASH
+    | LEFT_BRACE
+    | RIGHT_BRACE
+    | LEFT_PAREN
+    | RIGHT_PAREN
+    | COMMA
+    | EQUAL
+    | NAME
+    | VARIABLE
+    | WORD
+    | any_macro
+    ;
+
+any_macro:
+    AC_CONFIG_FILES
+	| AC_MACRO_WITH_ARG
+	| AC_MACRO_WITHOUT_ARG
+    | AC_OUTPUT
+    | DNL
+    | OBSOLETE_AC_OUTPUT
+    | PKG_CHECK_MODULES
+    ;
 
 %%
     
