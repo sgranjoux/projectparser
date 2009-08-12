@@ -540,45 +540,12 @@ amp_property_new (AnjutaToken *token)
 	prop = g_slice_new0(AmpProperty); 
 	prop->ac_init = token;
 
-	for (arg = anjuta_token_next_child (token); arg != NULL; arg = anjuta_token_next_sibling (arg))
-	{
-		g_message ("token2 ==%s==", anjuta_token_evaluate (arg));
-	}
+	arg = anjuta_token_next_child (token);
+	arg = anjuta_token_get_next_arg (arg, &prop->name);
+	arg = anjuta_token_get_next_arg (arg, &prop->version);
+	arg = anjuta_token_get_next_arg (arg, &prop->bug_report);
+	arg = anjuta_token_get_next_arg (arg, &prop->tarname);
 	
-	if (token != NULL)
-	{
-		AnjutaToken *arg;
-		
-		arg = anjuta_token_next_child (token);
-		token = anjuta_token_next_sibling (arg);
-		arg = anjuta_token_next_sibling (token);
-		if (arg != NULL)
-		{
-			prop->name = anjuta_token_evaluate (token);
-
-			token = anjuta_token_next_sibling (arg);
-			arg = anjuta_token_next_sibling (token);
-			if (arg != NULL)
-			{
-				prop->version = anjuta_token_evaluate (token);
-
-				token = anjuta_token_next_sibling (arg);
-				arg = anjuta_token_next_sibling (token);
-				if (arg != NULL)
-				{
-					prop->bug_report = anjuta_token_evaluate (token);
-
-					token = anjuta_token_next_sibling (arg);
-					arg = anjuta_token_next_sibling (token);
-					if (arg != NULL)
-					{
-						prop->tarname = anjuta_token_evaluate (token);
-					}
-				}
-			}
-		}
-	}			
-
 	return prop;
 }
 

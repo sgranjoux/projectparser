@@ -39,7 +39,7 @@
 
 //#define YY_USER_INIT {yy_flex_debug = 1;}
  
-static AnjutaToken* amp_ac_scanner_append_token (AmpAcScanner *scanner, gint token);
+static AnjutaToken* amp_ac_scanner_append_token (AmpAcScanner *scanner);
 static gint amp_ac_scanner_last_token (AmpAcScanner *scanner);
 static gint amp_ac_scanner_last_flags (AmpAcScanner *scanner);
 static void amp_update_location (YYLTYPE *loc, const gchar *text, gint length);
@@ -78,93 +78,93 @@ OTHER       [^ \t\r\v\n#\[\](),=$_A-Za-z_]+
 %%
 
 {WS} {
-	*yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);
+	*yylval = amp_ac_scanner_append_token  (yyextra);
     return SPACE;
 }
 
 {NL} {
-	*yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_EOL);
+	*yylval = amp_ac_scanner_append_token  (yyextra);
 	return EOL;
 }
 
 {COMMENT} {
-	*yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);
+	*yylval = amp_ac_scanner_append_token  (yyextra);
 	return HASH;
 }
 
 {OPENQUOTE} {
-    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra); 
 	return LEFT_BRACE;
 }
 
 {CLOSEQUOTE} {
-    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra); 
 	return RIGHT_BRACE;
 }
 
 {OPENPARG} {
-    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra); 
 	return LEFT_PAREN;
 }
 
 {CLOSEPARG} {
-    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra); 
 	return RIGHT_PAREN;
 }
 
 {COMMA} {
-    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SEPARATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra); 
 	return COMMA;
 }
 
 {EQUAL} {
-    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra); 
 	return EQUAL;
 }
 
 dnl {
-    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_MACRO);
+    *yylval = amp_ac_scanner_append_token  (yyextra);
     return DNL;
 }
     
 
 PKG_CHECK_MODULES\( {
-    *yylval = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_PKG_CHECK_MODULES);
+    *yylval = amp_ac_scanner_append_token  (yyextra);
     return PKG_CHECK_MODULES;
 }
 
 AC_OUTPUT\( {
-    *yylval = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_OBSOLETE_AC_OUTPUT);
+    *yylval = amp_ac_scanner_append_token  (yyextra);
     return OBSOLETE_AC_OUTPUT;
 }
  
 AC_OUTPUT {
-    *yylval = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_OUTPUT);
+    *yylval = amp_ac_scanner_append_token  (yyextra);
     return AC_OUTPUT;
 }
 
 AC_INIT\( {
-    *yylval = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_INIT);
-    return AC_MACRO_WITH_ARG;
+    *yylval = amp_ac_scanner_append_token  (yyextra);
+    return AC_INIT;
 }
  
 AC_CONFIG_FILES\( {
-    *yylval = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_CONFIG_FILES);
+    *yylval = amp_ac_scanner_append_token  (yyextra);
     return AC_CONFIG_FILES;
 }
 
 {NAME} {
-    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_NAME); 
+    *yylval = amp_ac_scanner_append_token  (yyextra); 
 	return NAME;
 }
 
 {VARIABLE} {
-    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE); 
+    *yylval = amp_ac_scanner_append_token  (yyextra); 
 	return VARIABLE;
 }
 
-{OTHER} {
-    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_WORD); 
+{OTHER}|\$ {
+    *yylval = amp_ac_scanner_append_token  (yyextra); 
 	return WORD;
 }
 
@@ -183,11 +183,11 @@ struct _AmpAcScanner
  *---------------------------------------------------------------------------*/
 
 static AnjutaToken*
-amp_ac_scanner_append_token (AmpAcScanner *scanner, gint token)
+amp_ac_scanner_append_token (AmpAcScanner *scanner)
 {
     AnjutaToken *frag;
             
-    frag = anjuta_token_new_fragment (token, scanner->pos, yyget_leng (scanner->scanner));
+    frag = anjuta_token_new_fragment (ANJUTA_TOKEN_WORD, scanner->pos, yyget_leng (scanner->scanner));
     anjuta_token_file_append (scanner->file, frag);
     scanner->pos += yyget_leng (scanner->scanner);
     

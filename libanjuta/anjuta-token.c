@@ -330,7 +330,7 @@ anjuta_token_get_length (AnjutaToken *token)
 static void
 anjuta_token_evaluate_token (AnjutaToken *token, GString *value)
 {
-	if (token != NULL)
+	if ((token != NULL) && (ANJUTA_TOKEN_DATA (token)->length != 0))
 	{
 		g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
 	}
@@ -527,6 +527,51 @@ anjuta_token_insert_before (AnjutaToken *token, AnjutaToken *sibling)
 	return (AnjutaToken *)g_node_insert_before ((GNode *)token->parent, (GNode *)token, (GNode *)sibling);
 }	
 
+AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *last)
+{
+	AnjutaToken *child;
+	AnjutaToken *tok;
+
+	if (parent == last) return parent;
+
+	child = (AnjutaToken *)g_node_last_child ((GNode *)parent);
+	do
+	{
+		tok = (AnjutaToken *)g_node_next_sibling ((GNode *)parent);
+		if (tok == NULL) break;
+		
+		g_node_unlink ((GNode *)tok);
+		child = (AnjutaToken *)g_node_insert_after ((GNode *)parent, (GNode *)child, (GNode *)tok);
+
+	}
+	while (tok != last);
+
+	return parent;
+	
+}
+
+AnjutaToken *anjuta_token_group_new (AnjutaTokenType type, AnjutaToken* first)
+{
+	AnjutaToken *parent = anjuta_token_new_static (type, NULL);
+
+	g_node_insert_before ((GNode *)first->parent, first, parent);
+	return anjuta_token_group (parent, first);
+}
+
+AnjutaToken *anjuta_token_get_next_arg (AnjutaToken *arg, gchar ** value)
+{
+	if ((arg != NULL) && (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SEPARATOR))
+	{
+		arg = anjuta_token_next_sibling (arg);
+	}
+	if ((arg != NULL) && (anjuta_token_get_type (arg) != ANJUTA_TOKEN_SEPARATOR))
+	{
+		*value = anjuta_token_evaluate (arg);		
+		arg = anjuta_token_next_sibling (arg);
+	}
+	
+	return arg;
+}
 
 /* Constructor & Destructor
  *---------------------------------------------------------------------------*/

@@ -22,13 +22,13 @@
 #include "ac-scanner.h"
 #include "ac-parser.h"
 
-#define YYDEBUG 1
+//#define YYDEBUG 1
 
 #include "libanjuta/anjuta-debug.h"
 
 //static void amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s);
 
-amp_ac_yydebug = 1;
+//amp_ac_yydebug = 1;
 
 %}
 
@@ -71,6 +71,7 @@ amp_ac_yydebug = 1;
 %token	AC_OUTPUT
 %token	AC_CONFIG_FILES
 %token	AC_SUBST
+%token  AC_INIT
 
 /*%type pkg_check_modules obsolete_ac_output ac_output ac_config_files
 %type dnl
@@ -119,7 +120,7 @@ statement:
     ;
 
 line:
-    any_space
+    space_token
     | comment
     | shell_string
     | args_token
@@ -133,6 +134,7 @@ macro:
     dnl
 	| ac_macro_with_arg
 	| ac_macro_without_arg
+    | ac_init
 	| pkg_check_modules 
 	| obsolete_ac_output
 	| ac_output
@@ -143,7 +145,10 @@ macro:
  *----------------------------------------------------------------------------*/
 
 dnl:
-    DNL not_eol_list EOL
+    DNL  not_eol_list  EOL {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_COMMENT);
+        anjuta_token_group ($1, $3);
+    }
     ;
     
 
@@ -167,6 +172,12 @@ ac_macro_with_arg:
 	}
 	;
 
+ac_init:
+    AC_INIT arg_list {
+        anjuta_token_set_type ($1, AC_TOKEN_AC_INIT);
+        $$ = anjuta_token_group ($1, $2);
+    }
+
 obsolete_ac_output:
     OBSOLETE_AC_OUTPUT  arg_list
 /*	OBSOLETE_AC_OUTPUT  optional_space_list  list_optional_optional {
@@ -189,58 +200,73 @@ ac_config_files:
  *----------------------------------------------------------------------------*/
 
 arg_list:
-    arg_list_body RIGHT_PAREN
-    | spaces arg_list_body RIGHT_PAREN
+    arg_list_body  RIGHT_PAREN {
+        anjuta_token_set_type ($2, ANJUTA_TOKEN_SEPARATOR);
+        $$ = $2;
+    }
+    | space_separator  arg_list_body  RIGHT_PAREN {
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
+        $$ = $3;
+    }
     ;
 
 arg_list_body:
     arg
-    | arg_list_body separator arg
+    | arg_list_body  separator  arg
     ;
     
 comment:
-    HASH not_eol_list EOL
+    HASH not_eol_list EOL {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_COMMENT);
+        anjuta_token_group ($1, $3);
+    }
     ;
 
 not_eol_list:
     /* empty */
-    | not_eol_list not_eol
+    | not_eol_list not_eol_token
     ;
 
 
 shell_string:
-    LEFT_BRACE shell_string_body RIGHT_BRACE
+    LEFT_BRACE shell_string_body RIGHT_BRACE {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_STRING);
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
+        $$ = anjuta_token_group ($1, $3);
+    }
     ;
 
 shell_string_body:
-    /* empty */ {
-        $$ = NULL;
-    }
-    | shell_string_body not_brace
+    /* empty */
+    | shell_string_body not_brace_token
     | shell_string_body shell_string
     ;
 
 raw_string:
-    LEFT_BRACE raw_string_body RIGHT_BRACE
+    LEFT_BRACE raw_string_body RIGHT_BRACE {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_STRING);
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
+        $$ = anjuta_token_group ($1, $3);
+    }
     ;
 
 raw_string_body:
-    /* empty */ {
-        $$ = NULL;
-    }
-    | raw_string_body not_brace
+    /* empty */
+    | raw_string_body not_brace_token
     | raw_string_body raw_string
     ;
 
 arg_string:
-    LEFT_BRACE arg_string_body RIGHT_BRACE
+    LEFT_BRACE arg_string_body RIGHT_BRACE  {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_STRING);
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
+        $$ = anjuta_token_group ($1, $3);
+    }
     ;
 
 arg_string_body:
-    /* empty */ {
-        $$ = NULL;
-    }
-    | arg_string_body any_space
+    /* empty */
+    | arg_string_body space_token
     | arg_string_body HASH
     | arg_string_body LEFT_PAREN
     | arg_string_body RIGHT_PAREN
@@ -253,49 +279,67 @@ arg_string_body:
     | arg_string_body raw_string
     ;
 
+/* Items
+ *----------------------------------------------------------------------------*/
+    
 arg:
     /* empty */ {
         $$ = NULL;
     }
-    | arg_string arg_body
-    | expression arg_body
-    | comment arg_body
-    | macro arg_body
-    | EQUAL arg_body
-    | NAME arg_body
-    | VARIABLE arg_body
-    | WORD arg_body
+    | arg_part arg_body {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, $1);
+        if ($2 != NULL) anjuta_token_group ($$, $2);
+    }        
     ;
 
 arg_body:
     /* empty */ {
         $$ = NULL;
     }
-    | arg_body any_space
-    | arg_body arg_string
-    | arg_body expression
-    | arg_body comment
-    | arg_body macro
-    | arg_body EQUAL
-    | arg_body NAME
-    | arg_body VARIABLE
-    | arg_body WORD
+    | arg_body arg_part_or_space {
+        $$ = $2;
+    }
+    ;
+
+arg_part_or_space:
+    space_token
+    | arg_part
+    ;
+
+arg_part:
+    arg_string
+    | expression
+    | comment
+    | macro
+    | EQUAL
+    | NAME
+    | VARIABLE
+    | WORD
     ;
 
 separator:
-    COMMA
-    | COMMA spaces
+    COMMA {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_SEPARATOR, $1);
+    }
+    | COMMA spaces {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_SEPARATOR, $1);
+        anjuta_token_group ($$, $2);
+    }
     ;
 
 expression:
-    LEFT_PAREN expression_body RIGHT_PAREN
+    LEFT_PAREN  expression_body  RIGHT_PAREN {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_STRING);
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
+        $$ = anjuta_token_group ($1, $3);
+    }
     ;
 
 expression_body:
     /* empty */ {
         $$ = NULL;
     }
-    | expression_body any_space
+    | expression_body space_token
     | expression_body comment
     | expression_body COMMA
     | expression_body EQUAL
@@ -306,29 +350,31 @@ expression_body:
     | expression_body expression
     ;
 
-
-/* Items
- *----------------------------------------------------------------------------*/
-    
-
 spaces:
-	any_space
-	| spaces any_space {
-		anjuta_token_merge ($1, $2);
+	space_token
+	| spaces space_token {
+        $$ = $2;
 	}
 	;
 
+space_separator:
+    space_token {
+        anjuta_token_group_new (ANJUTA_TOKEN_SEPARATOR, $1);
+    }
+    | spaces space_token {
+        anjuta_token_group ($1, $2);
+    }
 
 /* Tokens
  *----------------------------------------------------------------------------*/
 
-not_eol:
+not_eol_token:
     SPACE
-    | any_word    
+    | word_token    
     ;
 
-not_brace:
-    any_space
+not_brace_token:
+    space_token
     | args_token
     | HASH
     | EQUAL
@@ -338,7 +384,7 @@ not_brace:
     | any_macro
     ;
 
-any_space:
+space_token:
     SPACE
     | EOL
     ;
@@ -349,7 +395,7 @@ args_token:
     | COMMA
     ;
 
-any_word:
+word_token:
     HASH
     | LEFT_BRACE
     | RIGHT_BRACE

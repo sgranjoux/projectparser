@@ -45,6 +45,7 @@ typedef enum
 	ANJUTA_TOKEN_FUNCTION,
 	ANJUTA_TOKEN_SPACE,
 	ANJUTA_TOKEN_SEPARATOR,
+	ANJUTA_TOKEN_ARGUMENT,
 	ANJUTA_TOKEN_STRING,
 	ANJUTA_TOKEN_ERROR,
 	ANJUTA_TOKEN_WORD,
@@ -99,8 +100,8 @@ AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_copy (AnjutaToken *token);
 
-AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *first, AnjutaToken *last);
-
+AnjutaToken *anjuta_token_group_new (AnjutaTokenType type, AnjutaToken *first);
+AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *last);
 
 AnjutaToken * anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *sibling);
 AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
@@ -131,6 +132,8 @@ AnjutaToken *anjuta_token_previous_sibling (AnjutaToken *token);
 AnjutaToken *anjuta_token_last_child (AnjutaToken *token);
 AnjutaToken *anjuta_token_parent (AnjutaToken *token);
 gboolean anjuta_token_compare (AnjutaToken *tokena, AnjutaToken *tokenb);
+
+AnjutaToken *anjuta_token_get_next_arg (AnjutaToken *arg, gchar ** value);
 
 
 gint anjuta_token_get_type (AnjutaToken *token);
