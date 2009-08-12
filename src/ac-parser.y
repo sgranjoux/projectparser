@@ -20,6 +20,7 @@
 
 #include <stdlib.h>
 #include "ac-scanner.h"
+#include "ac-parser.h"
 
 #define YYDEBUG 1
 
@@ -31,58 +32,57 @@ amp_ac_yydebug = 1;
 
 %}
 
-%union {
+/*%union {
 	AnjutaToken *token;
-	AnjutaTokenRange range;
-}
+}*/
 
-%token  <token> EOL '\n'
+%token  EOL '\n'
 
-%token  <token> SPACE ' '
+%token  SPACE ' '
 
-%token  <token> HASH '#'
-%token  <token> LEFT_PAREN     '('
-%token  <token> RIGHT_PAREN    ')'
-%token  <token> LEFT_CURLY		'{'
-%token  <token> RIGHT_CURLY    '}'
-%token  <token> LEFT_BRACE     '['
-%token  <token> RIGHT_BRACE    ']'
-%token  <token> EQUAL             '='
-%token  <token> COMMA             ','
+%token  HASH '#'
+%token  LEFT_PAREN     '('
+%token  RIGHT_PAREN    ')'
+%token  LEFT_CURLY		'{'
+%token  RIGHT_CURLY    '}'
+%token  LEFT_BRACE     '['
+%token  RIGHT_BRACE    ']'
+%token  EQUAL             '='
+%token  COMMA             ','
     
-%token  <token> NAME
-%token  <token> VARIABLE
-%token  <token> MACRO
-%token  <token> OPERATOR
-%token  <token> WORD
+%token  NAME
+%token  VARIABLE
+%token  MACRO
+%token  OPERATOR
+%token  WORD
 
 /* M4 macros */
 
-%token  <token> DNL
+%token  DNL
 
 
 /* Autoconf macros */
 
-%token	<token> AC_MACRO_WITH_ARG
-%token	<token> AC_MACRO_WITHOUT_ARG
+%token	AC_MACRO_WITH_ARG
+%token	AC_MACRO_WITHOUT_ARG
 
-%token	<token> PKG_CHECK_MODULES
-%token	<token> OBSOLETE_AC_OUTPUT
-%token	<token> AC_OUTPUT
-%token	<token> AC_CONFIG_FILES
-%token	<token> AC_SUBST
+%token	PKG_CHECK_MODULES
+%token	OBSOLETE_AC_OUTPUT
+%token	AC_OUTPUT
+%token	AC_CONFIG_FILES
+%token	AC_SUBST
 
-%type <token> pkg_check_modules obsolete_ac_output ac_output ac_config_files
-%type <token> dnl
-%type <token> ac_macro_with_arg ac_macro_without_arg
-%type <token> spaces
-%type <token> separator
-%type <token> arg_string arg arg_list arg_list_body shell_string_body raw_string_body
+/*%type pkg_check_modules obsolete_ac_output ac_output ac_config_files
+%type dnl
+%type ac_macro_with_arg ac_macro_without_arg
+%type spaces
+%type separator
+%type arg_string arg arg_list arg_list_body shell_string_body raw_string_body
 
-%type <token> expression comment macro
-%type <token> arg_string_body arg_body expression_body
+%type expression comment macro
+%type arg_string_body arg_body expression_body
 
-%type <token> any_space
+%type any_space*/
 
 %defines
 

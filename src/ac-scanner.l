@@ -78,93 +78,93 @@ OTHER       [^ \t\r\v\n#\[\](),=$_A-Za-z_]+
 %%
 
 {WS} {
-	yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);
+	*yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);
     return SPACE;
 }
 
 {NL} {
-	yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_EOL);
+	*yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_EOL);
 	return EOL;
 }
 
 {COMMENT} {
-	yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);
+	*yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);
 	return HASH;
 }
 
 {OPENQUOTE} {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
 	return LEFT_BRACE;
 }
 
 {CLOSEQUOTE} {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
 	return RIGHT_BRACE;
 }
 
 {OPENPARG} {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
 	return LEFT_PAREN;
 }
 
 {CLOSEPARG} {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
 	return RIGHT_PAREN;
 }
 
 {COMMA} {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SEPARATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_SEPARATOR); 
 	return COMMA;
 }
 
 {EQUAL} {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
+    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR); 
 	return EQUAL;
 }
 
 dnl {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_MACRO);
+    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_MACRO);
     return DNL;
 }
     
 
 PKG_CHECK_MODULES\( {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_PKG_CHECK_MODULES);
+    *yylval = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_PKG_CHECK_MODULES);
     return PKG_CHECK_MODULES;
 }
 
 AC_OUTPUT\( {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_OBSOLETE_AC_OUTPUT);
+    *yylval = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_OBSOLETE_AC_OUTPUT);
     return OBSOLETE_AC_OUTPUT;
 }
  
 AC_OUTPUT {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_OUTPUT);
+    *yylval = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_OUTPUT);
     return AC_OUTPUT;
 }
 
 AC_INIT\( {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_INIT);
+    *yylval = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_INIT);
     return AC_MACRO_WITH_ARG;
 }
  
 AC_CONFIG_FILES\( {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_CONFIG_FILES);
+    *yylval = amp_ac_scanner_append_token  (yyextra, AC_TOKEN_AC_CONFIG_FILES);
     return AC_CONFIG_FILES;
 }
 
 {NAME} {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_NAME); 
+    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_NAME); 
 	return NAME;
 }
 
 {VARIABLE} {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE); 
+    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE); 
 	return VARIABLE;
 }
 
 {OTHER} {
-    yylval->token = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_WORD); 
+    *yylval = amp_ac_scanner_append_token  (yyextra, ANJUTA_TOKEN_WORD); 
 	return WORD;
 }
 

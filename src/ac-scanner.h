@@ -28,7 +28,7 @@
 
 G_BEGIN_DECLS
 
-//#define YYSTYPE AnjutaTokenOldRange
+#define YYSTYPE AnjutaToken*
 
 typedef struct _AmpAcScanner AmpAcScanner;
 

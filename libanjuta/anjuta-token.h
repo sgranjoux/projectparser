@@ -99,6 +99,9 @@ AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_copy (AnjutaToken *token);
 
+AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *first, AnjutaToken *last);
+
+
 AnjutaToken * anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *sibling);
 AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
 AnjutaToken *anjuta_token_insert_before (AnjutaToken *token, AnjutaToken *sibling);
