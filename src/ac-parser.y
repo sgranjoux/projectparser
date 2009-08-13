@@ -56,6 +56,9 @@
 %token  OPERATOR
 %token  WORD
 
+%left   ARG
+%left   EMPTY
+
 /* M4 macros */
 
 %token  DNL
@@ -166,10 +169,15 @@ ac_macro_without_arg:
 	AC_MACRO_WITHOUT_ARG
 	;
 
+optional_arg:
+    /* empty */     %prec EMPTY
+    | COMMA NAME %prec ARG
+    ;
+
 ac_macro_with_arg:
-	AC_MACRO_WITH_ARG arg_list {
-		anjuta_token_merge ($1, $2);
-	}
+	AC_MACRO_WITH_ARG optional_arg optional_arg RIGHT_PAREN {
+        anjuta_token_group ($1, $1);
+    }
 	;
 
 ac_init:
@@ -178,15 +186,17 @@ ac_init:
         $$ = anjuta_token_group ($1, $2);
     }
 
+ac_output:
+	AC_OUTPUT {
+        anjuta_token_set_type ($1, AC_TOKEN_AC_OUTPUT);
+    }
+	;
+
 obsolete_ac_output:
     OBSOLETE_AC_OUTPUT  arg_list
 /*	OBSOLETE_AC_OUTPUT  optional_space_list  list_optional_optional {
 		anjuta_token_merge ($1, $3);
 	}*/
-	;
-
-ac_output:
-	AC_OUTPUT
 	;
 	
 ac_config_files:
