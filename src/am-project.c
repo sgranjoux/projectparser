@@ -930,6 +930,7 @@ project_reload_packages   (AmpProject *project)
 {
 	AnjutaToken *pkg_check_tok;
 	AnjutaToken *sequence;
+	AmpAcScanner *scanner = NULL;
 	
 	pkg_check_tok = anjuta_token_new_static (AC_TOKEN_PKG_CHECK_MODULES, "PKG_CHECK_MODULES(");
 	
@@ -952,15 +953,23 @@ project_reload_packages   (AmpProject *project)
 		mod->packages = NULL;
 		g_hash_table_insert (project->modules, value, mod);
 
+		if (strcmp (value, "PLUGIN_DEVHELP") == 0)
+		{
+			value = NULL;
+		}
+		
 		arg = anjuta_token_next_sibling (arg);	/* Separator */
 
 		arg = anjuta_token_next_sibling (arg);	/* Package list */
+		if (scanner == NULL) scanner = amp_ac_scanner_new ();
+		amp_ac_scanner_parse_token (scanner, arg, AC_TOKEN_SPACE_LIST, NULL);
 		
 		pack = NULL;
 		compare = NULL;
 		for (arg = anjuta_token_next_child (arg); arg != NULL; arg = anjuta_token_next_sibling (arg))
 		{
-			if ((anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) || (anjuta_token_get_type (arg) == ANJUTA_TOKEN_COMMENT)) continue;
+			if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SEPARATOR) continue;
+			if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_JUNK) continue;
 			
 			value = anjuta_token_evaluate (arg);
 
@@ -989,7 +998,7 @@ project_reload_packages   (AmpProject *project)
 		sequence = anjuta_token_next_sibling (module);
 	}
 	anjuta_token_free (pkg_check_tok);
-	
+	if (scanner) amp_ac_scanner_free (scanner);
 }
 
 /* Add a GFile in the list for each makefile in the token list */

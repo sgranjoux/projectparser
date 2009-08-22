@@ -590,7 +590,7 @@ AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const char *value)
 }
 	
 AnjutaToken *
-anjuta_token_new_fragment (AnjutaTokenType type, const gchar *pos, gsize length)
+anjuta_token_new_fragment (gint type, const gchar *pos, gsize length)
 {
 	AnjutaTokenData *data;
 

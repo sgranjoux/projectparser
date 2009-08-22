@@ -34,21 +34,25 @@
     result = 0;
 
 #define YY_USER_ACTION amp_update_location(yylloc, yytext, yyleng);
-    
+
 #define YY_EXTRA_TYPE  AmpAcScanner*
 
 //#define YY_USER_INIT {yy_flex_debug = 1;}
  
-static AnjutaToken* amp_ac_scanner_append_token (AmpAcScanner *scanner);
+static AnjutaToken* amp_ac_scanner_append_token (AmpAcScanner *scanner, gint token);
 static gint amp_ac_scanner_last_token (AmpAcScanner *scanner);
 static gint amp_ac_scanner_last_flags (AmpAcScanner *scanner);
 static void amp_update_location (YYLTYPE *loc, const gchar *text, gint length);
+
+#define RETURN(tok) *yylval = amp_ac_scanner_append_token (yyextra, tok); \
+                    return tok
+                    
 
 %}
 
 %option reentrant stack noyywrap yylineno
 
-%option prefix="amp_ac_yy"
+%option prefix="ac_yy"
 
 /* Necessary because autotools wrapper always looks for a file named "lex.yy.c",
  * not "lex.amp_ac_yy.c"
@@ -71,123 +75,81 @@ OPENPARG   \(
 CLOSEPARG  \)
 COMMA       ,
 EQUAL       =
+LOWER       >
+GREATER     <
 NAME        [A-Za-z_][A-Za-z0-9_]*
 VARIABLE    $[A-Za-z_0-9]+
-OTHER       [^ \t\r\v\n#\[\](),=$_A-Za-z_]+
+OTHER       [^ \t\r\v\n#\[\]\\(),=><$_A-Za-z_]+
 
 %%
 
-{WS} {
-	*yylval = amp_ac_scanner_append_token  (yyextra);
-    return SPACE;
-}
+{WS}                    { RETURN (SPACE); }
 
-{NL} {
-	*yylval = amp_ac_scanner_append_token  (yyextra);
-	return EOL;
-}
+\\\n                    { RETURN (SPACE); }
 
-{COMMENT} {
-	*yylval = amp_ac_scanner_append_token  (yyextra);
-	return HASH;
-}
+{NL}                    { RETURN (EOL); }
 
-{OPENQUOTE} {
-    *yylval = amp_ac_scanner_append_token  (yyextra); 
-	return LEFT_BRACE;
-}
+{COMMENT}               { RETURN (HASH); }
 
-{CLOSEQUOTE} {
-    *yylval = amp_ac_scanner_append_token  (yyextra); 
-	return RIGHT_BRACE;
-}
+{OPENQUOTE}             { RETURN (LEFT_BRACE); }
 
-{OPENPARG} {
-    *yylval = amp_ac_scanner_append_token  (yyextra); 
-	return LEFT_PAREN;
-}
+{CLOSEQUOTE}            { RETURN (RIGHT_BRACE); }
 
-{CLOSEPARG} {
-    *yylval = amp_ac_scanner_append_token  (yyextra); 
-	return RIGHT_PAREN;
-}
+{OPENPARG}              { RETURN (LEFT_PAREN); }
 
-{COMMA} {
-    *yylval = amp_ac_scanner_append_token  (yyextra); 
-	return COMMA;
-}
+{CLOSEPARG}             { RETURN (RIGHT_PAREN); }
 
-{EQUAL} {
-    *yylval = amp_ac_scanner_append_token  (yyextra); 
-	return EQUAL;
-}
+{COMMA}                 { RETURN (COMMA); }
 
-dnl {
-    *yylval = amp_ac_scanner_append_token  (yyextra);
-    return DNL;
-}
-    
+{EQUAL}                 { RETURN (EQUAL); }
 
-PKG_CHECK_MODULES\( {
-    *yylval = amp_ac_scanner_append_token  (yyextra);
-    return PKG_CHECK_MODULES;
-}
+{LOWER}                 { RETURN (LOWER); }
 
-AC_OUTPUT\( {
-    *yylval = amp_ac_scanner_append_token  (yyextra);
-    return OBSOLETE_AC_OUTPUT;
-}
+{GREATER}                 { RETURN (GREATER); }
+
+dnl                     { RETURN (DNL); }
+
+PKG_CHECK_MODULES\(     { RETURN (PKG_CHECK_MODULES); }
+
+AC_OUTPUT\(             { RETURN (OBSOLETE_AC_OUTPUT); }
  
-AC_OUTPUT {
-    *yylval = amp_ac_scanner_append_token  (yyextra);
-    return AC_OUTPUT;
-}
+AC_OUTPUT               { RETURN (AC_OUTPUT); }
 
-AC_INIT\( {
-    *yylval = amp_ac_scanner_append_token  (yyextra);
-    return AC_INIT;
-}
+AC_INIT\(               { RETURN (AC_INIT); }
  
-AC_CONFIG_FILES\( {
-    *yylval = amp_ac_scanner_append_token  (yyextra);
-    return AC_CONFIG_FILES;
-}
+AC_CONFIG_FILES\(       { RETURN (AC_CONFIG_FILES); }
 
-{NAME} {
-    *yylval = amp_ac_scanner_append_token  (yyextra); 
-	return NAME;
-}
+{NAME}                  { RETURN (NAME); }
 
-{VARIABLE} {
-    *yylval = amp_ac_scanner_append_token  (yyextra); 
-	return VARIABLE;
-}
+{VARIABLE}              { RETURN (VARIABLE); }
 
-{OTHER}|\$ {
-    *yylval = amp_ac_scanner_append_token  (yyextra); 
-	return WORD;
-}
+{OTHER}|\$|\\           { RETURN (WORD); }
 
 %%
 
 struct _AmpAcScanner
 {
-    const gchar *pos;
     yyscan_t scanner;
+
+    const gchar *pos;
     YY_BUFFER_STATE	 buffer;
     AnjutaTokenFile *file;
 	gchar *filename;
+
+    AnjutaToken *begin;
+    AnjutaToken *next;
+    gint start;
 };
 
 /* Private functions
  *---------------------------------------------------------------------------*/
 
 static AnjutaToken*
-amp_ac_scanner_append_token (AmpAcScanner *scanner)
+amp_ac_scanner_append_token (AmpAcScanner *scanner, gint token)
 {
     AnjutaToken *frag;
             
-    frag = anjuta_token_new_fragment (ANJUTA_TOKEN_WORD, scanner->pos, yyget_leng (scanner->scanner));
+    frag = anjuta_token_new_fragment (token, scanner->pos, yyget_leng (scanner->scanner));
     anjuta_token_file_append (scanner->file, frag);
     scanner->pos += yyget_leng (scanner->scanner);
     
@@ -228,8 +190,58 @@ amp_update_location (YYLTYPE *loc, const gchar *text, gint length)
 	loc->last_column += length;
 }
 
+static int
+amp_anjuta_to_bison_token (gint token)
+{
+    if (token < ANJUTA_TOKEN_FIRST)
+    {
+        return token;
+    }
+    else
+    {
+        switch (token)
+        {
+        case AC_TOKEN_SPACE_LIST:
+            return SPACE_LIST;
+        default:
+            return JUNK;
+        }
+    }
+}
+
 /* Public functions
  *---------------------------------------------------------------------------*/
+
+int
+amp_ac_yylex (YYSTYPE * yylval_param,YYLTYPE * yylloc_param ,AmpAcScanner *scanner)
+{
+    if (scanner->file != NULL)
+    {
+        /* Parse a file, need to use the flex scanner */
+        return ac_yylex (yylval_param, yylloc_param, scanner->scanner);
+    }
+    else if (scanner->begin != NULL)
+    {
+        gint token = -1;
+        /* Parse something already split in token */
+        if (scanner->start != 0)
+        {
+            /* First token */
+            *yylval_param = NULL;
+            scanner->next = anjuta_token_next_child (scanner->begin);
+            token = scanner->start;
+            scanner->start = 0;
+        }
+        else if (scanner->next != NULL)
+        {
+            *yylval_param = scanner->next;
+            token = anjuta_token_get_type (scanner->next);
+            scanner->next = anjuta_token_next_sibling (scanner->next);
+        }
+
+        return amp_anjuta_to_bison_token (token);
+    }
+}
 
 gboolean
 amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error)
@@ -244,16 +256,30 @@ amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **err
 
     scanner->buffer = yy_scan_string (scanner->pos, scanner->scanner);
 	
-	return amp_ac_yyparse (scanner->scanner) == 0;
+	return amp_ac_yyparse (scanner) == 0;
+}
+
+gboolean
+amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint start, GError **error)
+{
+    if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
+
+    scanner->file = NULL;
+
+    scanner->begin = token;
+    scanner->next = NULL;
+    scanner->start = amp_anjuta_to_bison_token (start);
+    g_message ("start %d scanner->start %d SPACE_LIST %d AC_TOKEN_SPACE_LIST %d ANJUTA_TOKEN_FIRST %d", start, scanner->start, SPACE_LIST, AC_TOKEN_SPACE_LIST, ANJUTA_TOKEN_FIRST);
+
+	return amp_ac_yyparse (scanner) == 0;
 }
 
 const gchar*
-amp_ac_scanner_get_filename (void *yyscanner)
+amp_ac_scanner_get_filename (AmpAcScanner *scanner)
 {
-	AmpAcScanner *scanner = yyget_extra (yyscanner);
-	
 	g_free (scanner->filename);
-	scanner->filename = g_file_get_path (anjuta_token_file_get_file (scanner->file));
+    scanner->filename = NULL;
+    if (scanner->file) scanner->filename = g_file_get_path (anjuta_token_file_get_file (scanner->file));
 	
 	return scanner->filename;
 }

@@ -49,12 +49,17 @@
 %token  RIGHT_BRACE    ']'
 %token  EQUAL             '='
 %token  COMMA             ','
+%token  LOWER           '<'
+%token  GREATER         '>'
     
 %token  NAME
 %token  VARIABLE
 %token  MACRO
 %token  OPERATOR
 %token  WORD
+%token  JUNK
+
+%token  SPACE_LIST
 
 %left   ARG
 %left   EMPTY
@@ -92,25 +97,30 @@
 
 %pure_parser
 
-%parse-param {void* scanner}
-%lex-param   {void* scanner}
+%parse-param {AmpAcScanner* scanner}
+%lex-param   {AmpAcScanner* scanner}
 
 %name-prefix="amp_ac_yy"
 
 %locations
 
-%start file
+%start input
 
 %debug
 
 
 %{
-static void amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s);
+static void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s);
 
 %}
 
 
 %%
+
+input:
+    SPACE_LIST space_list
+    | file
+    ;
 
 file:
     /* empty */
@@ -128,6 +138,8 @@ line:
     | shell_string
     | args_token
     | EQUAL
+    | LOWER
+    | GREATER
     | NAME
     | VARIABLE
     | WORD
@@ -144,6 +156,85 @@ macro:
 	| ac_config_files
 	;
 
+/* Space list
+ *----------------------------------------------------------------------------*/
+
+space_list:
+    /* empty */
+    | space_list_body
+    ;
+
+space_list_body:
+    item
+    | junks
+    | space_list_body spaces item {
+        anjuta_token_set_type ($2, ANJUTA_TOKEN_SEPARATOR);
+    }
+    ;
+
+item:
+    name
+    | operator {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_OPERATOR);
+    }
+    ;
+
+operator:
+    EQUAL
+    | GREATER
+    | LOWER
+    | GREATER  EQUAL {
+        anjuta_token_group ($1, $2);
+    }
+    | LOWER  EQUAL {
+        anjuta_token_group ($1, $2);
+    }
+    ;
+
+name:
+    not_operator_token
+    | EQUAL word_token {
+        anjuta_token_group ($1, $2);
+    }
+    | GREATER not_operator_token {
+        anjuta_token_group ($1, $2);
+    }
+    | GREATER LOWER {
+        anjuta_token_group ($1, $2);
+    }
+    | GREATER GREATER {
+        anjuta_token_group ($1, $2);
+    }
+    | GREATER EQUAL word_token {
+        anjuta_token_group ($1, $3);
+    }
+    | LOWER not_operator_token {
+        anjuta_token_group ($1, $2);
+    }
+    | LOWER LOWER {
+        anjuta_token_group ($1, $2);
+    }
+    | LOWER GREATER {
+        anjuta_token_group ($1, $2);
+    }
+    | LOWER EQUAL word_token {
+        anjuta_token_group ($1, $3);
+    }
+    | name word_token {
+        anjuta_token_group ($1, $2);
+    }
+    | name JUNK {
+        anjuta_token_group ($1, $2);
+    }
+    ;
+
+junks:
+    JUNK
+    | junks JUNK {
+        anjuta_token_group ($1, $2);
+    }
+    ;
+
 /* Macros
  *----------------------------------------------------------------------------*/
 
@@ -156,7 +247,10 @@ dnl:
     
 
 pkg_check_modules:
-    PKG_CHECK_MODULES arg_list
+    PKG_CHECK_MODULES arg_list {
+        anjuta_token_set_type ($1, AC_TOKEN_PKG_CHECK_MODULES);
+        $$ = anjuta_token_group ($1, $2);
+    }
 /*	PKG_CHECK_MODULES  name  COMMA  space_list   list_empty_optional  {
 		anjuta_token_merge ($1, $5);
 	}
@@ -175,7 +269,7 @@ optional_arg:
     ;
 
 ac_macro_with_arg:
-	AC_MACRO_WITH_ARG optional_arg optional_arg RIGHT_PAREN {
+	AC_MACRO_WITH_ARG optional_arg RIGHT_PAREN {
         anjuta_token_group ($1, $1);
     }
 	;
@@ -214,7 +308,7 @@ arg_list:
         anjuta_token_set_type ($2, ANJUTA_TOKEN_SEPARATOR);
         $$ = $2;
     }
-    | space_separator  arg_list_body  RIGHT_PAREN {
+    | spaces  arg_list_body  RIGHT_PAREN {
         anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
         $$ = $3;
     }
@@ -268,9 +362,9 @@ raw_string_body:
 
 arg_string:
     LEFT_BRACE arg_string_body RIGHT_BRACE  {
-        anjuta_token_set_type ($1, ANJUTA_TOKEN_STRING);
-        anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
-        $$ = anjuta_token_group ($1, $3);
+        anjuta_token_set_type ($1, JUNK);
+        anjuta_token_set_type ($3, JUNK);
+        $$ = $3;
     }
     ;
 
@@ -282,6 +376,8 @@ arg_string_body:
     | arg_string_body RIGHT_PAREN
     | arg_string_body COMMA
     | arg_string_body EQUAL
+    | arg_string_body GREATER
+    | arg_string_body LOWER
     | arg_string_body NAME
     | arg_string_body VARIABLE
     | arg_string_body WORD
@@ -291,7 +387,7 @@ arg_string_body:
 
 /* Items
  *----------------------------------------------------------------------------*/
-    
+
 arg:
     /* empty */ {
         $$ = NULL;
@@ -319,9 +415,11 @@ arg_part_or_space:
 arg_part:
     arg_string
     | expression
-    | comment
     | macro
+    | HASH
     | EQUAL
+    | LOWER
+    | GREATER
     | NAME
     | VARIABLE
     | WORD
@@ -353,6 +451,8 @@ expression_body:
     | expression_body comment
     | expression_body COMMA
     | expression_body EQUAL
+    | expression_body LOWER
+    | expression_body GREATER
     | expression_body NAME
     | expression_body VARIABLE
     | expression_body WORD
@@ -363,17 +463,12 @@ expression_body:
 spaces:
 	space_token
 	| spaces space_token {
-        $$ = $2;
+        anjuta_token_group ($$, $2);
+	}
+	| spaces JUNK {
+        anjuta_token_group ($$, $2);
 	}
 	;
-
-space_separator:
-    space_token {
-        anjuta_token_group_new (ANJUTA_TOKEN_SEPARATOR, $1);
-    }
-    | spaces space_token {
-        anjuta_token_group ($1, $2);
-    }
 
 /* Tokens
  *----------------------------------------------------------------------------*/
@@ -388,6 +483,8 @@ not_brace_token:
     | args_token
     | HASH
     | EQUAL
+    | LOWER
+    | GREATER
     | NAME
     | VARIABLE
     | WORD
@@ -405,6 +502,25 @@ args_token:
     | COMMA
     ;
 
+operator_token:
+    EQUAL
+    | LOWER
+    | GREATER
+    ;
+
+not_operator_token:
+    HASH
+    | LEFT_BRACE
+    | RIGHT_BRACE
+    | LEFT_PAREN
+    | RIGHT_PAREN
+    | COMMA
+    | NAME
+    | VARIABLE
+    | WORD
+    | any_macro
+    ;
+
 word_token:
     HASH
     | LEFT_BRACE
@@ -413,6 +529,8 @@ word_token:
     | RIGHT_PAREN
     | COMMA
     | EQUAL
+    | LOWER
+    | GREATER
     | NAME
     | VARIABLE
     | WORD
@@ -432,10 +550,14 @@ any_macro:
 %%
     
 static void
-amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s)
+amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s)
 {
+    gchar *filename;
+
 	g_message ("scanner %p", scanner);
-    g_message ("%s (%d:%d-%d:%d) %s\n", amp_ac_scanner_get_filename ((AmpAcScanner *)scanner), loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
+    filename = amp_ac_scanner_get_filename ((AmpAcScanner *)scanner);
+    if (filename == NULL) filename = "?";
+    g_message ("%s (%d:%d-%d:%d) %s\n", filename, loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
 }
 
 /* Public functions

@@ -32,7 +32,8 @@ typedef enum
 	ANJUTA_TOKEN_COMMA							=',',
 	
 	ANJUTA_TOKEN_TYPE 							= 0xFFFF,
-	
+
+	ANJUTA_TOKEN_FIRST								= 16384,	
 	ANJUTA_TOKEN_FILE 								= 16384,
 	ANJUTA_TOKEN_KEYWORD,
 	ANJUTA_TOKEN_OPERATOR,
@@ -41,11 +42,13 @@ typedef enum
 	ANJUTA_TOKEN_VARIABLE,
 	ANJUTA_TOKEN_STATEMENT,
 	ANJUTA_TOKEN_NUMBER,
+	ANJUTA_TOKEN_JUNK,
 	ANJUTA_TOKEN_COMMENT,
 	ANJUTA_TOKEN_FUNCTION,
 	ANJUTA_TOKEN_SPACE,
 	ANJUTA_TOKEN_SEPARATOR,
 	ANJUTA_TOKEN_ARGUMENT,
+	ANJUTA_TOKEN_ITEM,
 	ANJUTA_TOKEN_STRING,
 	ANJUTA_TOKEN_ERROR,
 	ANJUTA_TOKEN_WORD,
@@ -92,7 +95,7 @@ typedef struct _AnjutaTokenStyle AnjutaTokenStyle;
 
 AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const gchar *value);
 AnjutaToken *anjuta_token_new_static (AnjutaTokenType type, const gchar *value);
-AnjutaToken *anjuta_token_new_fragment (AnjutaTokenType type, const gchar *pos, gsize length);
+AnjutaToken *anjuta_token_new_fragment (gint type, const gchar *pos, gsize length);
 
 void anjuta_token_free (AnjutaToken *token);
 

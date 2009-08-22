@@ -37,7 +37,7 @@ void amp_ac_scanner_free (AmpAcScanner *scanner);
 
 gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error);
 
-const gchar* amp_ac_scanner_get_filename (void *yyscanner);
+const gchar* amp_ac_scanner_get_filename (AmpAcScanner *scanner);
 
 enum 
 {
@@ -46,6 +46,7 @@ enum
 	AC_TOKEN_AC_CONFIG_FILES,
 	AC_TOKEN_OBSOLETE_AC_OUTPUT,
 	AC_TOKEN_AC_OUTPUT,
+	AC_TOKEN_SPACE_LIST,
 };
 
 G_END_DECLS
