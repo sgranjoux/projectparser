@@ -875,6 +875,14 @@ anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error)
 	return file->content;
 }
 
+gsize
+anjuta_token_file_get_length (AnjutaTokenFile *file, GError **error)
+{
+	anjuta_token_file_get_content (file, error);
+
+	return file->length;
+}
+
 typedef struct _AnjutaTokenFileSaveData AnjutaTokenFileSaveData;
 
 struct _AnjutaTokenFileSaveData
