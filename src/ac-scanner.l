@@ -50,6 +50,25 @@ static gint amp_ac_scanner_input (AmpAcScanner *scanner, gchar *buffer, gsize ma
                     return tok
                     
 
+struct _AmpAcScanner
+{
+    yyscan_t scanner;
+
+    AnjutaTokenFile *file;
+    gchar *filename;
+
+    AnjutaToken *token;
+    gint first;
+
+    /* Beginning of current token */
+    AnjutaToken *start;
+    gsize begin;
+
+    /* Position in buffer */
+    AnjutaToken *next;
+    gsize pos;
+};
+
 %}
 
 %option reentrant stack noyywrap yylineno
@@ -70,6 +89,7 @@ static gint amp_ac_scanner_input (AmpAcScanner *scanner, gchar *buffer, gsize ma
 
 WS          [ \t\r\v]+
 NL          \n
+WSNL        [ \t\v\r\n]+
 COMMENT     #
 OPENQUOTE   \[
 CLOSEQUOTE  \]
@@ -83,7 +103,7 @@ NAME        [A-Za-z_][A-Za-z0-9_]*
 VARIABLE    $[A-Za-z_0-9]+
 OTHER       [^ \t\r\v\n#\[\]\\(),=><$_A-Za-z_]+
 
-%x SPACE_LIST2
+%x SPACE_LIST
 
 %%
 
@@ -130,32 +150,18 @@ AC_CONFIG_FILES\(       { RETURN (AC_CONFIG_FILES); }
 {OTHER}|\$|\\           { RETURN (WORD); }
 
 
+<SPACE_LIST>{
 
-<SPACE_LIST2>{WS}                    { RETURN (SPACE); }
+{WSNL}                    { RETURN (SPACE); }
 
-<SPACE_LIST2>\\\n                    { RETURN (SPACE); }
+=|<|>|<=|>=             { RETURN (OPERATOR); }
 
-<SPACE_LIST2>{NL}                    { RETURN (EOL); }
+{NAME}                    { RETURN (WORD); }
 
-<SPACE_LIST2>=|<|>|<=|>=             { RETURN (OPERATOR); }
-
-<SPACE_LIST2>.+                      { RETURN (WORD); }
+.                           {RETURN (WORD);}
+}
 
 %%
-
-struct _AmpAcScanner
-{
-    yyscan_t scanner;
-
-    AnjutaTokenFile *file;
-    gchar *filename;
-
-    AnjutaToken *token;
-    gint first;
-
-    AnjutaToken *start;
-    gsize pos;
-};
 
 /* Private functions
  *---------------------------------------------------------------------------*/
@@ -169,9 +175,56 @@ amp_ac_scanner_append_token (AmpAcScanner *scanner, gint token)
     {
         const gchar *start = anjuta_token_file_get_content (scanner->file, NULL);
             
-        frag = anjuta_token_new_fragment (token, start + scanner->pos, yyget_leng (scanner->scanner));
+        frag = anjuta_token_new_fragment (token, start + scanner->begin, yyget_leng (scanner->scanner));
         anjuta_token_file_append (scanner->file, frag);
-        scanner->pos += yyget_leng (scanner->scanner);
+        scanner->begin += yyget_leng (scanner->scanner);
+    }
+    else if (scanner->token != NULL)
+    {
+        gsize length = yyget_leng (scanner->scanner);
+        AnjutaToken *end;
+
+        for (end = scanner->start; end != NULL; end = anjuta_token_next_sibling (end))
+        {
+            if (anjuta_token_get_type (end) < ANJUTA_TOKEN_FIRST)
+            {
+                gint toklen = anjuta_token_get_length (end);
+    
+                if (toklen >= length)
+                {
+                    if (toklen > length)
+                    {
+                        AnjutaToken *start = end;
+
+                        end = anjuta_token_split (end, length);
+                        if (start == scanner->start)
+                        {
+                            scanner->start = end;
+                        }
+                    }
+
+                    if (end == scanner->start)
+                    {
+                        /* Get whole token */
+                        frag = end;
+                        anjuta_token_set_type (frag, token);
+                        scanner->start = anjuta_token_next_sibling (end);
+                    }
+                    else
+                    {
+                        frag = anjuta_token_new_fragment (token, NULL, 0);
+                        anjuta_token_insert_before (scanner->start, frag);
+                        scanner->start = anjuta_token_next_sibling (end);
+                        anjuta_token_group (frag, end);
+                    }
+                    break;
+                }
+                else
+                {
+                    length -= toklen;
+                }
+            }
+        }
     }
     
     return frag;
@@ -223,7 +276,7 @@ amp_anjuta_to_bison_token (gint token)
         switch (token)
         {
         case AC_TOKEN_SPACE_LIST:
-            return SPACE_LIST;
+            return START_SPACE_LIST;
         default:
             return JUNK;
         }
@@ -243,14 +296,52 @@ amp_ac_scanner_input (AmpAcScanner *scanner, gchar *buffer, gsize max_size)
             const gchar *start = anjuta_token_file_get_content (scanner->file, NULL);
 
             length -= scanner->pos;
+
             if (length > max_size) length = max_size;
             memcpy (buffer, start + scanner->pos, length);
+            scanner->pos += length;
             result = length;
         }
     }
     else if (scanner->token != NULL)
     {
-                
+        if (scanner->next)
+        {
+            gsize length = anjuta_token_get_length (scanner->next);
+
+            if ((anjuta_token_get_type (scanner->next) >= ANJUTA_TOKEN_FIRST) || (scanner->pos >= length))
+            {
+                for (;;)
+                {
+                    scanner->next = anjuta_token_next_sibling (scanner->next);
+                    if (scanner->next == NULL)
+                    {
+                        /* Last token */
+                        break;
+                    }
+                    else if ((anjuta_token_get_length (scanner->next) != 0) && (anjuta_token_get_type (scanner->next) < ANJUTA_TOKEN_FIRST))
+                    {
+                        /* Find some data */
+                        scanner->pos = 0;
+                        length = anjuta_token_get_length (scanner->next);
+                        break;  
+                    }
+                }
+            }
+
+            if (scanner->pos < length)
+            {
+                const gchar *start = anjuta_token_get_string (scanner->next);
+
+                length -= scanner->pos;
+            
+                if (length > max_size) length = max_size;
+                memcpy (buffer, start + scanner->pos, length);
+                scanner->pos += length;
+                result = length;
+            }
+        }
+
     }
 
     return result;
@@ -262,66 +353,32 @@ amp_ac_scanner_input (AmpAcScanner *scanner, gchar *buffer, gsize max_size)
 int
 amp_ac_yylex (YYSTYPE * yylval_param,YYLTYPE * yylloc_param ,AmpAcScanner *scanner)
 {
-    gint token = 0;
-
-    if (scanner->first != 0)
+    /* Return a special start token for bison */
+    switch (scanner->first)
     {
-        *yylval_param = NULL;
-        
-        token = scanner->first;
+    case AC_SPACE_LIST_STATE:
         scanner->first = 0;
-    }
-    else
-    {
-        token = ac_yylex (yylval_param, yylloc_param, scanner->scanner);
+        yy_push_state (SPACE_LIST, scanner->scanner);
+        return START_SPACE_LIST;
+    default:
+        break;
     }
 
-    return token;
+	/* Parse unknown data */
+    return ac_yylex (yylval_param, yylloc_param, scanner->scanner);
 } 
-
-
-        
-    
-    if (scanner->file != NULL)
-    {
-        /* Parse a file, need to use the flex scanner */
-        return 
-    }
-    else if (scanner->token != NULL)
-    {
-        gint token = -1;
-        /* Parse something already split in token */
-        if (scanner->first != 0)
-        {
-            /* First token */
-            *yylval_param = NULL;
-            scanner->start = anjuta_token_next_child (scanner->token);
-            token = scanner->first;
-            scanner->first = 0;
-        }
-        else if (scanner->start != NULL)
-        {
-            *yylval_param = scanner->start;
-            token = anjuta_token_get_type (scanner->start);
-            scanner->start = anjuta_token_next_sibling (scanner->start);
-        }
-
-        return amp_anjuta_to_bison_token (token);
-    }
-}
 
 gboolean
 amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error)
 {
-    //if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
+
+    g_return_val_if_fail (file != NULL, FALSE);
 
 	scanner->file = file;
-	if (scanner->file == NULL) return FALSE;
-
     scanner->pos = 0;
-	//if (scanner->pos == NULL) return FALSE;
-
-    //scanner->buffer = yy_scan_string (scanner->pos, scanner->scanner);
+    scanner->begin = 0;
+    scanner->token = NULL;
+    scanner->first = 0;
 	
 	return amp_ac_yyparse (scanner) == 0;
 }
@@ -329,14 +386,39 @@ amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **err
 gboolean
 amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint start, GError **error)
 {
-    //if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
-
-    scanner->file = NULL;
+    AnjutaToken *child;
 
     scanner->token = token;
-    scanner->start = NULL;
-    scanner->first = amp_anjuta_to_bison_token (start);
-    g_message ("start %d scanner->start %d SPACE_LIST %d AC_TOKEN_SPACE_LIST %d ANJUTA_TOKEN_FIRST %d", start, scanner->start, SPACE_LIST, AC_TOKEN_SPACE_LIST, ANJUTA_TOKEN_FIRST);
+    scanner->pos = 0;
+    scanner->begin = 0;
+    scanner->file = NULL;
+    scanner->first = start;
+
+    if (anjuta_token_get_length (token) != 0)
+    {
+        AnjutaToken *copy = anjuta_token_copy (token);
+        
+        anjuta_token_insert_child (token, copy);
+        anjuta_token_clear (token);
+    }
+
+    /* Move all know data in a list */
+    for (child = anjuta_token_next_child (token); child != NULL;)
+    {
+        if (anjuta_token_get_type (child) < ANJUTA_TOKEN_FIRST)
+        {
+            child = anjuta_token_ungroup (child);
+            if (anjuta_token_get_length (child) == 0)
+            {
+                child = anjuta_token_delete (child);
+                continue;
+            }
+        }
+        child = anjuta_token_next_sibling (child);
+    }
+
+    scanner->next = anjuta_token_next_child (token);
+    scanner->start = scanner->next;
 
 	return amp_ac_yyparse (scanner) == 0;
 }

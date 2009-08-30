@@ -44,6 +44,9 @@ typedef enum
 	ANJUTA_TOKEN_NUMBER,
 	ANJUTA_TOKEN_JUNK,
 	ANJUTA_TOKEN_COMMENT,
+	ANJUTA_TOKEN_OPEN_QUOTE,
+	ANJUTA_TOKEN_CLOSE_QUOTE,
+	ANJUTA_TOKEN_ESCAPE,
 	ANJUTA_TOKEN_FUNCTION,
 	ANJUTA_TOKEN_SPACE,
 	ANJUTA_TOKEN_SEPARATOR,
@@ -102,11 +105,16 @@ void anjuta_token_free (AnjutaToken *token);
 AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_copy (AnjutaToken *token);
+AnjutaToken *anjuta_token_clear (AnjutaToken *token);
+AnjutaToken *anjuta_token_delete (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_group_new (AnjutaTokenType type, AnjutaToken *first);
 AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *last);
+AnjutaToken *anjuta_token_ungroup (AnjutaToken *parent);
 
-AnjutaToken * anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *sibling);
+AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size);
+
+AnjutaToken * anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *child);
 AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
 AnjutaToken *anjuta_token_insert_before (AnjutaToken *token, AnjutaToken *sibling);
 gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end);
@@ -128,6 +136,7 @@ gchar *anjuta_token_evaluate (AnjutaToken *token);
 gchar *anjuta_token_value (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_next (AnjutaToken *token);
+AnjutaToken *anjuta_token_next_after_children (AnjutaToken *token);
 AnjutaToken *anjuta_token_next_sibling (AnjutaToken *token);
 AnjutaToken *anjuta_token_next_child (AnjutaToken *token);
 AnjutaToken *anjuta_token_previous (AnjutaToken *token);

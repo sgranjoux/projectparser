@@ -189,7 +189,7 @@ anjuta_token_compare (AnjutaToken *toka, AnjutaToken *tokb)
 	return TRUE;
 }
 
-static AnjutaToken *
+AnjutaToken *
 anjuta_token_next_after_children (AnjutaToken *token)
 {
 	if (token->next != NULL)
@@ -332,7 +332,11 @@ anjuta_token_evaluate_token (AnjutaToken *token, GString *value)
 {
 	if ((token != NULL) && (ANJUTA_TOKEN_DATA (token)->length != 0))
 	{
-		g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
+		gint type = anjuta_token_get_type (token);
+		if ((type != ANJUTA_TOKEN_COMMENT) && (type != ANJUTA_TOKEN_OPEN_QUOTE) && (type != ANJUTA_TOKEN_CLOSE_QUOTE) && (type != ANJUTA_TOKEN_ESCAPE))
+		{
+			g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
+		}
 	}
 }	
 
@@ -510,21 +514,56 @@ anjuta_token_copy (AnjutaToken *token)
 }
 
 AnjutaToken *
-anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *sibling)
+anjuta_token_clear (AnjutaToken *token)
 {
-	return (AnjutaToken *)g_node_insert_after ((GNode *)parent, (GNode *)NULL, (GNode *)sibling);
+	AnjutaTokenData *data = ANJUTA_TOKEN_DATA (token);
+
+	if (!(data->flags & ANJUTA_TOKEN_STATIC))
+	{
+		g_free (data->pos);
+	}
+	data->length = 0;
+	data->pos = NULL;
+
+	return token;
 }
 
 AnjutaToken *
-anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling)
+anjuta_token_delete (AnjutaToken *token)
 {
-	return (AnjutaToken *)g_node_insert_after ((GNode *)token->parent, (GNode *)token, (GNode *)sibling);
+	GNode *last;
+	GNode *child;
+	AnjutaToken *next;
+	
+	for (child = g_node_first_child ((GNode *)token); child != NULL; child = g_node_first_child ((GNode *)token))
+	{
+		g_node_unlink (child);
+		last = g_node_insert_after (((GNode *)token)->parent, last, child);
+	}
+
+	next = (AnjutaToken *)g_node_next_sibling (token);
+	anjuta_token_clear (token);
+	g_node_destroy ((GNode *)token);
+
+	return next;
 }
 
 AnjutaToken *
-anjuta_token_insert_before (AnjutaToken *token, AnjutaToken *sibling)
+anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *child)
 {
-	return (AnjutaToken *)g_node_insert_before ((GNode *)token->parent, (GNode *)token, (GNode *)sibling);
+	return (AnjutaToken *)g_node_insert_after ((GNode *)parent, (GNode *)NULL, (GNode *)child);
+}
+
+AnjutaToken *
+anjuta_token_insert_after (AnjutaToken *sibling, AnjutaToken *token)
+{
+	return (AnjutaToken *)g_node_insert_after ((GNode *)sibling->parent, (GNode *)sibling, (GNode *)token);
+}
+
+AnjutaToken *
+anjuta_token_insert_before (AnjutaToken *sibling, AnjutaToken *token)
+{
+	return (AnjutaToken *)g_node_insert_before ((GNode *)sibling->parent, (GNode *)sibling, (GNode *)token);
 }	
 
 AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *last)
@@ -556,6 +595,48 @@ AnjutaToken *anjuta_token_group_new (AnjutaTokenType type, AnjutaToken* first)
 
 	g_node_insert_before ((GNode *)first->parent, first, parent);
 	return anjuta_token_group (parent, first);
+}
+
+AnjutaToken *anjuta_token_ungroup (AnjutaToken *token)
+{
+	GNode *last = token;
+	GNode *child;
+	
+	for (child = g_node_first_child ((GNode *)token); child != NULL; child = g_node_first_child ((GNode *)token))
+	{
+		g_node_unlink (child);
+		last = g_node_insert_after (((GNode *)token)->parent, last, child);
+	}
+
+	return token;
+}
+
+AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size)
+{
+	if (ANJUTA_TOKEN_DATA (token)->length > size)
+	{
+		AnjutaToken *copy;
+
+		copy = anjuta_token_copy (token);
+		g_node_insert_before ((GNode *)token->parent, (GNode *)token, (GNode *)copy);
+
+		ANJUTA_TOKEN_DATA (copy)->length = size;
+		if (ANJUTA_TOKEN_DATA (token)->flags & ANJUTA_TOKEN_STATIC)
+		{
+			ANJUTA_TOKEN_DATA (token)->pos += size;
+			ANJUTA_TOKEN_DATA (token)->length -= size;
+		}
+		else
+		{
+			memcpy(ANJUTA_TOKEN_DATA (token)->pos, ANJUTA_TOKEN_DATA (token)->pos + size, ANJUTA_TOKEN_DATA (token)->length - size);
+		}
+
+		return copy;
+	}
+	else
+	{
+		return token;
+	}
 }
 
 AnjutaToken *anjuta_token_get_next_arg (AnjutaToken *arg, gchar ** value)

@@ -953,16 +953,11 @@ project_reload_packages   (AmpProject *project)
 		mod->packages = NULL;
 		g_hash_table_insert (project->modules, value, mod);
 
-		if (strcmp (value, "PLUGIN_DEVHELP") == 0)
-		{
-			value = NULL;
-		}
-		
 		arg = anjuta_token_next_sibling (arg);	/* Separator */
 
 		arg = anjuta_token_next_sibling (arg);	/* Package list */
 		if (scanner == NULL) scanner = amp_ac_scanner_new ();
-		amp_ac_scanner_parse_token (scanner, arg, AC_TOKEN_SPACE_LIST, NULL);
+		amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		
 		pack = NULL;
 		compare = NULL;
@@ -972,6 +967,7 @@ project_reload_packages   (AmpProject *project)
 			if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_JUNK) continue;
 			
 			value = anjuta_token_evaluate (arg);
+			if (value == NULL) continue;		/* Empty value, a comment of a quote by example */
 
 			if ((pack != NULL) && (compare != NULL))
 			{
@@ -1010,15 +1006,16 @@ amp_project_add_config_files (AmpProject *project, AnjutaToken *list)
 	for (arg = anjuta_token_next_child (list); arg != NULL; arg = anjuta_token_next_sibling (arg))
 	{
 		gchar *value;
+		AmpConfigFile *cfg;
 		
-		if ((anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) || (anjuta_token_get_type (arg) == ANJUTA_TOKEN_COMMENT)) continue;
+		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SEPARATOR) continue;
+		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_JUNK) continue;
 			
 		value = anjuta_token_evaluate (arg);
-		if ((value != NULL) && (*value != '\0'))
-		{
-			AmpConfigFile *cfg = amp_config_file_new (value, project->root_file, arg);
-			g_hash_table_insert (project->configs, cfg->file, cfg);
-		}
+		if (value == NULL) continue;
+		
+		cfg = amp_config_file_new (value, project->root_file, arg);
+		g_hash_table_insert (project->configs, cfg->file, cfg);
 		g_free (value);
 	}
 }							   
@@ -1028,6 +1025,7 @@ project_list_config_files (AmpProject *project)
 {
 	AnjutaToken *config_files_tok;
 	AnjutaToken *sequence;
+	AmpAcScanner *scanner = NULL;
 
 	//g_message ("load config project %p root file %p", project, project->root_file);	
 	/* Search the new AC_CONFIG_FILES macro */
@@ -1040,6 +1038,8 @@ project_list_config_files (AmpProject *project)
 
 		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_INTO, sequence, &sequence)) break;
 		arg = anjuta_token_next_child (sequence);	/* List */
+		if (scanner == NULL) scanner = amp_ac_scanner_new ();
+		amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		amp_project_add_config_files (project, arg);
 		sequence = anjuta_token_next_sibling (sequence);
 	}
@@ -1055,10 +1055,13 @@ project_list_config_files (AmpProject *project)
 
 		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_INTO, sequence, &sequence)) break;
 		arg = anjuta_token_next_child (sequence);	/* List */
+		if (scanner == NULL) scanner = amp_ac_scanner_new ();
+		amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		amp_project_add_config_files (project, arg);
 		sequence = anjuta_token_next_sibling (sequence);
 	}
 	
+	if (scanner) amp_ac_scanner_free (scanner);
 	anjuta_token_free (config_files_tok);
 
 	return TRUE;

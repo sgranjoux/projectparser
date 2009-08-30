@@ -59,7 +59,7 @@
 %token  WORD
 %token  JUNK
 
-%token  SPACE_LIST
+%token  START_SPACE_LIST
 
 %left   ARG
 %left   EMPTY
@@ -118,7 +118,7 @@ static void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s);
 %%
 
 input:
-    SPACE_LIST space_list
+    START_SPACE_LIST space_list
     | file
     ;
 
@@ -166,7 +166,9 @@ space_list:
 
 space_list_body:
     item
-    | junks
+    | spaces item {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_SEPARATOR);
+    }
     | space_list_body spaces item {
         anjuta_token_set_type ($2, ANJUTA_TOKEN_SEPARATOR);
     }
@@ -174,56 +176,18 @@ space_list_body:
 
 item:
     name
-    | operator {
-        anjuta_token_set_type ($1, ANJUTA_TOKEN_OPERATOR);
-    }
+    | operator
     ;
 
 operator:
-    EQUAL
-    | GREATER
-    | LOWER
-    | GREATER  EQUAL {
-        anjuta_token_group ($1, $2);
-    }
-    | LOWER  EQUAL {
-        anjuta_token_group ($1, $2);
+    OPERATOR {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_OPERATOR);
     }
     ;
 
 name:
     not_operator_token
-    | EQUAL word_token {
-        anjuta_token_group ($1, $2);
-    }
-    | GREATER not_operator_token {
-        anjuta_token_group ($1, $2);
-    }
-    | GREATER LOWER {
-        anjuta_token_group ($1, $2);
-    }
-    | GREATER GREATER {
-        anjuta_token_group ($1, $2);
-    }
-    | GREATER EQUAL word_token {
-        anjuta_token_group ($1, $3);
-    }
-    | LOWER not_operator_token {
-        anjuta_token_group ($1, $2);
-    }
-    | LOWER LOWER {
-        anjuta_token_group ($1, $2);
-    }
-    | LOWER GREATER {
-        anjuta_token_group ($1, $2);
-    }
-    | LOWER EQUAL word_token {
-        anjuta_token_group ($1, $3);
-    }
-    | name word_token {
-        anjuta_token_group ($1, $2);
-    }
-    | name JUNK {
+    | name  word_token {
         anjuta_token_group ($1, $2);
     }
     ;
@@ -251,12 +215,6 @@ pkg_check_modules:
         anjuta_token_set_type ($1, AC_TOKEN_PKG_CHECK_MODULES);
         $$ = anjuta_token_group ($1, $2);
     }
-/*	PKG_CHECK_MODULES  name  COMMA  space_list   list_empty_optional  {
-		anjuta_token_merge ($1, $5);
-	}
-	| PKG_CHECK_MODULES  name  COMMA  space_list  list_arg_optional {
-		anjuta_token_set_type ($$, ANJUTA_TOKEN_KEYWORD);
-    }*/
 	;
 
 ac_macro_without_arg:
@@ -287,17 +245,17 @@ ac_output:
 	;
 
 obsolete_ac_output:
-    OBSOLETE_AC_OUTPUT  arg_list
-/*	OBSOLETE_AC_OUTPUT  optional_space_list  list_optional_optional {
-		anjuta_token_merge ($1, $3);
-	}*/
+    OBSOLETE_AC_OUTPUT  arg_list {
+        anjuta_token_set_type ($1, AC_TOKEN_OBSOLETE_AC_OUTPUT);
+        $$ = anjuta_token_group ($1, $2);
+    }
 	;
 	
 ac_config_files:
-    AC_CONFIG_FILES  arg_list
-/*	AC_CONFIG_FILES  space_list  list_optional_optional {
-		anjuta_token_merge ($1, $3);
-	}*/
+    AC_CONFIG_FILES  arg_list {
+        anjuta_token_set_type ($1, AC_TOKEN_AC_CONFIG_FILES);
+        $$ = anjuta_token_group ($1, $2);
+    }
 	;
 
 /* Lists
@@ -362,9 +320,10 @@ raw_string_body:
 
 arg_string:
     LEFT_BRACE arg_string_body RIGHT_BRACE  {
-        anjuta_token_set_type ($1, JUNK);
-        anjuta_token_set_type ($3, JUNK);
-        $$ = $3;
+        $$ = anjuta_token_group_new (NAME, $1);
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_OPEN_QUOTE);
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_CLOSE_QUOTE);
+        anjuta_token_group ($$, $3);
     }
     ;
 
@@ -485,6 +444,7 @@ not_brace_token:
     | EQUAL
     | LOWER
     | GREATER
+    | OPERATOR
     | NAME
     | VARIABLE
     | WORD
@@ -528,6 +488,7 @@ word_token:
     | LEFT_PAREN
     | RIGHT_PAREN
     | COMMA
+    | OPERATOR
     | EQUAL
     | LOWER
     | GREATER
