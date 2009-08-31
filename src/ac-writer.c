@@ -99,11 +99,31 @@ add_list_item (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_sty
 gboolean
 amp_project_update_property (AmpProject *project, AmpPropertyType type)
 {
+	AnjutaToken *token;
 	
 	if (project->property == NULL)
 	{
 		return FALSE;
 	}
+
+
+/*	for (token = project->property;; token = anjuta_next_sibling (token))
+	{
+			if ((arg != NULL) && (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SEPARATOR))
+	{
+		arg = anjuta_token_next_sibling (arg);
+	}
+	if ((arg != NULL) && (anjuta_token_get_type (arg) != ANJUTA_TOKEN_SEPARATOR))
+
+		switch (type)
+		{
+			case AMP_PROPERTY_NAME:
+			case AMP_PROPERTY_VERSION:
+			case AMP_PROPERTY_BUG_REPORT:
+			case AMP_PROPERTY_TARNAME:
+			case AMP_PROPERTY_URL:
+		}
+	}*/	
 	
 	return TRUE;
 }

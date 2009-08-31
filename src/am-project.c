@@ -545,6 +545,7 @@ amp_property_new (AnjutaToken *token)
 	arg = anjuta_token_get_next_arg (arg, &prop->version);
 	arg = anjuta_token_get_next_arg (arg, &prop->bug_report);
 	arg = anjuta_token_get_next_arg (arg, &prop->tarname);
+	arg = anjuta_token_get_next_arg (arg, &prop->url);
 	
 	return prop;
 }
@@ -963,8 +964,16 @@ project_reload_packages   (AmpProject *project)
 		compare = NULL;
 		for (arg = anjuta_token_next_child (arg); arg != NULL; arg = anjuta_token_next_sibling (arg))
 		{
-			if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SEPARATOR) continue;
-			if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_JUNK) continue;
+			switch (anjuta_token_get_type (arg))
+			{
+				case ANJUTA_TOKEN_START:
+				case ANJUTA_TOKEN_NEXT:
+				case ANJUTA_TOKEN_LAST:
+				case ANJUTA_TOKEN_JUNK:
+					continue;
+				default:
+					break;
+			}
 			
 			value = anjuta_token_evaluate (arg);
 			if (value == NULL) continue;		/* Empty value, a comment of a quote by example */
@@ -1007,9 +1016,17 @@ amp_project_add_config_files (AmpProject *project, AnjutaToken *list)
 	{
 		gchar *value;
 		AmpConfigFile *cfg;
-		
-		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SEPARATOR) continue;
-		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_JUNK) continue;
+
+		switch (anjuta_token_get_type (arg))
+		{
+			case ANJUTA_TOKEN_START:
+			case ANJUTA_TOKEN_NEXT:
+			case ANJUTA_TOKEN_LAST:
+			case ANJUTA_TOKEN_JUNK:
+				continue;
+			default:
+				break;
+		}
 			
 		value = anjuta_token_evaluate (arg);
 		if (value == NULL) continue;
@@ -2524,6 +2541,9 @@ amp_project_get_property (AmpProject *project, AmpPropertyType type)
 				value = project->property->tarname;
 				if (value == NULL) return ac_init_default_tarname (project->property->name);
 				break;
+			case AMP_PROPERTY_URL:
+				value = project->property->url;
+				break;
 		}
 	}
 
@@ -2533,6 +2553,29 @@ amp_project_get_property (AmpProject *project, AmpPropertyType type)
 gboolean
 amp_project_set_property (AmpProject *project, AmpPropertyType type, const gchar *value)
 {
+	if (project->property != NULL)
+	{
+		switch (type)
+		{
+			case AMP_PROPERTY_NAME:
+				project->property->name = g_strdup (value);
+				break;
+			case AMP_PROPERTY_VERSION:
+				project->property->version = g_strdup (value);
+				break;
+			case AMP_PROPERTY_BUG_REPORT:
+				project->property->bug_report = g_strdup (value);
+				break;
+			case AMP_PROPERTY_TARNAME:
+				project->property->tarname = g_strdup (value);
+				break;
+			case AMP_PROPERTY_URL:
+				project->property->url = g_strdup (value);
+				break;
+		}
+		return amp_project_update_property (project, type);
+	}
+	
 	return TRUE;
 }
 

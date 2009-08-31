@@ -32,6 +32,7 @@ struct _AmpProperty {
 	gchar *version;
 	gchar *bug_report;
 	gchar *tarname;
+	gchar *url;
 };
 
 struct _AmpProject {

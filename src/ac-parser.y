@@ -167,10 +167,10 @@ space_list:
 space_list_body:
     item
     | spaces item {
-        anjuta_token_set_type ($1, ANJUTA_TOKEN_SEPARATOR);
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_NEXT);
     }
     | space_list_body spaces item {
-        anjuta_token_set_type ($2, ANJUTA_TOKEN_SEPARATOR);
+        anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
     }
     ;
 
@@ -263,11 +263,12 @@ ac_config_files:
 
 arg_list:
     arg_list_body  RIGHT_PAREN {
-        anjuta_token_set_type ($2, ANJUTA_TOKEN_SEPARATOR);
+        anjuta_token_set_type ($2, ANJUTA_TOKEN_LAST);
         $$ = $2;
     }
     | spaces  arg_list_body  RIGHT_PAREN {
-        anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
         $$ = $3;
     }
     ;
@@ -293,7 +294,7 @@ not_eol_list:
 shell_string:
     LEFT_BRACE shell_string_body RIGHT_BRACE {
         anjuta_token_set_type ($1, ANJUTA_TOKEN_STRING);
-        anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
         $$ = anjuta_token_group ($1, $3);
     }
     ;
@@ -307,7 +308,7 @@ shell_string_body:
 raw_string:
     LEFT_BRACE raw_string_body RIGHT_BRACE {
         anjuta_token_set_type ($1, ANJUTA_TOKEN_STRING);
-        anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
         $$ = anjuta_token_group ($1, $3);
     }
     ;
@@ -386,10 +387,10 @@ arg_part:
 
 separator:
     COMMA {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_SEPARATOR, $1);
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_NEXT, $1);
     }
     | COMMA spaces {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_SEPARATOR, $1);
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_NEXT, $1);
         anjuta_token_group ($$, $2);
     }
     ;
@@ -397,7 +398,7 @@ separator:
 expression:
     LEFT_PAREN  expression_body  RIGHT_PAREN {
         anjuta_token_set_type ($1, ANJUTA_TOKEN_STRING);
-        anjuta_token_set_type ($3, ANJUTA_TOKEN_SEPARATOR);
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
         $$ = anjuta_token_group ($1, $3);
     }
     ;

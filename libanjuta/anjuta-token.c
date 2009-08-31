@@ -641,14 +641,21 @@ AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size)
 
 AnjutaToken *anjuta_token_get_next_arg (AnjutaToken *arg, gchar ** value)
 {
-	if ((arg != NULL) && (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SEPARATOR))
+	for (;arg != NULL;)
 	{
-		arg = anjuta_token_next_sibling (arg);
-	}
-	if ((arg != NULL) && (anjuta_token_get_type (arg) != ANJUTA_TOKEN_SEPARATOR))
-	{
-		*value = anjuta_token_evaluate (arg);		
-		arg = anjuta_token_next_sibling (arg);
+		switch (anjuta_token_get_type (arg))
+		{
+			case ANJUTA_TOKEN_START:
+			case ANJUTA_TOKEN_NEXT:
+			case ANJUTA_TOKEN_LAST:
+				arg = anjuta_token_next_sibling (arg);
+				continue;
+			default:
+				*value = anjuta_token_evaluate (arg);
+				arg = anjuta_token_next_sibling (arg);
+				break;
+		}
+		break;
 	}
 	
 	return arg;
