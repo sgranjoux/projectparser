@@ -41,10 +41,11 @@
 //#define YY_USER_INIT {yy_flex_debug = 1;}
  
 static AnjutaToken* amp_ac_scanner_append_token (AmpAcScanner *scanner, gint token);
-static gint amp_ac_scanner_last_token (AmpAcScanner *scanner);
-static gint amp_ac_scanner_last_flags (AmpAcScanner *scanner);
 static void amp_update_location (YYLTYPE *loc, const gchar *text, gint length);
 static gint amp_ac_scanner_input (AmpAcScanner *scanner, gchar *buffer, gsize max_size);
+
+gboolean amp_ac_yyparse (AmpAcScanner *scanner);
+
 
 #define RETURN(tok) *yylval = amp_ac_scanner_append_token (yyextra, tok); \
                     return tok
@@ -230,18 +231,6 @@ amp_ac_scanner_append_token (AmpAcScanner *scanner, gint token)
     return frag;
 }
 
-static gint
-amp_ac_scanner_last_token (AmpAcScanner *scanner)
-{
-    return anjuta_token_get_type (anjuta_token_file_last (scanner->file));
-}
-
-static gint
-amp_ac_scanner_last_flags (AmpAcScanner *scanner)
-{
-    return anjuta_token_get_flags (anjuta_token_file_last (scanner->file));
-}
-    
 static void
 amp_update_location (YYLTYPE *loc, const gchar *text, gint length)
 {
@@ -262,25 +251,6 @@ amp_update_location (YYLTYPE *loc, const gchar *text, gint length)
 	}
 
 	loc->last_column += length;
-}
-
-static int
-amp_anjuta_to_bison_token (gint token)
-{
-    if (token < ANJUTA_TOKEN_FIRST)
-    {
-        return token;
-    }
-    else
-    {
-        switch (token)
-        {
-        case AC_TOKEN_SPACE_LIST:
-            return START_SPACE_LIST;
-        default:
-            return JUNK;
-        }
-    }
 }
 
 static gint
