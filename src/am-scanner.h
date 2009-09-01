@@ -21,6 +21,7 @@
 #define _AM_SCANNER_H_
 
 #include "libanjuta/anjuta-token.h"
+#include "libanjuta/anjuta-token-file.h"
 
 #include <glib.h>
 #include <gio/gio.h>

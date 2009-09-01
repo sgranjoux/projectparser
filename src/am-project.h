@@ -25,6 +25,8 @@
 #include <glib-object.h>
 
 #include <libanjuta/anjuta-token.h>
+#include <libanjuta/anjuta-token-file.h>
+#include <libanjuta/anjuta-token-style.h>
 #include <libanjuta/gbf-project.h>
 
 G_BEGIN_DECLS
