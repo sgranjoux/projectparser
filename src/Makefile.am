@@ -3,7 +3,7 @@
 ## Created by Anjuta
 
 uidir = $(datadir)/projectparser/glade
-ui_DATA = am-dialogs.ui
+ui_DATA = am-project.ui
 
 AM_CPPFLAGS = \
 	-DDEBUG \
