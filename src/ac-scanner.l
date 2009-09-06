@@ -398,7 +398,14 @@ amp_ac_scanner_get_filename (AmpAcScanner *scanner)
 {
 	g_free (scanner->filename);
     scanner->filename = NULL;
-    if (scanner->file) scanner->filename = g_file_get_path (anjuta_token_file_get_file (scanner->file));
+    if (scanner->file != NULL)
+    {
+        scanner->filename = g_file_get_path (anjuta_token_file_get_file (scanner->file));
+    }
+    else if (scanner->token != NULL)
+    {
+        scanner->filename = anjuta_token_value (scanner->token);
+    }
 	
 	return scanner->filename;
 }

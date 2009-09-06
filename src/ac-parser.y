@@ -162,6 +162,7 @@ macro:
 space_list:
     /* empty */
     | space_list_body
+    | space_list_body spaces
     ;
 
 space_list_body:

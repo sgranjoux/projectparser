@@ -35,6 +35,8 @@ void amp_am_scanner_free (AmpAmScanner *scanner);
 
 gboolean amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenFile *file, GError **error);
 
+const gchar* amp_am_scanner_get_filename (AmpAmScanner *scanner);
+
 typedef enum
 {
 	AM_TOKEN_SUBDIRS = ANJUTA_TOKEN_USER,

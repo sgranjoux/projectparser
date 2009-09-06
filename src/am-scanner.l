@@ -259,7 +259,10 @@ struct _AmpAmScanner
     const gchar *pos;
     yyscan_t scanner;
     YY_BUFFER_STATE	 buffer;
+
     AnjutaTokenFile *file;
+    gchar *filename;
+
 	guint line_width;
 };
 
@@ -332,6 +335,17 @@ amp_am_scanner_get_line_width (AmpAmScanner *scanner)
 	return scanner->line_width;
 }
 
+const gchar*
+amp_am_scanner_get_filename (AmpAmScanner *scanner)
+{
+	g_free (scanner->filename);
+    scanner->filename = NULL;
+    if (scanner->file) scanner->filename = g_file_get_path (anjuta_token_file_get_file (scanner->file));
+	
+	return scanner->filename;
+}
+
+
 /* Constructor & Destructor
  *---------------------------------------------------------------------------*/
 
@@ -355,6 +369,9 @@ amp_am_scanner_free (AmpAmScanner *scanner)
 
     if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
     yylex_destroy(scanner->scanner);
+
+	g_free (scanner->filename);
+	scanner->filename = NULL;
 
 	g_free (scanner);
 }

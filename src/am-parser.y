@@ -81,7 +81,7 @@
 
 //amp_am_yydebug = 1;
 
-static void amp_am_yyerror (YYLTYPE *loc, void *scanner, char const *s);
+static void amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s)
 
 %}
 
@@ -297,12 +297,23 @@ automake_token:
 	;
 		
 %%
-     
+
 static void
+amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s)
+{
+    gchar *filename;
+
+	g_message ("scanner %p", scanner);
+    filename = amp_am_scanner_get_filename ((AmpAmScanner *)scanner);
+    if (filename == NULL) filename = "?";
+    g_message ("%s (%d:%d-%d:%d) %s\n", filename, loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
+}
+     
+/*static void
 amp_am_yyerror (YYLTYPE *loc, void *scanner, char const *s)
 {
         g_message ("(%d:%d-%d:%d) %s\n", loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
-}
+}*/
 
 /* Public functions
  *---------------------------------------------------------------------------*/
