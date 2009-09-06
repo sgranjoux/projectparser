@@ -61,6 +61,10 @@ struct _AmpProject {
 	
 	/* project files monitors */
 	GHashTable         *monitors;
+
+	/* Keep list style */
+	AnjutaTokenStyle *space_list;
+	AnjutaTokenStyle *arg_list;
 };
 
 G_END_DECLS

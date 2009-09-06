@@ -51,7 +51,7 @@ typedef GNode AmpSource;
 typedef struct _AmpProperty AmpProperty;
 
 typedef enum {
-	AMP_PROPERTY_NAME,
+	AMP_PROPERTY_NAME = 0,
 	AMP_PROPERTY_VERSION,
 	AMP_PROPERTY_BUG_REPORT,
 	AMP_PROPERTY_TARNAME,

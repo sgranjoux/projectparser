@@ -28,13 +28,19 @@ G_BEGIN_DECLS
 
 typedef struct _AnjutaTokenStyle AnjutaTokenStyle;
 
-AnjutaTokenStyle *anjuta_token_style_new (guint line_width);
+AnjutaTokenStyle *anjuta_token_style_new (const gchar *start, const gchar *next, const gchar *eol, const gchar *last, guint max_width);
 void anjuta_token_style_free (AnjutaTokenStyle *style);
 
-void anjuta_token_style_set_eol (AnjutaTokenStyle *style, const gchar *eol);
+void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list);
+void anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list);
 
-void anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *token);
-void anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *token);
+AnjutaToken *anjuta_token_list_first (AnjutaToken *list);
+AnjutaToken *anjuta_token_list_last (AnjutaToken *list);
+AnjutaToken *anjuta_token_list_next (AnjutaToken *sibling);
+AnjutaToken *anjuta_token_list_replace (AnjutaToken *sibling, AnjutaToken *baby);
+AnjutaToken *anjuta_token_list_replace_nth (AnjutaToken *list, guint n, AnjutaToken *baby);
+AnjutaToken *anjuta_token_list_insert_after (AnjutaToken *sibling, AnjutaToken *baby);
+void anjuta_token_list_delete (AnjutaToken *sibling);
 
 G_END_DECLS
 

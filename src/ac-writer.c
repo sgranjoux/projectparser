@@ -49,7 +49,7 @@ remove_list_item (AnjutaToken *token, AnjutaTokenStyle *user_style)
 
 	DEBUG_PRINT ("remove list item");
 
-	style = user_style != NULL ? user_style : anjuta_token_style_new (0);
+	style = user_style != NULL ? user_style : anjuta_token_style_new (NULL," ","\\n",NULL,0);
 	anjuta_token_style_update (style, anjuta_token_parent (token));
 	
 	anjuta_token_remove (token);
@@ -80,7 +80,7 @@ add_list_item (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_sty
 	AnjutaTokenStyle *style;
 	AnjutaToken *space;
 
-	style = user_style != NULL ? user_style : anjuta_token_style_new (0);
+	style = user_style != NULL ? user_style : anjuta_token_style_new (NULL," ","\\n",NULL,0);
 	anjuta_token_style_update (style, anjuta_token_parent (list));
 	
 	space = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " ");
@@ -100,30 +100,46 @@ gboolean
 amp_project_update_property (AmpProject *project, AmpPropertyType type)
 {
 	AnjutaToken *token;
+	guint pos;
+	const gchar *value;
 	
 	if (project->property == NULL)
 	{
 		return FALSE;
 	}
+	gchar *name;
+	gchar *version;
+	gchar *bug_report;
+	gchar *tarname;
+	gchar *url;
 
-
-/*	for (token = project->property;; token = anjuta_next_sibling (token))
+	switch (type)
 	{
-			if ((arg != NULL) && (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SEPARATOR))
-	{
-		arg = anjuta_token_next_sibling (arg);
+		case AMP_PROPERTY_NAME:
+			pos = 0;
+			value = project->property->name;
+			break;
+		case AMP_PROPERTY_VERSION:
+			pos = 1;
+			value = project->property->version;
+			break;
+		case AMP_PROPERTY_BUG_REPORT:
+			pos = 2;
+			value = project->property->bug_report;
+			break;
+		case AMP_PROPERTY_TARNAME:
+			pos = 3;
+			value = project->property->tarname;
+			break;
+		case AMP_PROPERTY_URL:
+			pos = 4;
+			value = project->property->url;
+			break;
 	}
-	if ((arg != NULL) && (anjuta_token_get_type (arg) != ANJUTA_TOKEN_SEPARATOR))
-
-		switch (type)
-		{
-			case AMP_PROPERTY_NAME:
-			case AMP_PROPERTY_VERSION:
-			case AMP_PROPERTY_BUG_REPORT:
-			case AMP_PROPERTY_TARNAME:
-			case AMP_PROPERTY_URL:
-		}
-	}*/	
+	
+	token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, value);
+	anjuta_token_list_replace_nth (project->property->ac_init, pos, token);
+	anjuta_token_style_format (project->arg_list, project->property->ac_init);
 	
 	return TRUE;
 }

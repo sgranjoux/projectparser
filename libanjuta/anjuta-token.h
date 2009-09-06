@@ -58,6 +58,7 @@ typedef enum
 	ANJUTA_TOKEN_ERROR,
 	ANJUTA_TOKEN_WORD,
 	ANJUTA_TOKEN_LIST,
+	ANJUTA_TOKEN_ANY,
 	ANJUTA_TOKEN_USER,
 		
 	ANJUTA_TOKEN_FLAGS 							= 0xFFFF << 16,
@@ -103,7 +104,7 @@ void anjuta_token_free (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end);
-AnjutaToken *anjuta_token_copy (AnjutaToken *token);
+AnjutaToken *anjuta_token_copy (const AnjutaToken *token);
 AnjutaToken *anjuta_token_clear (AnjutaToken *token);
 AnjutaToken *anjuta_token_delete (AnjutaToken *token);
 

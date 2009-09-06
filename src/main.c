@@ -142,6 +142,10 @@ void list_property (AmpProject *project)
 	value = amp_project_get_property (project, AMP_PROPERTY_TARNAME);
 	if (value) print ("%*sTARNAME: %s", INDENT, "", value);
 	g_free (value);
+	
+	value = amp_project_get_property (project, AMP_PROPERTY_URL);
+	if (value) print ("%*sURL: %s", INDENT, "", value);
+	g_free (value);
 }
 
 void list_module (GbfProject *project)
@@ -262,6 +266,11 @@ main(int argc, char *argv[])
 			g_free (parent);
 				
 			command += 3;
+		}
+		else if (g_ascii_strcasecmp (command[0], "set") == 0)
+		{
+			amp_project_set_property (AMP_PROJECT (project), atoi(command[1]), command[2]);
+			command += 2;
 		}
 		else
 		{

@@ -263,7 +263,7 @@ remove_list_item (AnjutaToken *token, AnjutaTokenStyle *user_style)
 
 	DEBUG_PRINT ("remove list item");
 
-	style = user_style != NULL ? user_style : anjuta_token_style_new (0);
+	style = user_style != NULL ? user_style : anjuta_token_style_new (NULL," ","\\n",NULL,0);
 	anjuta_token_style_update (style, anjuta_token_parent (token));
 	
 	anjuta_token_remove (token);
@@ -294,7 +294,7 @@ add_list_item (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_sty
 	AnjutaTokenStyle *style;
 	AnjutaToken *space;
 
-	style = user_style != NULL ? user_style : anjuta_token_style_new (0);
+	style = user_style != NULL ? user_style : anjuta_token_style_new (NULL," ","\\n",NULL,0);
 	anjuta_token_style_update (style, anjuta_token_parent (list));
 	
 	space = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " ");
@@ -920,6 +920,7 @@ project_reload_property (AmpProject *project)
 	if (anjuta_token_match (ac_init_tok, ANJUTA_SEARCH_INTO, sequence, &init))
 	{
 		g_message ("find ac_init");
+		anjuta_token_style_update (project->arg_list, init);
 		project->property = amp_property_new (init);
 	}
 
@@ -1525,6 +1526,10 @@ amp_project_reload (AmpProject *project, GError **error)
 	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
 	project->configs = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, amp_config_file_free);
+
+	/* Initialize list styles */
+	project->space_list = anjuta_token_style_new (NULL, " ", "\\n", NULL, 0);
+	project->arg_list = anjuta_token_style_new (NULL, ", ", ",\\n ", ")", 0);
 	
 	/* Find configure file */
 	if (file_type (root_file, "configure.ac") == G_FILE_TYPE_REGULAR)
@@ -1625,6 +1630,10 @@ amp_project_unload (AmpProject *project)
 	project->files = NULL;
 	project->configs = NULL;
 
+	/* List styles */
+	if (project->space_list) anjuta_token_style_free (project->space_list);
+	if (project->arg_list) anjuta_token_style_free (project->arg_list);
+	
 	amp_project_free_module_hash (project);
 }
 
@@ -1783,8 +1792,7 @@ amp_project_add_group (AmpProject  *project,
 		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED,  relative_make);
 		g_free (relative_make);
 		
-		style = anjuta_token_style_new (0);
-		anjuta_token_style_set_eol (style, "\n");
+		style = anjuta_token_style_new (NULL," ","\\n",NULL,0);
 		add_list_item (prev_token, token, style);
 		anjuta_token_style_free (style);
 	}
@@ -2706,6 +2714,9 @@ amp_project_instance_init (AmpProject *project)
 	project->configure_file = NULL;
 	project->root_node = NULL;
 	project->property = NULL;
+
+	project->space_list = NULL;
+	project->arg_list = NULL;
 }
 
 static void

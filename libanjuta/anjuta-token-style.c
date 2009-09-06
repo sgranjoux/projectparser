@@ -30,144 +30,221 @@ typedef struct _AnjutaTokenStyleSeparator AnjutaTokenStyleSeparator;
 
 struct _AnjutaTokenStyleSeparator
 {
-	AnjutaToken* token;
 	guint count;
+	gchar *value;
+	gboolean eol;
 };
 
 struct _AnjutaTokenStyle
 {
-	guint line_width;
-	AnjutaToken *first;
-	AnjutaToken *sep;
-	AnjutaToken *eol;
-	AnjutaToken *last;
+	guint max_width;
+	GHashTable *separator;
 };
 
 /* Private functions
  *---------------------------------------------------------------------------*/
 
-AnjutaTokenStyleSeparator*
-anjuta_token_style_separator_new (void)
+void free_separator (AnjutaTokenStyleSeparator *sep, gpointer user_data)
 {
-	AnjutaTokenStyleSeparator *sep;
-
-	sep = g_slice_new0 (AnjutaTokenStyleSeparator);
-	
-	return sep;	
+	DEBUG_PRINT ("free sep %p count %d", sep, sep->count);
+	g_free (sep->value);
+	g_slice_free (AnjutaTokenStyleSeparator, sep);
 }
 
-void
-anjuta_token_style_separator_free (AnjutaTokenStyleSeparator *sep)
+void free_separator_list (guint key, GList *value, gpointer user_data)
 {
-	g_slice_free (AnjutaTokenStyleSeparator, sep);
+	/* Free list elements */
+	g_list_foreach (value, (GFunc)free_separator, NULL);
+	g_list_free (value);
+}
+
+AnjutaTokenStyleSeparator*
+anjuta_token_style_insert_separator (AnjutaTokenStyle *style, guint key, const gchar *value)
+{
+	GList *list;
+	GList *last = NULL;
+	GList *sibling = NULL;
+	AnjutaTokenStyleSeparator *sep;
+
+
+	/* Look the separator is already registered */
+	list = (GList *)g_hash_table_lookup (style->separator, GINT_TO_POINTER (key));
+	if (list != NULL)
+	{
+		for (sibling = list; sibling != NULL; sibling = g_list_next(sibling))
+		{
+			sep = (AnjutaTokenStyleSeparator *)sibling->data;
+
+			/* Keep the first separator with count = 1, to insert the new one if
+			 * not found */
+			if ((last == NULL) && (sep->count == 1)) last = sibling;
+
+			if (value == NULL)
+			{
+				if (sep->value == NULL)
+				{
+					sep->count++;
+					break;
+				}
+			}
+			else if ((sep->value != NULL) && (strcmp (sep->value, value) == 0))
+			{
+				sep->count++;
+				break;
+			}
+		}
+	}
+
+	if (sibling != NULL)
+	{
+		/* Increment the separator count, Move it if needed */
+		for (last = g_list_previous (sibling); last != NULL; last = g_list_previous (sibling))
+		{
+			if (((AnjutaTokenStyleSeparator *)sibling->data)->count >= ((AnjutaTokenStyleSeparator *)last->data)->count)
+			{
+				last->next = sibling->next;
+				sibling->next = last;
+				sibling->prev = last->prev;
+				last->prev = sibling;
+			}
+			else
+			{
+				break;
+			}
+		}
+		
+		if (last == NULL)
+		{
+			/* Update the list head */
+			list = sibling;
+			g_hash_table_replace (style->separator, GINT_TO_POINTER (key), list);
+		}
+
+		return (AnjutaTokenStyleSeparator *)sibling->data;
+	}
+	else
+	{
+		/* Create a new separator */
+		sep = g_slice_new0 (AnjutaTokenStyleSeparator);
+		sep->count = 1;
+		sep->value = g_strdup (value);
+		sep->eol = value == NULL ? FALSE : strchr (value, '\n') != NULL;
+		DEBUG_PRINT ("alloc sep %p count %d", sep, sep->count);
+		list = g_list_insert_before (list, last, sep);
+		g_hash_table_replace (style->separator, GINT_TO_POINTER (key), list);
+
+		return sep;
+	}
+}
+
+AnjutaTokenStyleSeparator*
+anjuta_token_style_insert_separator_between (AnjutaTokenStyle *style, gint next, gint prev, const gchar *value)
+{
+	return anjuta_token_style_insert_separator (style, ((guint)prev & 0xFFFF) | (((guint)next & 0xFFFF) << 16), value);
+}
+
+static AnjutaToken*
+anjuta_token_style_lookup (AnjutaTokenStyle *style)
+{
+	GList *list;
+	
+	list = g_hash_table_lookup (style->separator, GINT_TO_POINTER (ANJUTA_TOKEN_NEXT));
+
+	return anjuta_token_new_string (ANJUTA_TOKEN_NEXT, ((AnjutaTokenStyleSeparator *)list->data)->value);
 }
 
 /* Public functions
  *---------------------------------------------------------------------------*/
 
 void
-anjuta_token_style_set_eol (AnjutaTokenStyle *style, const gchar *eol)
-{
-	if (style->eol) anjuta_token_free (style->eol);
-	style->eol = anjuta_token_new_string (ANJUTA_TOKEN_SPACE, eol);
-}
-
-void
 anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 {
-	GHashTable *sep_list;
-	AnjutaTokenStyleSeparator *sep;
-	AnjutaTokenStyleSeparator *eol;
-	AnjutaTokenStyleSeparator *value;
-	AnjutaToken *arg;
-	AnjutaToken *last;
-	GHashTableIter iter;
-	gchar *key;
+	AnjutaToken *token;
+	AnjutaToken *next_token;
+	guint prev = 0;
+	guint next = 0;
+	guint line_width = 0;
+	guint sep_count = 0;
+
+	/* Initialize first line width */
+	for (token = list; token != NULL; token = anjuta_token_previous (token))
+	{
+		gchar *value = anjuta_token_value (token);
+		const gchar *eol = strrchr (value, '\n');
+		gsize len = strlen (value);
+
+		g_free (value);
 
 
-	/* Find & Replace first separator */
-	anjuta_token_free (style->first);
-	arg = anjuta_token_next_child (list);
-	if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE)
-	{
-		style->first = anjuta_token_copy(arg);
-		arg = anjuta_token_next_sibling (arg);
-	}
-	 
-	/* Find intermediate separator */
-	sep_list = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, (GDestroyNotify)anjuta_token_style_separator_free);
-	last = NULL;
-	for (; arg != NULL; arg = anjuta_token_next_sibling (arg))
-	{
-		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE)
+		if (eol != NULL)
 		{
-			last = arg;
+			line_width = value + len - eol;
+			break;
 		}
-		else if (last != NULL)
-		{
-			key = anjuta_token_evaluate (last);
-			sep = g_hash_table_lookup (sep_list, key);
-			if (sep == NULL)
-			{
-				sep = anjuta_token_style_separator_new ();
-				sep->token = last;
-				sep->count = 1;
-				g_hash_table_insert (sep_list, key, sep);
-			}
-			else
-			{
-				sep->count++;
-				g_free (key);
-			}
-			last = NULL;
-		}
+
+		line_width += len;
 	}
 	
-	/* Find & Replace last separator */
-	anjuta_token_free (style->last);
-	style->last = anjuta_token_copy (last);
-
-	/* Replace the most used intermediate separator */
-	eol = NULL;
-	sep = NULL;
-	g_hash_table_iter_init (&iter, sep_list);
-	while (g_hash_table_iter_next (&iter, (gpointer *)&key, (gpointer *)&value))
+	for (token = anjuta_token_next_child (list); token != NULL; token = next_token)
 	{
-		if (strchr (key, '\n') != NULL)
+		gchar *value = NULL;
+		const gchar *eol;
+		gsize len;
+		gint type;
+		
+		next_token = anjuta_token_next_sibling (token);
+		type = anjuta_token_get_type (token);
+		next = next_token == NULL ? 0 : anjuta_token_get_type (next_token);
+
+		value = anjuta_token_value (token);
+		if (value == NULL) continue;
+
+		len = strlen (value);
+		eol = strrchr (value, '\n');
+		if (eol != NULL) len -= (eol - value);
+		g_free (value);
+
+		line_width += len;
+		
+		switch (type)
 		{
-			/* Separator with end of line */
-			if ((eol == NULL) || (eol->count < value->count))
-			{
-				eol = value;
-			}
+			case ANJUTA_TOKEN_START:
+			case ANJUTA_TOKEN_LAST:
+			case ANJUTA_TOKEN_NEXT:
+				break;
+			default:
+				if (eol != NULL)
+				{
+					line_width = len;
+					sep_count = 0;
+				}
+				continue;
+		}
+		
+		value = anjuta_token_evaluate (token);
+		anjuta_token_style_insert_separator_between (style, 0, type, value);
+		if (type == ANJUTA_TOKEN_NEXT)
+		{
+			anjuta_token_style_insert_separator_between (style, next, prev, value);
+			anjuta_token_style_insert_separator_between (style, next, ANJUTA_TOKEN_ANY, value);
+			anjuta_token_style_insert_separator_between (style, ANJUTA_TOKEN_ANY, prev, value);
+		}
+		g_free (value);
+
+		if (eol == NULL)
+		{
+			sep_count++;
 		}
 		else
 		{
-			/* Separaror without end of line */
-			if ((sep == NULL) || (sep->count < value->count))
+			if ((sep_count > 1) && (line_width > style->max_width))
 			{
-				sep = value;
+				style->max_width = line_width;
 			}
+			sep_count = 0;
+			line_width = len;
 		}
 	}
-	if (eol != NULL) 
-	{
-		if (style->eol != NULL) anjuta_token_free (style->eol);
-		style->eol = anjuta_token_copy (eol->token);
-	}
-	if (sep != NULL)
-	{
-		if (style->sep != NULL) anjuta_token_free (style->sep);
-		style->sep = anjuta_token_copy (sep->token);
-	}
-
-	g_hash_table_destroy (sep_list);
-
-	DEBUG_PRINT("Update style new:2");
-	DEBUG_PRINT("first \"%s\"", style->first == NULL ? "(null)" : anjuta_token_evaluate (style->first));
-	DEBUG_PRINT("sep \"%s\"", style->sep == NULL ? "(null)" : anjuta_token_evaluate (style->sep));
-	DEBUG_PRINT("eol \"%s\"", style->eol == NULL ? "(null)" : anjuta_token_evaluate (style->eol));
-	DEBUG_PRINT("last \"%s\"", style->last == NULL ? "(null)" : anjuta_token_evaluate (style->last));
 }	
 
 static void
@@ -179,6 +256,17 @@ anjuta_token_style_format_line (AnjutaTokenStyle *style, AnjutaToken *bol, Anjut
 void
 anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
 {
+	AnjutaToken *arg;
+
+	for (arg = anjuta_token_next_child (list); arg != NULL; arg = anjuta_token_next_sibling (arg))
+	{
+		if ((anjuta_token_get_type (arg) == ANJUTA_TOKEN_NEXT) && (anjuta_token_get_flags (arg) & (ANJUTA_TOKEN_ADDED)))
+		{
+			anjuta_token_insert_after (arg, anjuta_token_style_lookup (style));
+			anjuta_token_free (arg);
+		}
+	}
+#if 0	
 	AnjutaToken *arg;
 
 	if (style->sep == NULL)
@@ -211,18 +299,185 @@ anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
 		}
 		if (modified) anjuta_token_style_format_line (style, bol, NULL);
 	}
+#endif
 }
+
+AnjutaToken *
+anjuta_token_list_first (AnjutaToken *list)
+{
+	AnjutaToken *token;
+
+	token = anjuta_token_next_child (list);
+	if (token == NULL) return token;
+
+	if (anjuta_token_get_type (token) == ANJUTA_TOKEN_START)
+	{
+		token = anjuta_token_next_sibling (token);
+	}
+	
+	return token;
+}
+
+AnjutaToken *
+anjuta_token_list_last (AnjutaToken *list)
+{
+	AnjutaToken *token;
+
+	token = anjuta_token_list_first (list);
+	for (;;)
+	{
+		AnjutaToken *next = anjuta_token_list_next (list);
+		if (next == NULL) return token;
+		token = next;
+	}
+}
+
+AnjutaToken *
+anjuta_token_list_next (AnjutaToken *sibling)
+{
+	AnjutaToken *token;
+
+	token = anjuta_token_next_sibling (sibling);
+	if (token == NULL) return token;
+
+	if (anjuta_token_get_type (token) == ANJUTA_TOKEN_NEXT)
+	{
+		token = anjuta_token_next_sibling (token);
+	}
+
+	return token;
+}
+
+AnjutaToken *
+anjuta_token_list_replace (AnjutaToken *sibling, AnjutaToken *baby)
+{
+	AnjutaToken *token;
+	
+	token = anjuta_token_insert_before (sibling, baby);
+	if ((anjuta_token_get_type (sibling) != ANJUTA_TOKEN_NEXT) && (anjuta_token_get_type (sibling) != ANJUTA_TOKEN_LAST))
+	{
+		anjuta_token_remove (sibling);
+	}
+
+	return token;
+}
+
+AnjutaToken *
+anjuta_token_list_replace_nth (AnjutaToken *list, guint n, AnjutaToken *baby)
+{
+	AnjutaToken *token;
+
+	token = anjuta_token_list_first (list); 
+	if (token == NULL)
+	{
+		token = anjuta_token_insert_child (list, anjuta_token_new_static (ANJUTA_TOKEN_START | ANJUTA_TOKEN_ADDED, NULL));
+		token = anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_LAST | ANJUTA_TOKEN_ADDED, NULL));
+	}
+
+	for (; n != 0; n--)
+	{
+		AnjutaToken *next;
+
+		switch (anjuta_token_get_type (token))
+		{
+			case ANJUTA_TOKEN_LAST:
+				anjuta_token_insert_before (token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
+				continue;
+			case ANJUTA_TOKEN_NEXT:
+				break;
+			default:
+				token = anjuta_token_next_sibling (token);
+				if (token == NULL)
+				{
+					token = anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
+				}
+				else if (anjuta_token_get_type (token) == ANJUTA_TOKEN_LAST)
+				{
+					token = anjuta_token_insert_before (token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
+				}
+				break;
+		}
+
+		next = anjuta_token_next_sibling (token);
+		if (next == NULL)
+		{
+			token = anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_LAST | ANJUTA_TOKEN_ADDED, NULL));
+		}
+		else
+		{
+			token = next;
+		}
+	}
+
+	return anjuta_token_list_replace (token, baby); 
+}
+
+AnjutaToken *
+anjuta_token_list_insert_after (AnjutaToken *sibling, AnjutaToken *baby)
+{
+	AnjutaToken *token = sibling;
+	AnjutaToken *separator;
+
+	if (anjuta_token_get_type (token) == ANJUTA_TOKEN_LAST)
+	{
+		token = anjuta_token_previous_sibling (token);
+	}
+	else if ((anjuta_token_get_type (token) != ANJUTA_TOKEN_NEXT) && (anjuta_token_next_sibling (token) != NULL))
+	{
+		token = anjuta_token_next_sibling (token);
+	}
+	
+	separator = anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL);
+	token = anjuta_token_insert_after (token, separator);
+	token = anjuta_token_insert_after (token, baby);
+
+	return token;
+}
+
+void
+anjuta_token_list_remove (AnjutaToken *sibling)
+{
+	AnjutaToken *token;
+	
+	if ((anjuta_token_get_type (sibling) != ANJUTA_TOKEN_NEXT) && (anjuta_token_get_type (sibling) != ANJUTA_TOKEN_LAST))
+	{
+		anjuta_token_remove (sibling);
+	}
+
+	token = anjuta_token_next_sibling (sibling);
+	if (anjuta_token_get_type (token) == ANJUTA_TOKEN_NEXT)
+	{
+		anjuta_token_remove (token);
+		return;
+	}
+
+	token = anjuta_token_previous_sibling (sibling);
+	if (anjuta_token_get_type (token) == ANJUTA_TOKEN_NEXT)
+	{
+		anjuta_token_remove (token);
+		return;
+	}
+
+	return;
+}
+
 
 /* Constructor & Destructor
  *---------------------------------------------------------------------------*/
 
 AnjutaTokenStyle *
-anjuta_token_style_new (guint line_width)
+anjuta_token_style_new (const gchar *start, const gchar *next, const gchar *eol, const gchar *last, guint max_width)
 {
 	AnjutaTokenStyle *style;
-
+	
 	style = g_slice_new0 (AnjutaTokenStyle);
-	style->line_width = line_width;
+	style->max_width = max_width;
+	
+	style->separator = g_hash_table_new (g_direct_hash, NULL);
+	anjuta_token_style_insert_separator (style, ANJUTA_TOKEN_START, start);
+	anjuta_token_style_insert_separator (style, ANJUTA_TOKEN_NEXT, next);
+	anjuta_token_style_insert_separator (style, ANJUTA_TOKEN_NEXT, eol);
+	anjuta_token_style_insert_separator (style, ANJUTA_TOKEN_LAST, last);
 	
 	return style;	
 }
@@ -230,9 +485,7 @@ anjuta_token_style_new (guint line_width)
 void
 anjuta_token_style_free (AnjutaTokenStyle *style)
 {
-	anjuta_token_free (style->first);
-	anjuta_token_free (style->sep);
-	anjuta_token_free (style->eol);
-	anjuta_token_free (style->last);
+	g_hash_table_foreach (style->separator, (GHFunc)free_separator_list, NULL);
+	g_hash_table_destroy (style->separator);
 	g_slice_free (AnjutaTokenStyle, style);
 }
