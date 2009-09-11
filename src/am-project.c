@@ -2521,12 +2521,19 @@ amp_project_get_node_id (AmpProject *project, const gchar *path)
 gchar *
 amp_project_get_uri (AmpProject *project)
 {
-
 	g_return_val_if_fail (project != NULL, NULL);
 
 	return project->root_file != NULL ? g_file_get_uri (project->root_file) : NULL;
 }
 
+GFile*
+amp_project_get_file (AmpProject *project)
+{
+	g_return_val_if_fail (project != NULL, NULL);
+
+	return project->root_file;
+}
+	
 gchar *
 amp_project_get_property (AmpProject *project, AmpPropertyType type)
 {

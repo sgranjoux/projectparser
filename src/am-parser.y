@@ -81,7 +81,7 @@
 
 //amp_am_yydebug = 1;
 
-static void amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s)
+static void amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s);
 
 %}
 

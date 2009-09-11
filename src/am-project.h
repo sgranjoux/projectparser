@@ -86,6 +86,7 @@ gboolean amp_project_move (AmpProject *project, const gchar *path);
 gboolean amp_project_save (AmpProject *project, GError **error);
 
 gchar * amp_project_get_uri (AmpProject *project);
+GFile* amp_project_get_file (AmpProject *project);
 
 AmpGroup* amp_project_add_group (AmpProject  *project, const gchar *parent_id,	const gchar *name, GError **error);
 void amp_project_remove_group (AmpProject  *project, const gchar *id, GError **error);
