@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
 /*
- * ac-scanner.h
+ * mk-scanner.h
  * Copyright (C) Sébastien Granjoux 2009 <seb.sfo@free.fr>
  * 
  * main.c is free software: you can redistribute it and/or modify it
@@ -17,45 +17,43 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _AC_SCANNER_H_
-#define _AC_SCANNER_H_
+#ifndef _MK_SCANNER_H_
+#define _MK_SCANNER_H_
 
 #include "libanjuta/anjuta-token.h"
 #include "libanjuta/anjuta-token-file.h"
-
 
 #include <glib.h>
 #include <gio/gio.h>
 
 G_BEGIN_DECLS
 
-#define YYSTYPE AnjutaToken*
+typedef struct _MkpScanner MkpScanner;
 
-typedef struct _AmpAcScanner AmpAcScanner;
+MkpScanner *mkp_scanner_new (void);
+void mkp_scanner_free (MkpScanner *scanner);
 
-AmpAcScanner *mkp_ac_scanner_new (void);
-void mkp_ac_scanner_free (AmpAcScanner *scanner);
+gboolean mkp_scanner_parse (MkpScanner *scanner, AnjutaTokenFile *file, GError **error);
 
-gboolean mkp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error);
+const gchar* mkp_scanner_get_filename (MkpScanner *scanner);
 
-const gchar* mkp_ac_scanner_get_filename (AmpAcScanner *scanner);
-
-enum 
+typedef enum
 {
-	AC_TOKEN_AC_INIT = ANJUTA_TOKEN_USER,
-	AC_TOKEN_PKG_CHECK_MODULES,
-	AC_TOKEN_AC_CONFIG_FILES,
-	AC_TOKEN_OBSOLETE_AC_OUTPUT,
-	AC_TOKEN_AC_OUTPUT,
-	AC_TOKEN_SPACE_LIST,
-	AC_TOKEN_OPEN_STRING,
-	AC_TOKEN_CLOSE_STRING
-};
-
-enum
-{
-	AC_SPACE_LIST_STATE = 1
-};
+	MK_TOKEN_SUBDIRS = ANJUTA_TOKEN_USER,
+	MK_TOKEN_DIST_SUBDIRS,
+	MK_TOKEN__DATA,
+	MK_TOKEN__HEADERS,
+	MK_TOKEN__LIBRARIES,
+	MK_TOKEN__LISP,
+	MK_TOKEN__LTLIBRARIES,
+	MK_TOKEN__MANS,
+	MK_TOKEN__PROGRAMS,
+	MK_TOKEN__PYTHON,
+	MK_TOKEN__SCRIPTS,
+	MK_TOKEN__SOURCES,
+	MK_TOKEN__TEXINFOS,
+	MK_TOKEN__JAVA
+} MakeTokenType;
 
 G_END_DECLS
 

@@ -73,7 +73,7 @@ void list_target (GbfProject *project, const gchar *id, gint indent, const gchar
 
 	if (target == NULL) return;
 
-	uri = amp_project_get_uri (AMP_PROJECT (project));
+	uri = mkp_project_get_uri (AMP_PROJECT (project));
 	root = g_file_new_for_uri (uri);
 	g_free (uri);
 	
@@ -127,23 +127,23 @@ void list_property (AmpProject *project)
 {
 	gchar *value;
 
-	value = amp_project_get_property (project, AMP_PROPERTY_NAME);
+	value = mkp_project_get_property (project, AMP_PROPERTY_NAME);
 	if (value) print ("%*sNAME: %s", INDENT, "", value);
 	g_free (value);
 
-	value = amp_project_get_property (project, AMP_PROPERTY_VERSION);
+	value = mkp_project_get_property (project, AMP_PROPERTY_VERSION);
 	if (value) print ("%*sVERSION: %s", INDENT, "", value);
 	g_free (value);
 
-	value = amp_project_get_property (project, AMP_PROPERTY_BUG_REPORT);
+	value = mkp_project_get_property (project, AMP_PROPERTY_BUG_REPORT);
 	if (value) print ("%*sBUG_REPORT: %s", INDENT, "", value);
 	g_free (value);
 
-	value = amp_project_get_property (project, AMP_PROPERTY_TARNAME);
+	value = mkp_project_get_property (project, AMP_PROPERTY_TARNAME);
 	if (value) print ("%*sTARNAME: %s", INDENT, "", value);
 	g_free (value);
 	
-	value = amp_project_get_property (project, AMP_PROPERTY_URL);
+	value = mkp_project_get_property (project, AMP_PROPERTY_URL);
 	if (value) print ("%*sURL: %s", INDENT, "", value);
 	g_free (value);
 }
@@ -227,15 +227,15 @@ main(int argc, char *argv[])
 		}
 		else if (g_ascii_strcasecmp (*command, "move") == 0)
 		{
-			amp_project_move (AMP_PROJECT (project), *(++command));
+			mkp_project_move (AMP_PROJECT (project), *(++command));
 		}
 		else if (g_ascii_strcasecmp (*command, "save") == 0)
 		{
-			amp_project_save (AMP_PROJECT (project), NULL);
+			mkp_project_save (AMP_PROJECT (project), NULL);
 		}
 		else if (g_ascii_strcasecmp (*command, "remove") == 0)
 		{
-			gchar *id = amp_project_get_node_id (AMP_PROJECT (project), *(++command));
+			gchar *id = mkp_project_get_node_id (AMP_PROJECT (project), *(++command));
 			gbf_project_remove_source (project, id, NULL);
 			g_free (id);
 		}
@@ -243,7 +243,7 @@ main(int argc, char *argv[])
 		{
 			gchar *parent;
 			
-			parent = amp_project_get_node_id (AMP_PROJECT (project), command[2]);
+			parent = mkp_project_get_node_id (AMP_PROJECT (project), command[2]);
 			if (g_ascii_strcasecmp (command[1], "group") == 0)
 			{
 				gbf_project_add_group (project, parent, command[3], NULL);
@@ -269,7 +269,7 @@ main(int argc, char *argv[])
 		}
 		else if (g_ascii_strcasecmp (command[0], "set") == 0)
 		{
-			amp_project_set_property (AMP_PROJECT (project), atoi(command[1]), command[2]);
+			mkp_project_set_property (AMP_PROJECT (project), atoi(command[1]), command[2]);
 			command += 2;
 		}
 		else

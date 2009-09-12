@@ -336,7 +336,7 @@ amp_ac_yylex (YYSTYPE * yylval_param,YYLTYPE * yylloc_param ,AmpAcScanner *scann
 
 	/* Parse unknown data */
     return ac_yylex (yylval_param, yylloc_param, scanner->scanner);
-} 
+}
 
 gboolean
 amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error)

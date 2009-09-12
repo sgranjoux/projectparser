@@ -37,7 +37,15 @@ projectparser_SOURCES = \
 	am-dialogs.c \
 	am-dialogs.h \
 	gbf-am-project.c \
-	gbf-am-project.h
+	gbf-am-project.h \
+	mk-project.c \
+	mk-project.h \
+	mk-project-private.h \
+	mk-parser.y \
+	mk-scanner.l \
+	mk-scanner.h \
+	gbf-mk-project.c \
+	gbf-mk-project.h
 
 projectparser_LDFLAGS = 
 
@@ -65,8 +73,18 @@ am-parser.c: $(srcdir)/am-parser.y
 
 am-scanner.h: am-parser.c
 
-project.c: ac-scanner.h am-scanner.h
+mk-scanner.c: $(srcdir)/mk-scanner.l mk-parser.c
+	$(LEXCOMPILE) -o $@ $<
 
-EXTRA_DIST = ac-parser.h am-parser.h
+mk-parser.c: $(srcdir)/mk-parser.y
+	$(YACCCOMPILE) -o $@ $<
+
+mk-scanner.h: mk-parser.c
+
+am-project.c: ac-scanner.h am-scanner.h
+
+mk-project.c: mk-scanner.h
+
+EXTRA_DIST = ac-parser.h am-parser.h mk-parser.h
 
 -include $(top_srcdir)/git.mk
