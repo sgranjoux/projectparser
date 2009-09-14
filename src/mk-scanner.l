@@ -46,6 +46,9 @@ static void mkp_scanner_update_line_width (MkpScanner *scanner, YYLTYPE *loc);
 static void mkp_update_location (YYLTYPE *loc, const gchar *text, gint length);
 static int mkp_parse (yyscan_t scanner);
 
+#define RETURN(tok) *yylval = mkp_scanner_append_token (yyextra, tok); \
+                    return tok
+
 %}
 
 %option reentrant stack noyywrap yylineno
@@ -68,189 +71,48 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
 
 %%
 
-<INITIAL>\n {
-	yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_EOL);
-	return EOL;
-}
+\n                          { RETURN (EOL); }
 
-<INITIAL>([ ]|\\\n)([ \t]|\\\n)* {
-	yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);
-	return SPACE;
-}
 
-<INITIAL>([ \t])*#.*\n {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_COMMENT);   
-    return EOL;
-}
+([ ]|\\\n)([ \t]|\\\n)*     { RETURN (SPACE); }
 
-<INITIAL>\t {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_SPACE);   
-    return TAB;
-}
+#                           { RETURN (HASH); }
 
-<INITIAL>@{NAME}@ {
-	yylval->token = mkp_scanner_append_token (yyextra, ANJUTA_TOKEN_MACRO);
-	return MACRO;
-}
+\t                          { RETURN (TAB); }
 
-<INITIAL>\$\([^ \t\n\r:#=$)]+\) {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE);   
-	mkp_scanner_update_line_width (yyextra, yylloc);
-    return VARIABLE;
-}
+\$\([^ \t\n\r:#=$)]+\)      { RETURN (VARIABLE); }
 
-<INITIAL>\$\{[^ \t\n\r:#=$}]+\} {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE);   
-	mkp_scanner_update_line_width (yyextra, yylloc);
-    return VARIABLE;
-}
+\$\{[^ \t\n\r:#=$}]+\}      { RETURN (VARIABLE); }
 
-<INITIAL>\$[^ \t\n\r\(\{] {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_VARIABLE);   
-	mkp_scanner_update_line_width (yyextra, yylloc);
-    return VARIABLE;
-}
+\$[^ \t\n\r\(\{]            { RETURN (VARIABLE); }
 
-<INITIAL>: {
-    yylval->token = mkp_scanner_append_token  (yyextra, ':');   
-    return COLON;
-}
+:                           { RETURN (COLON); }
 
-<INITIAL>:: {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return DOUBLE_COLON;
-}
+::                          { RETURN (DOUBLE_COLON); }
 
-<INITIAL>; {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return SEMI_COLON;
-}
+;                           { RETURN (SEMI_COLON); }
 
-<INITIAL>\| {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return ORDER;
-}
+\|                          { RETURN (ORDER); }
 
-<INITIAL>\= {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return EQUAL;
-}
+\=                          { RETURN (EQUAL); }
 
-<INITIAL>:= {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return IMMEDIATE_EQUAL;
-}
+:=                          { RETURN (IMMEDIATE_EQUAL); }
 
-<INITIAL>\?= {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return CONDITIONAL_EQUAL;
-}
+\?=                         { RETURN (CONDITIONAL_EQUAL); }
 
-<INITIAL>\+= {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return APPEND;
-}
+\+=                         { RETURN (APPEND); }
 
-<INITIAL>\\[ ] {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return CHARACTER;
-}
+\\[ ]                       { RETURN (CHARACTER); }
 
-<INITIAL>\\: {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return CHARACTER;
-}
+\\:                         { RETURN (CHARACTER); }
 
-<INITIAL>\\= {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return CHARACTER;
-}
+\\=                         { RETURN (CHARACTER); }
 
-<INITIAL>\\# {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_OPERATOR);   
-    return CHARACTER;
-}
+\\#                         { RETURN (CHARACTER); }
 
-<INITIAL>SUBDIRS {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN_SUBDIRS);   
-    return MK_VARIABLE;
-}
+{NAME}                      { RETURN (NAME);}
 
-<INITIAL>DIST_SUBDIRS {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN_DIST_SUBDIRS);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_DATA {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__DATA);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_HEADERS {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__HEADERS);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_LIBRARIES {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__LIBRARIES);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_LISP {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__LISP);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_LTLIBRARIES {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__LTLIBRARIES);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_MANS {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__MANS);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_PROGRAMS {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__PROGRAMS);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_PYTHON {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__PYTHON);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_JAVA {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__JAVA);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_SCRIPTS {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__SCRIPTS);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_SOURCES {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__SOURCES);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME}_TEXINFOS {
-    yylval->token = mkp_scanner_append_token  (yyextra, MK_TOKEN__TEXINFOS);   
-    return MK_VARIABLE;
-}
-
-<INITIAL>{NAME} {
-    yylval->token = mkp_scanner_append_token  (yyextra, ANJUTA_TOKEN_NAME);   
-	mkp_scanner_update_line_width (yyextra, yylloc);
-    return NAME;
-}
-
-<INITIAL>. {
-    yylval->token = mkp_scanner_append_token  (yyextra, *yytext);   
-    return CHARACTER;
-}
+<INITIAL>.                  { RETURN (CHARACTER); }
 
 %%
      

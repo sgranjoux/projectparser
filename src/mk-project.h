@@ -31,6 +31,8 @@
 
 G_BEGIN_DECLS
 
+#define YYSTYPE AnjutaToken*
+
 #define MKP_TYPE_PROJECT		(mkp_project_get_type (NULL))
 #define MKP_PROJECT(obj)		(G_TYPE_CHECK_INSTANCE_CAST ((obj), MKP_TYPE_PROJECT, MkpProject))
 #define MKP_PROJECT_CLASS(klass)	(G_TYPE_CHECK_CLASS_CAST ((klass), MKP_TYPE_PROJECT, MkpProjectClass))

@@ -43,7 +43,7 @@ struct _MkpProject {
 	GFile			*root_file;
 
 	/* project data */
-	AnjutaTokenFile		*configure_file;		/* configure.in file */
+	AnjutaTokenFile		*make_file;		/* make file */
 
 	MkpProperty			*property;
 	

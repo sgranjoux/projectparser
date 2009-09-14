@@ -18,7 +18,8 @@
  */
 %{
 
-#include <mk-scanner.h>
+#include "mk-scanner.h"
+#include "mk-parser.h"
 
 #include <stdlib.h>
 
@@ -26,35 +27,23 @@
 
 %}
 
-/* Defining an union allow to use 2 protocol blocks (enclosed by %{ %}) which
- * is useful when redefining YYSTYPE. */
-%union {
-	AnjutaToken *token;
-	AnjutaTokenRange range;
-}
-
-%token	<token> EOL	'\n'
-%token	<token> SPACE
-%token	<token> TAB '\t'
-%token	<token> MACRO
-%token	<token> VARIABLE
-%token	<token> COLON ':'
-%token	<token> DOUBLE_COLON "::"
-%token	<token> ORDER '|'
-%token	<token> SEMI_COLON ';'
-%token	<token> EQUAL '='
-%token	<token> IMMEDIATE_EQUAL ":="
-%token	<token> CONDITIONAL_EQUAL "?="
-%token	<token> APPEND "+="
-%token	<token> CHARACTER
-%token	<token> NAME
-%token	<token> MK_VARIABLE
-
-%type <token> head_token target_token value_token name_token space_token rule_token equal_token token automake_token prerequisite_token
-%type <token> mk_variable
-%type <token> value head space prerequisite target depend rule variable commands head_with_space
-%type <token> value_list strip_value_list prerequisite_list target_list token_list target_list2
-%type <token> optional_space space_list_value
+%token	EOL	'\n'
+%token	SPACE
+%token	TAB '\t'
+%token  HASH '#'
+%token	MACRO
+%token	VARIABLE
+%token	COLON ':'
+%token	DOUBLE_COLON "::"
+%token	ORDER '|'
+%token	SEMI_COLON ';'
+%token	EQUAL '='
+%token	IMMEDIATE_EQUAL ":="
+%token	CONDITIONAL_EQUAL "?="
+%token	APPEND "+="
+%token	CHARACTER
+%token	NAME
+%token	MK_VARIABLE
 
 %defines
 
@@ -89,21 +78,17 @@ static void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s);
 %%
 
 file:
-	optional_space statement
-	| file EOL optional_space statement
+    /* empty */
+	| file statement
 	;
         
 statement:
-	/* empty */
-	| line
-	| mk_variable
+    space_token
+    | comment
+    | variable
+    | rule
 	;
 
-line:
-	name_token
-	| line token
-	;
-		
 variable:
 	head_with_space equal_token optional_space value_list optional_space
 	| head equal_token optional_space value_list optional_space
@@ -232,12 +217,34 @@ space:
 	}
 	;
 
+/* Lists
+ *----------------------------------------------------------------------------*/
+
+comment:
+    HASH not_eol_list EOL {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_COMMENT);
+        anjuta_token_group ($1, $3);
+    }
+    ;
+
+not_eol_list:
+    /* empty */
+    | not_eol_list not_eol_token
+    ;
+
+/* Tokens
+ *----------------------------------------------------------------------------*/
 		
 token:
 	space_token
 	| value_token
 	;            
 	
+not_eol_token:
+    SPACE
+    | word_token    
+    ;
+
 value_token:
 	equal_token
 	| rule_token
@@ -252,6 +259,22 @@ prerequisite_token:
 	| ORDER
 	| SEMI_COLON
 	;
+
+word_token:
+    SPACE
+    | TAB
+	| MACRO
+	| VARIABLE
+	| NAME
+	| CHARACTER
+	| ORDER
+	| SEMI_COLON
+	| EQUAL
+	| IMMEDIATE_EQUAL
+	| CONDITIONAL_EQUAL
+	| APPEND
+    | TAB
+    ;
 
 target_token:
 	head_token

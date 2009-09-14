@@ -138,9 +138,8 @@ impl_get_capabilities (GbfProject *_project, GError    **error)
 {
 	g_return_val_if_fail (MKP_IS_PROJECT (_project),
 			      GBF_PROJECT_CAN_ADD_NONE);
-	return (GBF_PROJECT_CAN_ADD_GROUP |
-		GBF_PROJECT_CAN_ADD_TARGET |
-		GBF_PROJECT_CAN_ADD_SOURCE);
+	
+	return GBF_PROJECT_CAN_ADD_NONE;
 }
 
 static GbfProjectGroup * 
@@ -243,19 +242,8 @@ impl_configure_group (GbfProject  *_project,
 		      const gchar *id,
 		      GError     **error)
 {
-	GtkWidget *wid = NULL;
-	GError *err = NULL;
-	
-	g_return_val_if_fail (MKP_IS_PROJECT (_project), NULL);
-	g_return_val_if_fail (id != NULL, NULL);
-	g_return_val_if_fail (error == NULL || *error == NULL, NULL);
-	
-	//wid = am_properties_get_group_widget (mkp_project (_project),
-	//						  id, &err);
-	if (err) {
-		g_propagate_error (error, err);
-	}
-	return wid;
+
+	return NULL;
 }
 
 static gchar * 
@@ -264,11 +252,7 @@ impl_add_group (GbfProject  *_project,
 		const gchar *name,
 		GError     **error)
 {
-	MkpGroup *group;
-
-	group = mkp_project_add_group(MKP_PROJECT (_project), parent_id, name, error);
-
-	return group == NULL ? NULL : mkp_group_get_id (group);
+	return NULL;
 }
 
 static void 
@@ -276,7 +260,7 @@ impl_remove_group (GbfProject  *_project,
 		   const gchar *id,
 		   GError     **error)
 {
-	mkp_project_remove_group (MKP_PROJECT (_project), id, error);
+	return;
 }
 
 static GbfProjectTarget * 
@@ -360,19 +344,9 @@ impl_configure_target (GbfProject  *_project,
 		       const gchar *id,
 		       GError     **error)
 {
-	GtkWidget *wid = NULL;
-	GError *err = NULL;
-	
 	g_return_val_if_fail (MKP_IS_PROJECT (_project), NULL);
-	g_return_val_if_fail (id != NULL, NULL);
-	g_return_val_if_fail (error == NULL || *error == NULL, NULL);
-	
-	//wid = am_properties_get_target_widget (mkp_project (_project),
-	//					   id, &err);
-	if (err) {
-		g_propagate_error (error, err);
-	}
-	return wid;
+
+	return NULL;
 }
 
 static char * 
@@ -382,13 +356,9 @@ impl_add_target (GbfProject  *_project,
 		 const gchar *type,
 		 GError     **error)
 {
-	MkpTarget *target;
-
 	g_return_val_if_fail (MKP_IS_PROJECT (_project), NULL);
-	
-	target = mkp_project_add_target(MKP_PROJECT (_project), group_id, name, type, error);
 
-	return target == NULL ? NULL : mkp_target_get_id (target);
+	return NULL;
 }
 
 static void 
@@ -398,7 +368,7 @@ impl_remove_target (GbfProject  *_project,
 {
 	g_return_if_fail (MKP_IS_PROJECT (_project));
 
-	mkp_project_remove_target (MKP_PROJECT (_project), id, error);
+	return;
 }
 
 static const gchar * 
@@ -562,13 +532,9 @@ impl_add_source (GbfProject  *_project,
 		 const gchar *uri,
 		 GError     **error)
 {
-	MkpSource *source;
-
 	g_return_val_if_fail (MKP_IS_PROJECT (_project), NULL);
-	
-	source = mkp_project_add_source(MKP_PROJECT (_project), target_id, uri, error);
 
-	return source == NULL ? NULL : mkp_source_get_id (source);
+	return NULL;
 }
 
 static void 
@@ -578,7 +544,7 @@ impl_remove_source (GbfProject  *_project,
 {
 	g_return_if_fail (MKP_IS_PROJECT (_project));
 
-	mkp_project_remove_source (MKP_PROJECT (_project), id, error);
+	return;
 }
 
 static GtkWidget *
@@ -592,7 +558,7 @@ impl_configure (GbfProject *_project, GError **error)
 static GList *
 impl_get_config_modules   (GbfProject *_project, GError **error)
 {
-	return mkp_project_get_config_modules (MKP_PROJECT(_project), error);
+	return NULL;
 }
 
 static GList *
@@ -600,7 +566,7 @@ impl_get_config_packages  (GbfProject *project,
 			   const gchar* module,
 			   GError **error)
 {
-	return mkp_project_get_config_packages (MKP_PROJECT(project), module, error);
+	return NULL;
 }
 
 /* GObject implementation
