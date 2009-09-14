@@ -33,12 +33,12 @@ G_BEGIN_DECLS
 
 typedef struct _AmpAcScanner AmpAcScanner;
 
-AmpAcScanner *mkp_ac_scanner_new (void);
-void mkp_ac_scanner_free (AmpAcScanner *scanner);
+AmpAcScanner *amp_ac_scanner_new (void);
+void amp_ac_scanner_free (AmpAcScanner *scanner);
 
-gboolean mkp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error);
+gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error);
 
-const gchar* mkp_ac_scanner_get_filename (AmpAcScanner *scanner);
+const gchar* amp_ac_scanner_get_filename (AmpAcScanner *scanner);
 
 enum 
 {
