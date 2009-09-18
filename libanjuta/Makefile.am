@@ -28,6 +28,12 @@ libanjuta_a_SOURCES = \
 	anjuta-token-style.h \
 	anjuta-token-style.c \
 	anjuta-token-file.h \
-	anjuta-token-file.c
+	anjuta-token-file.c \
+	anjuta-project.c \
+	anjuta-project.h \
+    interfaces/ianjuta-project.c \
+    interfaces/ianjuta-project.h \
+    interfaces/libanjuta-iface-marshallers.c \
+    interfaces/libanjuta-iface-marshallers.h
 
 -include $(top_srcdir)/git.mk

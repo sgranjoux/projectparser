@@ -29,6 +29,7 @@
 #include "am-project-private.h"
 
 #include <libanjuta/anjuta-debug.h>
+#include <libanjuta/anjuta-project.h>
 
 #include <string.h>
 #include <memory.h>
@@ -55,6 +56,12 @@ struct _GbfAmProject {
 struct _GbfAmProjectClass {
 	AmpProjectClass parent_class;
 };
+
+typedef struct {
+	const gchar *name;
+	AnjutaProjectTargetClass base;
+} GbfAmTypeName;
+
 
 /* ----- Standard GObject types and variables ----- */
 
@@ -152,7 +159,7 @@ impl_get_group (GbfProject  *_project,
 	AmpProject *project;
 	GbfProjectGroup *group;
 	AmpGroup *g_node;
-	AmpNode *node;
+	AnjutaProjectNode *node;
 	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
@@ -174,21 +181,21 @@ impl_get_group (GbfProject  *_project,
 	group = g_new0 (GbfProjectGroup, 1);
 	group->id = g_file_get_uri (amp_group_get_directory (g_node));
 	group->name = g_file_get_basename (amp_group_get_directory (g_node));
-	if (amp_node_parent (g_node))
-		group->parent_id = g_file_get_uri (amp_group_get_directory (amp_node_parent (g_node)));
+	if (anjuta_project_node_parent (g_node))
+		group->parent_id = g_file_get_uri (amp_group_get_directory (anjuta_project_node_parent (g_node)));
 	else
 		group->parent_id = NULL;
 	group->groups = NULL;
 	group->targets = NULL;
 
 	/* add subgroups and targets of the group */
-	for (node = amp_node_first_child (g_node); node != NULL; node = amp_node_next_sibling (node))
+	for (node = anjuta_project_node_first_child (g_node); node != NULL; node = anjuta_project_node_next_sibling (node))
 	{
-		switch (amp_node_get_type (node)) {
-			case AMP_NODE_GROUP:
+		switch (anjuta_project_node_get_type (node)) {
+			case ANJUTA_PROJECT_GROUP:
 				group->groups = g_list_prepend (group->groups, amp_group_get_id (node));
 				break;
-			case AMP_NODE_TARGET:
+			case ANJUTA_PROJECT_TARGET:
 				group->targets = g_list_prepend (group->targets, amp_target_get_id (node));
 				break;
 			default:
@@ -202,11 +209,11 @@ impl_get_group (GbfProject  *_project,
 }
 
 static gboolean
-foreach_group (AmpNode *node, gpointer data)
+foreach_group (AnjutaProjectNode *node, gpointer data)
 {
 	GList **groups = data;
 
-	if (amp_node_get_type (node) == AMP_NODE_GROUP)
+	if (anjuta_project_node_get_type (node) == ANJUTA_PROJECT_GROUP)
 	{
 		*groups = g_list_prepend (*groups, amp_group_get_id (node));
 	}
@@ -225,7 +232,7 @@ impl_get_all_groups (GbfProject *_project,
 
 	project = AMP_PROJECT (_project);
 
-	amp_node_all_foreach (amp_project_get_root (project), foreach_group, &groups);
+	anjuta_project_node_all_foreach (amp_project_get_root (project), foreach_group, &groups);
 
 	return groups;
 }
@@ -288,7 +295,7 @@ impl_get_target (GbfProject  *_project,
 	AmpProject *project;
 	GbfProjectTarget *target;
 	AmpTarget *t_node;
-	AmpNode *node;
+	AnjutaProjectNode *node;
 
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 
@@ -296,17 +303,17 @@ impl_get_target (GbfProject  *_project,
 	t_node = amp_project_get_target (project, id);
 	
 	target = g_new0 (GbfProjectTarget, 1);
-	target->group_id = amp_group_get_id (amp_node_parent (t_node));
+	target->group_id = amp_group_get_id (anjuta_project_node_parent (t_node));
 	target->id = amp_target_get_id (t_node);
-	target->name = g_strdup (amp_target_get_name (t_node));
-	target->type = g_strdup (amp_target_get_type (t_node));
+	target->name = g_strdup (anjuta_project_target_get_name (t_node));
+	target->type = g_strdup ("unknown");
 	target->sources = NULL;
 
 	/* add sources to the target */
-	for (node = amp_node_first_child (t_node); node != NULL; node = amp_node_next_sibling (node))
+	for (node = anjuta_project_node_first_child (t_node); node != NULL; node = anjuta_project_node_next_sibling (node))
 	{
-		switch (amp_node_get_type (node)) {
-			case AMP_NODE_SOURCE:
+		switch (anjuta_project_node_get_type (node)) {
+			case ANJUTA_PROJECT_SOURCE:
 				target->sources = g_list_prepend (target->sources, amp_source_get_id (node));
 				break;
 			default:
@@ -319,11 +326,11 @@ impl_get_target (GbfProject  *_project,
 }
 
 static gboolean
-foreach_target (AmpNode *node, gpointer data)
+foreach_target (AnjutaProjectNode *node, gpointer data)
 {
 	GList **targets = data;
 
-	if (amp_node_get_type (node) == AMP_NODE_GROUP)
+	if (anjuta_project_node_get_type (node) == ANJUTA_PROJECT_GROUP)
 	{
 		*targets = g_list_prepend (*targets, amp_target_get_id (node));
 	}
@@ -342,7 +349,7 @@ impl_get_all_targets (GbfProject *_project,
 
 	project = AMP_PROJECT (_project);
 
-	amp_node_all_foreach (amp_project_get_root (project), foreach_target, &targets);
+	anjuta_project_node_all_foreach (amp_project_get_root (project), foreach_target, &targets);
 
 	return targets;
 }
@@ -384,10 +391,42 @@ impl_add_target (GbfProject  *_project,
 		 GError     **error)
 {
 	AmpTarget *target;
-
+	static GbfAmTypeName TypeNames[] = {
+		{"program", ANJUTA_TARGET_EXECUTABLE},
+		{"script", ANJUTA_TARGET_EXECUTABLE},
+		{"static_lib", ANJUTA_TARGET_STATICLIB},
+		{"shared_lib", ANJUTA_TARGET_SHAREDLIB},
+		{NULL, ANJUTA_TARGET_UNKNOWN}};
+	GbfAmTypeName *types;
+	AnjutaProjectTargetClass base;
+	AnjutaProjectTargetType target_type;
+	GList *list;
+	GList *item;
+	
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
 	
-	target = amp_project_add_target(AMP_PROJECT (_project), group_id, name, type, error);
+	types = TypeNames;
+	while (types->name != NULL)
+	{
+		if (strcmp (type, types->name) == 0)
+		{
+			break;
+		}
+	};
+	base = types->base;
+
+	list = amp_project_get_target_types (AMP_PROJECT (_project), NULL);
+	target_type = (AnjutaProjectTargetType)list->data;
+	for (item = list; item != NULL; item = g_list_next (item))
+	{
+		if (anjuta_project_target_type_class ((AnjutaProjectTargetType)item->data) == base)
+		{
+			target_type = (AnjutaProjectTargetType)item->data;
+		}
+	}
+	g_list_free (list);
+	
+	target = amp_project_add_target(AMP_PROJECT (_project), group_id, name, target_type, error);
 
 	return target == NULL ? NULL : amp_target_get_id (target);
 }
@@ -486,17 +525,17 @@ impl_get_source (GbfProject  *_project,
 	source = g_new0 (GbfProjectTargetSource, 1);
 	source->id = amp_source_get_id (s_node);
 	source->source_uri = g_file_get_uri (amp_source_get_file (s_node));
-	source->target_id = amp_target_get_id (amp_node_parent (s_node));
+	source->target_id = amp_target_get_id (anjuta_project_node_parent (s_node));
 
 	return source;
 }
 
 static gboolean
-foreach_source (AmpNode *node, gpointer user_data)
+foreach_source (AnjutaProjectNode *node, gpointer user_data)
 {
 	GHashTable *hash = (GHashTable *)user_data;
 	
-	if (amp_node_get_type (node) == AMP_NODE_SOURCE)
+	if (anjuta_project_node_get_type (node) == ANJUTA_PROJECT_SOURCE)
 	{
 		g_hash_table_insert (hash, amp_source_get_file (node), amp_source_get_id (node));
 	}
@@ -519,7 +558,7 @@ impl_get_all_sources (GbfProject *_project,
 	project = AMP_PROJECT (_project);
 
 	hash = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, g_free);
-	amp_node_all_foreach (amp_project_get_root (project), foreach_source, hash);
+	anjuta_project_node_all_foreach (amp_project_get_root (project), foreach_source, hash);
 	sources = g_hash_table_get_values (hash);
 	g_hash_table_steal_all (hash);
 	g_hash_table_destroy (hash);

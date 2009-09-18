@@ -24,6 +24,7 @@
 
 #include <glib-object.h>
 
+#include <libanjuta/anjuta-project.h>
 #include <libanjuta/anjuta-token.h>
 #include <libanjuta/anjuta-token-file.h>
 #include <libanjuta/anjuta-token-style.h>
@@ -44,10 +45,9 @@ struct _AmpProjectClass {
 	GbfProjectClass parent_class;
 };
 
-typedef GNode AmpNode;
-typedef GNode AmpGroup;
-typedef GNode AmpTarget;
-typedef GNode AmpSource;
+typedef AnjutaProjectGroup AmpGroup;
+typedef AnjutaProjectTarget AmpTarget;
+typedef AnjutaProjectSource AmpSource;
 typedef struct _AmpProperty AmpProperty;
 
 typedef enum {
@@ -58,18 +58,9 @@ typedef enum {
 	AMP_PROPERTY_URL
 } AmpPropertyType;
 
-typedef GNodeTraverseFunc AmpNodeFunc;
-
-typedef enum {
-	AMP_NODE_GROUP,
-	AMP_NODE_TARGET,
-	AMP_NODE_SOURCE
-} AmpNodeType;
-
 
 GType         amp_project_get_type (GTypeModule *plugin);
 AmpProject   *amp_project_new      (void);
-
 
 gboolean amp_project_probe (AmpProject  *project, const gchar *uri, GError     **error);
 gboolean amp_project_load (AmpProject *project, const gchar *uri, GError **error);
@@ -91,7 +82,7 @@ GFile* amp_project_get_file (AmpProject *project);
 AmpGroup* amp_project_add_group (AmpProject  *project, const gchar *parent_id,	const gchar *name, GError **error);
 void amp_project_remove_group (AmpProject  *project, const gchar *id, GError **error);
 
-AmpTarget* amp_project_add_target (AmpProject  *project, const gchar *group_id, const gchar *name, const gchar *type, GError **error);
+AmpTarget* amp_project_add_target (AmpProject  *project, const gchar *group_id, const gchar *name, AnjutaProjectTargetType type, GError **error);
 void amp_project_remove_target (AmpProject  *project, const gchar *id, GError **error);
 
 AmpSource* amp_project_add_source (AmpProject  *project, const gchar *target_id, const gchar *uri, GError **error);
@@ -101,46 +92,31 @@ void amp_project_remove_source (AmpProject  *project, const gchar *id, GError **
 GList *amp_project_get_config_modules (AmpProject *project, GError **error);
 GList *amp_project_get_config_packages  (AmpProject *project, const gchar* module, GError **error);
 
+GList *amp_project_get_target_types (AmpProject *project, GError **error);
+
 gchar* amp_project_get_property (AmpProject *project, AmpPropertyType type);
 gboolean amp_project_set_property (AmpProject *project, AmpPropertyType type, const gchar* value);
 
 gchar * amp_project_get_node_id (AmpProject *project, const gchar *path);
 
-AmpNode *amp_node_parent (AmpNode *node);
-AmpNode *amp_node_first_child (AmpNode *node);
-AmpNode *amp_node_last_child (AmpNode *node);
-AmpNode *amp_node_next_sibling (AmpNode *node);
-AmpNode *amp_node_prev_sibling (AmpNode *node);
-AmpNodeType amp_node_get_type (AmpNode *node);
-void amp_node_all_foreach (AmpNode *node, AmpNodeFunc func, gpointer data);
+AnjutaProjectNode *amp_node_parent (AnjutaProjectNode *node);
+AnjutaProjectNode *amp_node_first_child (AnjutaProjectNode *node);
+AnjutaProjectNode *amp_node_last_child (AnjutaProjectNode *node);
+AnjutaProjectNode *amp_node_next_sibling (AnjutaProjectNode *node);
+AnjutaProjectNode *amp_node_prev_sibling (AnjutaProjectNode *node);
+AnjutaProjectNodeType amp_node_get_type (AnjutaProjectNode *node);
+void amp_node_all_foreach (AnjutaProjectNode *node, AnjutaProjectNodeFunc func, gpointer data);
 
 GFile *amp_group_get_directory (AmpGroup *group);
 GFile *amp_group_get_makefile (AmpGroup *group);
 gchar *amp_group_get_id (AmpGroup *group);
 
 const gchar *amp_target_get_name (AmpTarget *target);
-const gchar *amp_target_get_type (AmpTarget *target);
+AnjutaProjectTargetType amp_target_get_type (AmpTarget *target);
 gchar *amp_target_get_id (AmpTarget *target);
 
 gchar *amp_source_get_id (AmpSource *source);
 GFile *amp_source_get_file (AmpSource *source);
-
-/* FIXME: The config infrastructure should probably be made part of GbfProject
- * so that other backend implementations could use them directly and we don't
- * have to create separate configuration widgets. But then different back end
- * implementations could have significantly different config management
- * warranting separate implementations.
- */
-/* These functions returns a copy of the config. It should be free with
- * gbf_am_config_value_free() when no longer required
- */
-/*AmConfigMapping *gbf_am_project_get_config (GbfAmProject *project, GError **error);
-AmConfigMapping *gbf_am_project_get_group_config (GbfAmProject *project, const gchar *group_id, GError **error);
-AmConfigMapping *gbf_am_project_get_target_config (GbfAmProject *project, const gchar *target_id, GError **error);
-
-void am_project_set_config (AmProject *project, GbfAmConfigMapping *new_config, GError **error);
-void am_project_set_group_config (AmProject *project, const gchar *group_id, GbfAmConfigMapping *new_config, GError **error);
-void am_project_set_target_config (AmProject *project, const gchar *target_id, GbfAmConfigMapping *new_config, GError **error);*/
 
 G_END_DECLS
 

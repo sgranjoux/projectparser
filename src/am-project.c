@@ -42,6 +42,7 @@
 #include <gio/gio.h>
 #include <glib.h>
 #include "ac-scanner.h"
+#include "ac-writer.h"
 #include "am-scanner.h"
 //#include "am-config.h"
 //#include "am-properties.h"
@@ -56,8 +57,8 @@
 
 static const gchar *valid_am_makefiles[] = {"GNUmakefile.am", "makefile.am", "Makefile.am", NULL};
 
-/* convenient shortcut macro the get the AmpNode from a GNode */
-#define AMP_NODE_DATA(node)  ((node) != NULL ? (AmpNodeData *)((node)->data) : NULL)
+/* convenient shortcut macro the get the AnjutaProjectNode from a GNode */
+#define AMP_NODE_DATA(node)  ((node) != NULL ? (AnjutaProjectNodeData *)((node)->data) : NULL)
 #define AMP_GROUP_DATA(node)  ((node) != NULL ? (AmpGroupData *)((node)->data) : NULL)
 #define AMP_TARGET_DATA(node)  ((node) != NULL ? (AmpTargetData *)((node)->data) : NULL)
 #define AMP_SOURCE_DATA(node)  ((node) != NULL ? (AmpSourceData *)((node)->data) : NULL)
@@ -76,13 +77,6 @@ struct _AmpModule {
     AnjutaToken *module;
 };
 
-typedef struct _AmpNodeData AmpNodeData;
-
-struct _AmpNodeData {
-	AmpNodeType	type;			/* Node type */
-	gchar				*id;				/* Node string id, FIXME: to be removed */
-};
-
 typedef enum {
 	AM_GROUP_TOKEN_CONFIGURE,
 	AM_GROUP_TOKEN_SUBDIRS,
@@ -94,9 +88,8 @@ typedef enum {
 typedef struct _AmpGroupData AmpGroupData;
 
 struct _AmpGroupData {
-	AmpNodeData node;			/* Common node data */
+	AnjutaProjectGroupData base;		/* Common node data */
 	gboolean dist_only;			/* TRUE if the group is distributed but not built */
-	GFile *directory;				/* GFile corresponding to group directory */
 	GFile *makefile;				/* GFile corresponding to group makefile */
 	AnjutaTokenFile *tfile;		/* Corresponding Makefile */
 	GList *tokens[AM_GROUP_TOKEN_LAST];					/* List of token used by this group */
@@ -117,9 +110,7 @@ typedef enum _AmpTargetFlag
 typedef struct _AmpTargetData AmpTargetData;
 
 struct _AmpTargetData {
-	AmpNodeData node;
-	gchar *name;
-	gchar *type;
+	AnjutaProjectTargetData base;
 	gchar *install;
 	gint flags;
 	GList* tokens;
@@ -128,8 +119,7 @@ struct _AmpTargetData {
 typedef struct _AmpSourceData AmpSourceData;
 
 struct _AmpSourceData {
-	AmpNodeData node;
-	GFile *file;
+	AnjutaProjectSourceData base;
 	AnjutaToken* token;
 };
 
@@ -138,6 +128,98 @@ typedef struct _AmpConfigFile AmpConfigFile;
 struct _AmpConfigFile {
 	GFile *file;
 	AnjutaToken *token;
+};
+
+typedef struct _AmpTargetInformation AmpTargetInformation;
+
+struct _AmpTargetInformation {
+	AnjutaProjectTargetInformation base;
+	AnjutaTokenType token;
+	const gchar *prefix;
+	const gchar *install;
+};
+
+/* Target types
+ *---------------------------------------------------------------------------*/
+
+static AmpTargetInformation AmpTargetTypes[] = {
+	{{N_("Program"), ANJUTA_TARGET_EXECUTABLE,
+	"application/x-executable"},
+	AM_TOKEN__PROGRAMS,
+	"_PROGRAMS",
+	"bin"},
+	
+	{{N_("Shared Library"), ANJUTA_TARGET_SHAREDLIB,
+	"application/x-sharedlib"},
+	AM_TOKEN__LTLIBRARIES,
+	"_LTLIBRARIES",
+	"lib"},
+	
+	{{N_("Static Library"), ANJUTA_TARGET_STATICLIB,
+	"application/x-archive"},
+	AM_TOKEN__LIBRARIES,
+	"_LIBRARIES",
+	"lib"},
+	
+	{{N_("Header Files"), ANJUTA_TARGET_UNKNOWN,
+	"text/x-chdr"},
+	AM_TOKEN__HEADERS,
+	"_HEADERS",
+	"include"},
+	
+	{{N_("Man Documentation"), ANJUTA_TARGET_UNKNOWN,
+	"text/x-troff-man"},
+	AM_TOKEN__MANS,
+	"_MANS",
+	"man"},
+	
+	{{N_("Miscellaneous Data"), ANJUTA_TARGET_UNKNOWN,
+	"application/octet-stream"},
+	AM_TOKEN__DATA,
+	"_DATA",
+	"data"},
+	
+	{{N_("Script"), ANJUTA_TARGET_EXECUTABLE,
+	"text/x-shellscript"},
+	AM_TOKEN__SCRIPTS,
+	"_SCRIPTS",
+	"bin"},
+	
+	{{N_("Info Documentation"), ANJUTA_TARGET_UNKNOWN,
+	"application/x-tex-info"},
+	AM_TOKEN__TEXINFOS,
+	"_TEXINFOS",
+	"info"},
+	
+	{{N_("Java Module"), ANJUTA_TARGET_UNKNOWN,
+	"application/x-java"},
+	AM_TOKEN__JAVA,
+	"_JAVA",
+	NULL},
+	
+	{{N_("Python Module"), ANJUTA_TARGET_UNKNOWN,
+	"application/x-python"},
+	AM_TOKEN__PYTHON,
+	"_PYTHON",
+	NULL},
+	
+	{{N_("Lisp Module"), ANJUTA_TARGET_UNKNOWN,
+	"text/plain"},
+	AM_TOKEN__LISP,
+	"_LISP",
+	"lisp"},
+	
+	{{N_("Unknown"), ANJUTA_TARGET_UNKNOWN,
+	"text/plain"},
+	ANJUTA_TOKEN_NONE,
+	NULL,
+	NULL},
+	
+	{{NULL, ANJUTA_TARGET_UNKNOWN,
+	NULL},
+	ANJUTA_TOKEN_NONE,
+	NULL,
+	NULL}
 };
 
 
@@ -570,7 +652,7 @@ amp_group_add_token (AmpGroup *node, AnjutaToken *token, AmpGroupTokenCategory c
 	
 	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
 
- 	group = (AmpGroupData *)node->data;
+ 	group = AMP_GROUP_DATA (node);
 	group->tokens[category] = g_list_prepend (group->tokens[category], token);
 }
 
@@ -581,19 +663,16 @@ amp_group_get_token (AmpGroup *node, AmpGroupTokenCategory category)
 	
 	g_return_val_if_fail ((node != NULL) && (node->data != NULL), NULL); 
 
- 	group = (AmpGroupData *)node->data;
+ 	group = AMP_GROUP_DATA (node);
 	return group->tokens[category];
 }
 
 static void
 amp_group_set_dist_only (AmpGroup *node, gboolean dist_only)
 {
-    AmpGroupData *group;
-	
 	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
 
- 	group = (AmpGroupData *)node->data;
-	group->dist_only = dist_only;
+ 	AMP_GROUP_DATA (node)->dist_only = dist_only;
 }
 
 static AnjutaTokenFile*
@@ -603,7 +682,7 @@ amp_group_set_makefile (AmpGroup *node, GFile *makefile)
 	
 	g_return_val_if_fail ((node != NULL) && (node->data != NULL), NULL); 
 
- 	group = (AmpGroupData *)node->data;
+ 	group = AMP_GROUP_DATA (node);
 	if (group->makefile != NULL) g_object_unref (group->makefile);
 	if (group->tfile != NULL) anjuta_token_file_free (group->tfile);
 	if (makefile != NULL)
@@ -628,8 +707,8 @@ amp_group_new (GFile *file, gboolean dist_only)
 	g_return_val_if_fail (file != NULL, NULL);
 	
 	group = g_slice_new0(AmpGroupData); 
-	group->node.type = AMP_NODE_GROUP;
-	group->directory = g_object_ref (file);
+	group->base.node.type = ANJUTA_PROJECT_GROUP;
+	group->base.directory = g_object_ref (file);
 	group->dist_only = dist_only;
 
     return g_node_new (group);
@@ -641,8 +720,8 @@ amp_group_free (AmpGroup *node)
     AmpGroupData *group = (AmpGroupData *)node->data;
 	gint i;
 	
+	if (group->base.directory) g_object_unref (group->base.directory);
 	if (group->tfile) anjuta_token_file_free (group->tfile);
-	if (group->directory) g_object_unref (group->directory);
 	if (group->makefile) g_object_unref (group->makefile);
 	for (i = 0; i < AM_GROUP_TOKEN_LAST; i++)
 	{
@@ -663,7 +742,7 @@ amp_target_add_token (AmpGroup *node, AnjutaToken *token)
 	
 	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
 
- 	target = (AmpTargetData *)node->data;
+ 	target = AMP_TARGET_DATA (node);
 	target->tokens = g_list_prepend (target->tokens, token);
 }
 
@@ -674,20 +753,20 @@ amp_target_get_token (AmpGroup *node)
 	
 	g_return_val_if_fail ((node != NULL) && (node->data != NULL), NULL); 
 
- 	target = (AmpTargetData *)node->data;
+ 	target = AMP_TARGET_DATA (node);
 	return target->tokens;
 }
 
 
 static AmpTarget*
-amp_target_new (const gchar *name, const gchar *type, const gchar *install, gint flags)
+amp_target_new (const gchar *name, AnjutaProjectTargetType type, const gchar *install, gint flags)
 {
     AmpTargetData *target = NULL;
 
 	target = g_slice_new0(AmpTargetData); 
-	target->node.type = AMP_NODE_TARGET;
-	target->name = g_strdup (name);
-	target->type = g_strdup (type);
+	target->base.node.type = ANJUTA_PROJECT_TARGET;
+	target->base.name = g_strdup (name);
+	target->base.type = type;
 	target->install = g_strdup (install);
 	target->flags = flags;
 
@@ -697,10 +776,9 @@ amp_target_new (const gchar *name, const gchar *type, const gchar *install, gint
 static void
 amp_target_free (AmpTarget *node)
 {
-    AmpTargetData *target = (AmpTargetData *)node->data;
+    AmpTargetData *target = AMP_TARGET_DATA (node);
 	
-    g_free (target->name);
-    g_free (target->type);
+    g_free (target->base.name);
     g_free (target->install);
     g_slice_free (AmpTargetData, target);
 
@@ -716,8 +794,8 @@ amp_source_new (GFile *parent, const gchar *name)
     AmpSourceData *source = NULL;
 
 	source = g_slice_new0(AmpSourceData); 
-	source->node.type = AMP_NODE_SOURCE;
-	source->file = g_file_get_child (parent, name);
+	source->base.node.type = ANJUTA_PROJECT_SOURCE;
+	source->base.file = g_file_get_child (parent, name);
 
     return g_node_new (source);
 }
@@ -725,9 +803,9 @@ amp_source_new (GFile *parent, const gchar *name)
 static void
 amp_source_free (AmpSource *node)
 {
-    AmpSourceData *source = (AmpSourceData *)node->data;
+    AmpSourceData *source = AMP_SOURCE_DATA (node);
 	
-    g_object_unref (source->file);
+    g_object_unref (source->base.file);
     g_slice_free (AmpSourceData, source);
 
 	g_node_destroy (node);
@@ -816,7 +894,7 @@ group_hash_foreach_monitor (gpointer key,
 	AmpGroup *group_node = value;
 	AmpProject *project = user_data;
 
-	monitor_add (project, AMP_GROUP_DATA(group_node)->directory);
+	monitor_add (project, AMP_GROUP_DATA(group_node)->base.directory);
 }
 
 static void
@@ -846,16 +924,16 @@ amp_dump_node (GNode *g_node)
 	gchar *name = NULL;
 	
 	switch (AMP_NODE_DATA (g_node)->type) {
-		case AMP_NODE_GROUP:
-			name = g_file_get_uri (AMP_GROUP_DATA (g_node)->directory);
+		case ANJUTA_PROJECT_GROUP:
+			name = g_file_get_uri (AMP_GROUP_DATA (g_node)->base.directory);
 			DEBUG_PRINT ("GROUP: %s", name);
 			break;
-		case AMP_NODE_TARGET:
-			name = g_strdup (AMP_TARGET_DATA (g_node)->name);
+		case ANJUTA_PROJECT_TARGET:
+			name = g_strdup (AMP_TARGET_DATA (g_node)->base.name);
 			DEBUG_PRINT ("TARGET: %s", name);
 			break;
-		case AMP_NODE_SOURCE:
-			name = g_file_get_uri (AMP_SOURCE_DATA (g_node)->file);
+		case ANJUTA_PROJECT_SOURCE:
+			name = g_file_get_uri (AMP_SOURCE_DATA (g_node)->base.file);
 			DEBUG_PRINT ("SOURCE: %s", name);
 			break;
 		default:
@@ -870,14 +948,14 @@ foreach_node_destroy (GNode    *g_node,
 		      gpointer  data)
 {
 	switch (AMP_NODE_DATA (g_node)->type) {
-		case AMP_NODE_GROUP:
+		case ANJUTA_PROJECT_GROUP:
 			//g_hash_table_remove (project->groups, g_file_get_uri (AMP_GROUP_NODE (g_node)->file));
 			amp_group_free (g_node);
 			break;
-		case AMP_NODE_TARGET:
+		case ANJUTA_PROJECT_TARGET:
 			amp_target_free (g_node);
 			break;
-		case AMP_NODE_SOURCE:
+		case ANJUTA_PROJECT_SOURCE:
 			//g_hash_table_remove (project->sources, AMP_NODE (g_node)->id);
 			amp_source_free (g_node);
 			break;
@@ -1088,9 +1166,9 @@ project_list_config_files (AmpProject *project)
 static void
 find_target (GNode *node, gpointer data)
 {
-	if (AMP_NODE_DATA (node)->type == AMP_NODE_TARGET)
+	if (AMP_NODE_DATA (node)->type == ANJUTA_PROJECT_TARGET)
 	{
-		if (strcmp (AMP_TARGET_DATA (node)->name, *(gchar **)data) == 0)
+		if (strcmp (AMP_TARGET_DATA (node)->base.name, *(gchar **)data) == 0)
 		{
 			/* Find target, return node value in pointer */
 			*(GNode **)data = node;
@@ -1103,9 +1181,9 @@ find_target (GNode *node, gpointer data)
 static void
 find_canonical_target (GNode *node, gpointer data)
 {
-	if (AMP_NODE_DATA (node)->type == AMP_NODE_TARGET)
+	if (AMP_NODE_DATA (node)->type == ANJUTA_PROJECT_TARGET)
 	{
-		gchar *canon_name = canonicalize_automake_variable (AMP_TARGET_DATA (node)->name);	
+		gchar *canon_name = canonicalize_automake_variable (AMP_TARGET_DATA (node)->base.name);	
 		DEBUG_PRINT ("compare canon %s vs %s node %p", canon_name, *(gchar **)data, node);
 		if (strcmp (canon_name, *(gchar **)data) == 0)
 		{
@@ -1123,49 +1201,21 @@ static AnjutaToken*
 project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHashTable *orphan_sources)
 {
 	AnjutaToken *arg;
-	const gchar *type;
+	AnjutaProjectTargetType type = NULL;
 	gchar *install;
 	gchar *name;
 	gint flags;
+	AmpTargetInformation *targets = AmpTargetTypes; 
 
-	switch (anjuta_token_get_type (start))
+	while (targets->token != ANJUTA_TOKEN_NONE)
 	{
-	case AM_TOKEN__DATA:
-			type = "data";
+		if (anjuta_token_get_type (start) == targets->token)
+		{
 			break;
-	case AM_TOKEN__HEADERS:
-			type = "headers";
-			break;
-	case AM_TOKEN__LIBRARIES:
-			type =  "static_lib";
-			break;
-	case AM_TOKEN__LISP:
-			type = "lisp";
-			break;
-	case AM_TOKEN__LTLIBRARIES:
-			type = "shared_lib";
-			break;
-	case AM_TOKEN__MANS:
-			type = "man";
-			break;
-	case AM_TOKEN__PROGRAMS:
-			type = "programs";
-			break;
-	case AM_TOKEN__PYTHON:
-			type = "python";
-			break;
-	case AM_TOKEN__JAVA:
-			type = "java";
-			break;
-	case AM_TOKEN__SCRIPTS:
-			type = "script";
-			break;
-	case AM_TOKEN__TEXINFOS:
-			type = "info";
-			break;
-	default:
-			return NULL;
+		}
+		targets++;
 	}
+	type = (AnjutaProjectTargetType)targets;
 
 	name = anjuta_token_get_value (start);
 	split_automake_variable (name, &flags, &install, NULL);
@@ -1237,8 +1287,8 @@ static AnjutaToken*
 project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GHashTable *orphan_sources)
 {
 	AnjutaToken *arg;
-	AmpGroupData *group = (AmpGroupData *)parent->data;
-	GFile *parent_file = g_object_ref (group->directory);
+	AmpGroupData *group = AMP_GROUP_DATA (parent);
+	GFile *parent_file = g_object_ref (group->base.directory);
 	gchar *target_id = NULL;
 	GList *orphan = NULL;
 
@@ -1349,7 +1399,7 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, AmpGroup *parent,
 			gchar *group_id;
 			AmpGroup *group;
 
-			subdir = g_file_resolve_relative_path (AMP_GROUP_DATA (parent)->directory, value);
+			subdir = g_file_resolve_relative_path (AMP_GROUP_DATA (parent)->base.directory, value);
 			
 			/* Look for already existing group */
 			group_id = g_file_get_uri (subdir);
@@ -1735,10 +1785,10 @@ amp_project_add_group (AmpProject  *project,
 			   _("Parent group doesn't exist"));
 		return NULL;
 	}
-	if (AMP_NODE_DATA (parent)->type != AMP_NODE_GROUP) return NULL;
+	if (AMP_NODE_DATA (parent)->type != ANJUTA_PROJECT_GROUP) return NULL;
 
 	/* Check that the new group doesn't already exist */
-	directory = g_file_get_child (AMP_GROUP_DATA (parent)->directory, name);
+	directory = g_file_get_child (AMP_GROUP_DATA (parent)->base.directory, name);
 	uri = g_file_get_uri (directory);
 	if (g_hash_table_lookup (project->groups, uri) != NULL)
 	{
@@ -1798,7 +1848,7 @@ amp_project_add_group (AmpProject  *project,
 	}
 	
 	/* Add in Makefile.am */
-	for (last = g_node_prev_sibling (child); (last != NULL) && (AMP_NODE_DATA (last)->type != AMP_NODE_GROUP); last = g_node_prev_sibling (last));
+	for (last = g_node_prev_sibling (child); (last != NULL) && (AMP_NODE_DATA (last)->type != ANJUTA_PROJECT_GROUP); last = g_node_prev_sibling (last));
 	if (last == NULL)
 	{
 		AnjutaToken *prev_token;
@@ -1887,7 +1937,7 @@ amp_project_remove_group (AmpProject  *project,
 			   _("Parent group doesn't exist"));
 		return;
 	}
-	if (AMP_NODE_DATA (group)->type != AMP_NODE_GROUP) return;
+	if (AMP_NODE_DATA (group)->type != ANJUTA_PROJECT_GROUP) return;
 	
 	for (token_list = amp_group_get_token (group, AM_GROUP_TOKEN_CONFIGURE); token_list != NULL; token_list = g_list_next (token_list))
 	{
@@ -1905,101 +1955,11 @@ amp_project_remove_group (AmpProject  *project,
 	amp_group_free (group);
 }
 
-static AnjutaTokenType
-anjuta_token_for_target_type (const gchar *type)
-{
-	if (!strcmp (type, "static_lib")) {
-		return AM_TOKEN__LIBRARIES;
-	} else if (!strcmp (type, "shared_lib")) {
-		return AM_TOKEN__LTLIBRARIES;
-	} else if (!strcmp (type, "headers")) {
-		return AM_TOKEN__HEADERS;
-	} else if (!strcmp (type, "man")) {
-		return AM_TOKEN__MANS;
-	} else if (!strcmp (type, "data")) {
-		return AM_TOKEN__DATA;
-	} else if (!strcmp (type, "program")) {
-		return AM_TOKEN__PROGRAMS;
-	} else if (!strcmp (type, "script")) {
-		return AM_TOKEN__SCRIPTS;
-	} else if (!strcmp (type, "info")) {
-		return AM_TOKEN__TEXINFOS;
-	} else if (!strcmp (type, "java")) {
-		return AM_TOKEN__JAVA;
-	} else if (!strcmp (type, "python")) {
-		return AM_TOKEN__PYTHON;
-	} else if (!strcmp (type, "lisp")) {
-		return AM_TOKEN__LISP;
-	} else {
-		return ANJUTA_TOKEN_NAME;
-	}
-}
-
-static const gchar*
-autotool_prefix_for_target_type (const gchar *type)
-{
-	if (!strcmp (type, "static_lib")) {
-		return "_LIBRARIES";
-	} else if (!strcmp (type, "shared_lib")) {
-		return "_LTLIBRARIES";
-	} else if (!strcmp (type, "headers")) {
-		return "_HEADERS";
-	} else if (!strcmp (type, "man")) {
-		return "_MANS";
-	} else if (!strcmp (type, "data")) {
-		return "_DATA";
-	} else if (!strcmp (type, "program")) {
-		return "_PROGRAMS";
-	} else if (!strcmp (type, "script")) {
-		return "_SCRIPTS";
-	} else if (!strcmp (type, "info")) {
-		return "_TEXINFOS";
-	} else if (!strcmp (type, "java")) {
-		return "_JAVA";
-	} else if (!strcmp (type, "python")) {
-		return "_PYTHON";
-	} else if (!strcmp (type, "lisp")) {
-		return "_LISP";
-	} else {
-		return "";
-	}
-}
-
-static const gchar * 
-default_install_for_target_type (const gchar *type)
-{
-	if (!strcmp (type, "static_lib")) {
-		return _("lib");
-	} else if (!strcmp (type, "shared_lib")) {
-		return _("lib");
-	} else if (!strcmp (type, "headers")) {
-		return _("include");
-	} else if (!strcmp (type, "man")) {
-		return _("man");
-	} else if (!strcmp (type, "data")) {
-		return _("data");
-	} else if (!strcmp (type, "program")) {
-		return _("bin");
-	} else if (!strcmp (type, "script")) {
-		return _("bin");
-	} else if (!strcmp (type, "info")) {
-		return _("info");
-	} else if (!strcmp (type, "java")) {
-		return _("Java Module");
-	} else if (!strcmp (type, "python")) {
-		return _("Python Module");
-	} else if (!strcmp (type, "lisp")) {
-		return _("lisp");
-	} else {
-		return _("Unknown");
-	}
-}
-
 AmpTarget*
 amp_project_add_target (AmpProject  *project,
 		 const gchar *group_id,
 		 const gchar *name,
-		 const gchar *type,
+		 AnjutaProjectTargetType type,
 		 GError     **error)
 {
 	AmpGroup *parent;
@@ -2036,7 +1996,7 @@ amp_project_add_target (AmpProject  *project,
 			return NULL;
 		}
 	}
-	if (!strcmp (type, "shared_lib")) {
+	if (type->base == ANJUTA_TARGET_SHAREDLIB) {
 		if (strlen (name) < 7 ||
 		    strncmp (name, "lib", strlen("lib")) != 0 ||
 		    strcmp (&name[strlen(name) - 3], ".la") != 0) {
@@ -2045,7 +2005,7 @@ amp_project_add_target (AmpProject  *project,
 			return NULL;
 		}
 	}
-	else if (!strcmp (type, "static_lib")) {
+	else if (type->base == ANJUTA_TARGET_STATICLIB) {
 		if (strlen (name) < 6 ||
 		    strncmp (name, "lib", strlen("lib")) != 0 ||
 		    strcmp (&name[strlen(name) - 2], ".a") != 0) {
@@ -2063,7 +2023,7 @@ amp_project_add_target (AmpProject  *project,
 			   _("Parent group doesn't exist"));
 		return NULL;
 	}
-	if (AMP_NODE_DATA (parent)->type != AMP_NODE_GROUP) return NULL;
+	if (AMP_NODE_DATA (parent)->type != ANJUTA_PROJECT_GROUP) return NULL;
 
 	/* Check that the new target doesn't already exist */
 	find = (gchar *)name;
@@ -2081,7 +2041,7 @@ amp_project_add_target (AmpProject  *project,
 	g_node_append (parent, child);
 
 	/* Add in Makefile.am */
-	targetname = g_strconcat (default_install_for_target_type (type), autotool_prefix_for_target_type (type), NULL);
+	targetname = g_strconcat (((AmpTargetInformation *)type)->install, ((AmpTargetInformation *)type)->prefix, NULL);
 
 	for (last = amp_group_get_token (parent, AM_GROUP_TARGET); last != NULL; last = g_list_next (last))
 	{
@@ -2095,7 +2055,7 @@ amp_project_add_target (AmpProject  *project,
 		g_free (value);
 	}
 
-	token = anjuta_token_new_string (anjuta_token_for_target_type (type), targetname);
+	token = anjuta_token_new_string (((AmpTargetInformation *)type)->token, targetname);
 	g_free (targetname);
 
 	if (last == NULL)
@@ -2172,7 +2132,7 @@ amp_project_remove_target (AmpProject  *project,
 	buffer = (AmpSource **)g_base64_decode (id, &dummy);
 	target = *buffer;
 	g_free (buffer);
-	if (AMP_NODE_DATA (target)->type != AMP_NODE_TARGET) return;
+	if (AMP_NODE_DATA (target)->type != ANJUTA_PROJECT_TARGET) return;
 	
 	for (token_list = amp_target_get_token (target); token_list != NULL; token_list = g_list_next (token_list))
 	{
@@ -2203,7 +2163,7 @@ amp_project_add_source (AmpProject  *project,
 	target = (AmpTarget *)*buffer;
 	g_free (buffer);
 
-	if (AMP_NODE_DATA (target)->type != AMP_NODE_TARGET) return NULL;
+	if (AMP_NODE_DATA (target)->type != ANJUTA_PROJECT_TARGET) return NULL;
 
 	group = (AmpGroup *)(target->parent);
 
@@ -2229,7 +2189,7 @@ amp_project_add_source (AmpProject  *project,
 		anjuta_token_free (eol_tok);
 
 		/* Add a _SOURCES variable just after */
-		canon_name = canonicalize_automake_variable (AMP_TARGET_DATA (target)->name);
+		canon_name = canonicalize_automake_variable (AMP_TARGET_DATA (target)->base.name);
 		target_var = g_strconcat (canon_name,  "_SOURCES", NULL);
 		g_free (canon_name);
 		tok = anjuta_token_insert_after (tok, anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, target_var));
@@ -2250,7 +2210,7 @@ amp_project_add_source (AmpProject  *project,
 	}
 	
 	/* Add source node in project tree */
-	source = amp_source_new (AMP_GROUP_DATA (group)->directory, uri);
+	source = amp_source_new (AMP_GROUP_DATA (group)->base.directory, uri);
 	AMP_SOURCE_DATA(source)->token = token;
 	g_node_append (target, source);
 
@@ -2271,7 +2231,7 @@ amp_project_remove_source (AmpProject  *project,
 	g_free (buffer);
 
 	amp_dump_node (source);
-	if (AMP_NODE_DATA (source)->type != AMP_NODE_SOURCE) return;
+	if (AMP_NODE_DATA (source)->type != ANJUTA_PROJECT_SOURCE) return;
 	
 	remove_list_item (AMP_SOURCE_DATA (source)->token, NULL);
 
@@ -2311,6 +2271,23 @@ amp_project_get_config_packages  (AmpProject *project,
 
 	return packages;
 }
+
+GList *
+amp_project_get_target_types (AmpProject *project, GError **error)
+{
+	AnjutaProjectTargetType type = NULL;
+	AmpTargetInformation *targets = AmpTargetTypes; 
+	GList *types = NULL;
+
+	while (targets->base.name != NULL)
+	{
+		types = g_list_prepend (types, targets);
+		targets++;
+	}
+
+	return types;
+}
+
 
 /* Public functions
  *---------------------------------------------------------------------------*/
@@ -2361,11 +2338,11 @@ amp_project_move (AmpProject *project, const gchar *path)
 	{
 		AmpGroup *group = (AmpGroup *)value;
 		
-		relative = get_relative_path (old_root_file, AMP_GROUP_DATA (group)->directory);
+		relative = get_relative_path (old_root_file, AMP_GROUP_DATA (group)->base.directory);
 		new_file = g_file_resolve_relative_path (project->root_file, relative);
 		g_free (relative);
-		g_object_unref (AMP_GROUP_DATA (group)->directory);
-		AMP_GROUP_DATA (group)->directory = new_file;
+		g_object_unref (AMP_GROUP_DATA (group)->base.directory);
+		AMP_GROUP_DATA (group)->base.directory = new_file;
 
 		g_hash_table_insert (project->groups, g_file_get_uri (new_file), group);
 	}
@@ -2508,10 +2485,10 @@ amp_project_get_node_id (AmpProject *project, const gchar *path)
 
 	switch (AMP_NODE_DATA (node)->type)
 	{
-		case AMP_NODE_GROUP:
-			return g_file_get_uri (AMP_GROUP_DATA (node)->directory);
-		case AMP_NODE_TARGET:
-		case AMP_NODE_SOURCE:
+		case ANJUTA_PROJECT_GROUP:
+			return g_file_get_uri (AMP_GROUP_DATA (node)->base.directory);
+		case ANJUTA_PROJECT_TARGET:
+		case ANJUTA_PROJECT_SOURCE:
 			return g_base64_encode ((guchar *)&node, sizeof (node));
 		default:
 			return NULL;
@@ -2595,58 +2572,13 @@ amp_project_set_property (AmpProject *project, AmpPropertyType type, const gchar
 }
 
 
-/* Node access functions
- *---------------------------------------------------------------------------*/
-
-AmpNode *
-amp_node_parent(AmpNode *node)
-{
-	return node->parent;
-}
-
-AmpNode *
-amp_node_first_child(AmpNode *node)
-{
-	return g_node_first_child (node);
-}
-
-AmpNode *
-amp_node_last_child(AmpNode *node)
-{
-	return g_node_last_child (node);
-}
-
-AmpNode *
-amp_node_next_sibling (AmpNode *node)
-{
-	return g_node_next_sibling (node);
-}
-
-AmpNode *
-amp_node_prev_sibling (AmpNode *node)
-{
-	return g_node_prev_sibling (node);
-}
-
-AmpNodeType
-amp_node_get_type (AmpNode *node)
-{
-	return AMP_NODE_DATA (node)->type;
-}
-
-void
-amp_node_all_foreach (AmpNode *node, AmpNodeFunc func, gpointer data)
-{
-	g_node_traverse (node, G_PRE_ORDER, G_TRAVERSE_ALL, -1, func, data);
-}
-
 /* Group access functions
  *---------------------------------------------------------------------------*/
 
 GFile*
 amp_group_get_directory (AmpGroup *group)
 {
-	return AMP_GROUP_DATA (group)->directory;
+	return AMP_GROUP_DATA (group)->base.directory;
 }
 
 GFile*
@@ -2658,7 +2590,7 @@ amp_group_get_makefile (AmpGroup *group)
 gchar *
 amp_group_get_id (AmpGroup *group)
 {
-	return g_file_get_uri (AMP_GROUP_DATA (group)->directory);
+	return g_file_get_uri (AMP_GROUP_DATA (group)->base.directory);
 }
 
 /* Target access functions
@@ -2667,13 +2599,13 @@ amp_group_get_id (AmpGroup *group)
 const gchar *
 amp_target_get_name (AmpTarget *target)
 {
-	return AMP_TARGET_DATA (target)->name;
+	return AMP_TARGET_DATA (target)->base.name;
 }
 
-const gchar *
+AnjutaProjectTargetType
 amp_target_get_type (AmpTarget *target)
 {
-	return AMP_TARGET_DATA (target)->type;
+	return AMP_TARGET_DATA (target)->base.type;
 }
 
 gchar *
@@ -2694,7 +2626,7 @@ amp_source_get_id (AmpSource *source)
 GFile*
 amp_source_get_file (AmpSource *source)
 {
-	return AMP_SOURCE_DATA (source)->file;
+	return AMP_SOURCE_DATA (source)->base.file;
 }
 
 /* GbfProject implementation
