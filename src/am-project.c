@@ -2564,18 +2564,27 @@ iproject_get_capabilities (IAnjutaProject *obj, GError **err)
 static GList* 
 iproject_get_packages (IAnjutaProject *obj, GError **err)
 {
-	GList *modules = NULL;
-	GList *packages = NULL;
+	GList *modules;
+	GList *packages;
 	GList* node;
-
+	GHashTable *all = g_hash_table_new (g_str_hash, g_str_equal);
+	
 	modules = amp_project_get_config_modules (AMP_PROJECT (obj), NULL);
 	for (node = modules; node != NULL; node = g_list_next (node))
 	{
-		GList *mod_pkgs = amp_project_get_config_packages (AMP_PROJECT (obj), (const gchar *)node->data, NULL);
-		packages = g_list_concat (packages, mod_pkgs);
+		GList *pack;
+		
+		packages = amp_project_get_config_packages (AMP_PROJECT (obj), (const gchar *)node->data, NULL);
+		for (pack = packages; pack != NULL; pack = g_list_next (pack))
+		{
+			g_hash_table_replace (all, pack->data, NULL);
+		}
+	    g_list_free (packages);
 	}
-    g_list_foreach (modules, (GFunc)g_free, NULL);
     g_list_free (modules);
+
+	packages = g_hash_table_get_keys (all);
+	g_hash_table_destroy (all);
 	
 	return packages;
 }

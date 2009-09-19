@@ -19,7 +19,6 @@
 
 #include "config.h"
 
-#include "gbf-am-project.h"
 #include "am-project.h"
 #include "libanjuta/anjuta-debug.h"
 #include "libanjuta/anjuta-project.h"
@@ -70,13 +69,10 @@ void list_target (IAnjutaProject *project, AnjutaProjectTarget *target, gint ind
 	AnjutaProjectSource *source;
 	guint count = 0;
 	GFile *root;
-	gchar *uri;
 
 	if (target == NULL) return;
 
-	uri = amp_project_get_uri (AMP_PROJECT (project));
-	root = g_file_new_for_uri (uri);
-	g_free (uri);
+	root = anjuta_project_group_get_directory (ianjuta_project_get_root (project, NULL));
 	
 	indent++;
 	print ("%*sTARGET (%s): %s", indent * INDENT, "", path, anjuta_project_target_get_name (target)); 
@@ -92,8 +88,6 @@ void list_target (IAnjutaProject *project, AnjutaProjectTarget *target, gint ind
 		g_free (child_path);
 		count++;
 	}
-
-	g_object_unref (root);
 }
 
 void list_group (IAnjutaProject *project, AnjutaProjectGroup *group, gint indent, const gchar *path)
@@ -172,27 +166,17 @@ void list_property (IAnjutaProject *project)
 	g_free (value);
 }
 
-void list_module (IAnjutaProject *project)
+void list_package (IAnjutaProject *project)
 {
-	GList *modules;
+	GList *packages;
 	GList *node;
 	
-	modules = amp_project_get_config_modules (AMP_PROJECT (project), NULL);
-	for (node = modules; node != NULL; node = g_list_next (node))
+	packages = ianjuta_project_get_packages (project, NULL);
+	for (node = packages; node != NULL; node = g_list_next (node))
 	{
-		GList *packages;
-		GList *pack;
-
-		print ("%*sMODULE: %s", INDENT, "", (const gchar *)node->data);
-		
-		packages = amp_project_get_config_packages (AMP_PROJECT (project), (const gchar *)node->data, NULL);
-		for (pack = packages; pack != NULL; pack = g_list_next (pack))
-		{
-			print ("%*sPACKAGE: %s", 2 * INDENT, "", (const gchar *)pack->data);
-		}
-		g_list_free (packages);
+		print ("%*sPACKAGE: %s", INDENT, "", (const gchar *)node->data);
 	}
-	g_list_free (modules);
+	g_list_free (packages);
 }
 
 static AnjutaProjectNode *
@@ -235,24 +219,6 @@ get_node (IAnjutaProject *project, const char *path)
 	return node;
 }
 
-static AnjutaProjectGroup *
-get_group (IAnjutaProject *project, const char *id)
-{
-	return (AnjutaProjectGroup *)get_node (project, id);
-}
-
-static AnjutaProjectTarget *
-get_target (IAnjutaProject *project, const char *id)
-{
-	return (AnjutaProjectTarget *)get_node (project, id);
-}
-
-static AnjutaProjectSource *
-get_source (IAnjutaProject *project, const char *id)
-{
-	return (AnjutaProjectSource *)get_node (project, id);
-}
-
 static GFile *
 get_file (AnjutaProjectTarget *target, const char *id)
 {
@@ -269,7 +235,7 @@ get_type (IAnjutaProject *project, const char *id)
 	GList *item;
 	guint num = atoi (id);
 	
-	list = amp_project_get_target_types (AMP_PROJECT (project), NULL);
+	list = ianjuta_project_get_target_types (project, NULL);
 	type = (AnjutaProjectTargetType)list->data;
 	for (item = list; item != NULL; item = g_list_next (item))
 	{
@@ -317,7 +283,7 @@ main(int argc, char *argv[])
 	}
 
 	/* Create project */
-	project = IANJUTA_PROJECT (g_object_new (GBF_TYPE_AM_PROJECT, NULL));
+	project = IANJUTA_PROJECT (g_object_new (AMP_TYPE_PROJECT, NULL));
 
 	/* Execute commands */
 	for (command = &argv[1]; *command != NULL; command++)
@@ -333,7 +299,7 @@ main(int argc, char *argv[])
 		{
 			list_property (project);
 			
-			list_module (project);
+			list_package (project);
 
 			list_group (project, ianjuta_project_get_root (project, NULL), 0, "0");
 		}
