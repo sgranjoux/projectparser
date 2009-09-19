@@ -593,15 +593,22 @@ AnjutaToken *anjuta_token_get_next_arg (AnjutaToken *arg, gchar ** value)
 
 AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const char *value)
 {
-	AnjutaTokenData *data;
+	if (value == NULL)
+	{
+		return anjuta_token_new_static (type, NULL);
+	}
+	else
+	{
+		AnjutaTokenData *data;
 
-	data = g_slice_new0 (AnjutaTokenData);
-	data->type = type  & ANJUTA_TOKEN_TYPE;
-	data->flags = type & ANJUTA_TOKEN_FLAGS;
-	data->pos = g_strdup (value);
-	data->length = strlen (value);
+		data = g_slice_new0 (AnjutaTokenData);
+		data->type = type  & ANJUTA_TOKEN_TYPE;
+		data->flags = type & ANJUTA_TOKEN_FLAGS;
+		data->pos = g_strdup (value);
+		data->length = strlen (value);
 
-	return (AnjutaToken *)g_node_new (data);
+		return (AnjutaToken *)g_node_new (data);
+	}
 }
 	
 AnjutaToken *

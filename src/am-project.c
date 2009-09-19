@@ -147,6 +147,12 @@ struct _AmpTargetInformation {
  *---------------------------------------------------------------------------*/
 
 static AmpTargetInformation AmpTargetTypes[] = {
+	{{N_("Unknown"), ANJUTA_TARGET_UNKNOWN,
+	"text/plain"},
+	ANJUTA_TOKEN_NONE,
+	NULL,
+	NULL},
+
 	{{N_("Program"), ANJUTA_TARGET_EXECUTABLE,
 	"application/x-executable"},
 	AM_TOKEN__PROGRAMS,
@@ -212,12 +218,6 @@ static AmpTargetInformation AmpTargetTypes[] = {
 	AM_TOKEN__LISP,
 	"_LISP",
 	"lisp"},
-	
-	{{N_("Unknown"), ANJUTA_TARGET_UNKNOWN,
-	"text/plain"},
-	ANJUTA_TOKEN_NONE,
-	NULL,
-	NULL},
 	
 	{{NULL, ANJUTA_TARGET_UNKNOWN,
 	NULL},
@@ -1211,15 +1211,16 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 	gint flags;
 	AmpTargetInformation *targets = AmpTargetTypes; 
 
-	while (targets->token != ANJUTA_TOKEN_NONE)
+	type = (AnjutaProjectTargetType)targets;
+	while (targets->base.name != NULL)
 	{
 		if (anjuta_token_get_type (start) == targets->token)
 		{
+			type = (AnjutaProjectTargetType)targets;
 			break;
 		}
 		targets++;
 	}
-	type = (AnjutaProjectTargetType)targets;
 
 	name = anjuta_token_get_value (start);
 	split_automake_variable (name, &flags, &install, NULL);
@@ -2237,6 +2238,7 @@ amp_project_get_target_types (AmpProject *project, GError **error)
 		types = g_list_prepend (types, targets);
 		targets++;
 	}
+	types = g_list_reverse (types);
 
 	return types;
 }

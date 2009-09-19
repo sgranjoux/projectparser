@@ -61,6 +61,11 @@ anjuta_project_node_prev_sibling (AnjutaProjectNode *node)
 	return g_node_prev_sibling (node);
 }
 
+AnjutaProjectNode *anjuta_project_node_nth_child (AnjutaProjectNode *node, guint n)
+{
+	return g_node_nth_child (node, n);
+}
+
 void
 anjuta_project_node_all_foreach (AnjutaProjectNode *node, AnjutaProjectNodeFunc func, gpointer data)
 {

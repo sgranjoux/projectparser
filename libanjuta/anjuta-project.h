@@ -87,6 +87,7 @@ AnjutaProjectNode *anjuta_project_node_first_child (AnjutaProjectNode *node);
 AnjutaProjectNode *anjuta_project_node_last_child (AnjutaProjectNode *node);
 AnjutaProjectNode *anjuta_project_node_next_sibling (AnjutaProjectNode *node);
 AnjutaProjectNode *anjuta_project_node_prev_sibling (AnjutaProjectNode *node);
+AnjutaProjectNode *anjuta_project_node_nth_child (AnjutaProjectNode *node, guint n);
 void anjuta_project_node_all_foreach (AnjutaProjectNode *node, AnjutaProjectNodeFunc func, gpointer data);
 
 AnjutaProjectNodeType anjuta_project_node_get_type (AnjutaProjectNode *node);
