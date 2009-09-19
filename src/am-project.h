@@ -32,11 +32,16 @@
 
 G_BEGIN_DECLS
 
-#define AMP_TYPE_PROJECT		(amp_project_get_type (NULL))
+#define AMP_TYPE_PROJECT		(amp_project_get_type ())
 #define AMP_PROJECT(obj)		(G_TYPE_CHECK_INSTANCE_CAST ((obj), AMP_TYPE_PROJECT, AmpProject))
 #define AMP_PROJECT_CLASS(klass)	(G_TYPE_CHECK_CLASS_CAST ((klass), AMP_TYPE_PROJECT, AmpProjectClass))
 #define AMP_IS_PROJECT(obj)		(G_TYPE_CHECK_INSTANCE_TYPE ((obj), AMP_TYPE_PROJECT))
 #define AMP_IS_PROJECT_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE ((obj), AMP_TYPE_PROJECT))
+
+#define AMP_GROUP(obj)		((AmpGroup *)obj)
+#define AMP_TARGET(obj)		((AmpTarget *)obj)
+#define AMP_SOURCE(obj)		((AmpSource *)obj)
+
 
 typedef struct _AmpProject        AmpProject;
 typedef struct _AmpProjectClass   AmpProjectClass;
@@ -59,11 +64,11 @@ typedef enum {
 } AmpPropertyType;
 
 
-GType         amp_project_get_type (GTypeModule *plugin);
+GType         amp_project_get_type (void);
 AmpProject   *amp_project_new      (void);
 
-gboolean amp_project_probe (AmpProject  *project, const gchar *uri, GError     **error);
-gboolean amp_project_load (AmpProject *project, const gchar *uri, GError **error);
+gboolean amp_project_probe (AmpProject  *project, GFile *directory, GError     **error);
+gboolean amp_project_load (AmpProject *project, GFile *directory, GError **error);
 gboolean amp_project_reload (AmpProject *project, GError **error);
 void amp_project_unload (AmpProject *project);
 
@@ -79,14 +84,14 @@ gboolean amp_project_save (AmpProject *project, GError **error);
 gchar * amp_project_get_uri (AmpProject *project);
 GFile* amp_project_get_file (AmpProject *project);
 
-AmpGroup* amp_project_add_group (AmpProject  *project, const gchar *parent_id,	const gchar *name, GError **error);
-void amp_project_remove_group (AmpProject  *project, const gchar *id, GError **error);
+AmpGroup* amp_project_add_group (AmpProject  *project, AmpGroup *parent, const gchar *name, GError **error);
+void amp_project_remove_group (AmpProject  *project, AmpGroup *group, GError **error);
 
-AmpTarget* amp_project_add_target (AmpProject  *project, const gchar *group_id, const gchar *name, AnjutaProjectTargetType type, GError **error);
-void amp_project_remove_target (AmpProject  *project, const gchar *id, GError **error);
+AmpTarget* amp_project_add_target (AmpProject  *project, AmpGroup *parent, const gchar *name, AnjutaProjectTargetType type, GError **error);
+void amp_project_remove_target (AmpProject  *project, AmpTarget *target, GError **error);
 
-AmpSource* amp_project_add_source (AmpProject  *project, const gchar *target_id, const gchar *uri, GError **error);
-void amp_project_remove_source (AmpProject  *project, const gchar *id, GError **error);
+AmpSource* amp_project_add_source (AmpProject  *project, AmpTarget *parent, GFile *file, GError **error);
+void amp_project_remove_source (AmpProject  *project, AmpSource *source, GError **error);
 
 
 GList *amp_project_get_config_modules (AmpProject *project, GError **error);

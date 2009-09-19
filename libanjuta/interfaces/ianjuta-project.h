@@ -54,7 +54,7 @@ struct _IAnjutaProjectIface {
 	void (*project_updated) (IAnjutaProject *obj);
 
 	AnjutaProjectGroup* (*add_group) (IAnjutaProject *obj, AnjutaProjectGroup *parent,  const gchar *name, GError **err);
-	AnjutaProjectSource* (*add_source) (IAnjutaProject *obj, AnjutaProjectGroup *parent,  GFile *file, GError **err);
+	AnjutaProjectSource* (*add_source) (IAnjutaProject *obj, AnjutaProjectTarget *parent,  GFile *file, GError **err);
 	AnjutaProjectTarget* (*add_target) (IAnjutaProject *obj, AnjutaProjectGroup *parent,  const gchar *name,  AnjutaProjectTargetType type, GError **err);
 	GtkWidget* (*configure) (IAnjutaProject *obj, GError **err);
 	guint (*get_capabilities) (IAnjutaProject *obj, GError **err);
@@ -74,7 +74,7 @@ GType  ianjuta_project_get_type        (void);
 
 AnjutaProjectGroup* ianjuta_project_add_group (IAnjutaProject *obj, AnjutaProjectGroup *parent,  const gchar *name, GError **err);
 
-AnjutaProjectSource* ianjuta_project_add_source (IAnjutaProject *obj, AnjutaProjectGroup *parent,  GFile *file, GError **err);
+AnjutaProjectSource* ianjuta_project_add_source (IAnjutaProject *obj, AnjutaProjectTarget *parent,  GFile *file, GError **err);
 
 AnjutaProjectTarget* ianjuta_project_add_target (IAnjutaProject *obj, AnjutaProjectGroup *parent,  const gchar *name,  AnjutaProjectTargetType type, GError **err);
 

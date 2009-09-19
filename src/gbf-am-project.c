@@ -105,7 +105,13 @@ impl_probe (GbfProject  *_project,
 	    const gchar *uri,
 	    GError     **error)
 {
-	return amp_project_probe (AMP_PROJECT (_project), uri, error);
+	GFile *file = g_file_new_for_path (uri);
+	gboolean ok;
+	
+	ok = amp_project_probe (AMP_PROJECT (_project), file, error);
+	g_object_unref (file);
+
+	return ok;
 }
 
 static void 
@@ -114,17 +120,22 @@ impl_load (GbfProject  *_project,
 	   GError     **error)
 {
 	AmpProject *project = AMP_PROJECT (_project);
+	GFile *file;
 	
 	g_return_if_fail (uri != NULL);
 
 	/* unload current project */
 	amp_project_unload (project);
 
+	file = g_file_new_for_path (uri);
+	
 	/* some basic checks */
-	if (!amp_project_probe (project, uri, error)) return;
+	if (!amp_project_probe (project, file, error)) return;
 	
 	/* now try loading the project */
-	amp_project_load (project, uri, error);	
+	amp_project_load (project, file, error);
+
+	g_object_unref (file);
 }
 
 static void
@@ -274,7 +285,9 @@ impl_add_group (GbfProject  *_project,
 {
 	AmpGroup *group;
 
-	group = amp_project_add_group(AMP_PROJECT (_project), parent_id, name, error);
+	group = amp_project_add_group(AMP_PROJECT (_project),
+	    amp_project_get_group(AMP_PROJECT (_project), parent_id),
+	    name, error);
 
 	return group == NULL ? NULL : amp_group_get_id (group);
 }
@@ -284,7 +297,9 @@ impl_remove_group (GbfProject  *_project,
 		   const gchar *id,
 		   GError     **error)
 {
-	amp_project_remove_group (AMP_PROJECT (_project), id, error);
+	amp_project_remove_group (AMP_PROJECT (_project),
+	    amp_project_get_group (AMP_PROJECT (_project), id),
+	    error);
 }
 
 static GbfProjectTarget * 
@@ -426,7 +441,9 @@ impl_add_target (GbfProject  *_project,
 	}
 	g_list_free (list);
 	
-	target = amp_project_add_target(AMP_PROJECT (_project), group_id, name, target_type, error);
+	target = amp_project_add_target(AMP_PROJECT (_project),
+	    amp_project_get_group (AMP_PROJECT (_project), group_id),
+		    name, target_type, error);
 
 	return target == NULL ? NULL : amp_target_get_id (target);
 }
@@ -438,7 +455,9 @@ impl_remove_target (GbfProject  *_project,
 {
 	g_return_if_fail (AMP_IS_PROJECT (_project));
 
-	amp_project_remove_target (AMP_PROJECT (_project), id, error);
+	amp_project_remove_target (AMP_PROJECT (_project),
+	    amp_project_get_target (AMP_PROJECT (_project),id),
+	    error);
 }
 
 static const gchar * 
@@ -603,11 +622,22 @@ impl_add_source (GbfProject  *_project,
 		 GError     **error)
 {
 	AmpSource *source;
+	AmpTarget *target;
+	AmpGroup *group;
+	GFile *file;
 
 	g_return_val_if_fail (AMP_IS_PROJECT (_project), NULL);
-	
-	source = amp_project_add_source(AMP_PROJECT (_project), target_id, uri, error);
 
+	target = amp_project_get_target (AMP_PROJECT (_project), target_id);
+	group = AMP_GROUP (anjuta_project_node_parent(target));
+	file = g_file_resolve_relative_path (amp_group_get_directory (group), uri);
+	
+	source = amp_project_add_source(AMP_PROJECT (_project),
+	    target,
+	    file, error);
+
+	g_object_unref (file);
+	
 	return source == NULL ? NULL : amp_source_get_id (source);
 }
 
@@ -618,7 +648,9 @@ impl_remove_source (GbfProject  *_project,
 {
 	g_return_if_fail (AMP_IS_PROJECT (_project));
 
-	amp_project_remove_source (AMP_PROJECT (_project), id, error);
+	amp_project_remove_source (AMP_PROJECT (_project),
+	    amp_project_get_source (AMP_PROJECT (_project), id),
+	    error);
 }
 
 static GtkWidget *

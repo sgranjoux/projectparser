@@ -81,16 +81,16 @@ ianjuta_project_add_group_default (IAnjutaProject *obj, AnjutaProjectGroup *pare
 * Returns: The new source or NULL on error.
 */
 AnjutaProjectSource*
-ianjuta_project_add_source (IAnjutaProject *obj, AnjutaProjectGroup *parent,   GFile *file, GError **err)
+ianjuta_project_add_source (IAnjutaProject *obj, AnjutaProjectTarget *parent,   GFile *file, GError **err)
 {
 	g_return_val_if_fail (IANJUTA_IS_PROJECT(obj), NULL);
-	g_return_val_if_fail ((parent == NULL) ||ANJUTA_IS_PROJECT_GROUP(parent), NULL);
+	g_return_val_if_fail ((parent == NULL) ||ANJUTA_IS_PROJECT_TARGET(parent), NULL);
 	return IANJUTA_PROJECT_GET_IFACE (obj)->add_source (obj, parent, file, err);
 }
 
 /* Default implementation */
 static AnjutaProjectSource*
-ianjuta_project_add_source_default (IAnjutaProject *obj, AnjutaProjectGroup *parent,   GFile *file, GError **err)
+ianjuta_project_add_source_default (IAnjutaProject *obj, AnjutaProjectTarget *parent,   GFile *file, GError **err)
 {
 	g_return_val_if_reached (NULL);
 }

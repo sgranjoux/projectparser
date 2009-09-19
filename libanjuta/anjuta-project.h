@@ -26,6 +26,7 @@
 G_BEGIN_DECLS
 
 #define ANJUTA_IS_PROJECT_GROUP(obj) (((AnjutaProjectNodeData *)obj->data)->type == ANJUTA_PROJECT_GROUP)
+#define ANJUTA_IS_PROJECT_TARGET(obj) (((AnjutaProjectNodeData *)obj->data)->type == ANJUTA_PROJECT_TARGET)
 #define ANJUTA_IS_PROJECT_NODE(obj) (1)
 
 typedef enum
