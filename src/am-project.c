@@ -1696,8 +1696,7 @@ amp_project_unload (AmpProject *project)
 }
 
 gboolean 
-amp_project_probe (AmpProject  *project,
-	    GFile *file,
+amp_project_probe (GFile *file,
 	    GError     **error)
 {
 	gboolean probe;

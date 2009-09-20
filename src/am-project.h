@@ -67,7 +67,7 @@ typedef enum {
 GType         amp_project_get_type (void);
 AmpProject   *amp_project_new      (void);
 
-gboolean amp_project_probe (AmpProject  *project, GFile *directory, GError     **error);
+gboolean amp_project_probe (GFile *directory, GError     **error);
 gboolean amp_project_load (AmpProject *project, GFile *directory, GError **error);
 gboolean amp_project_reload (AmpProject *project, GError **error);
 void amp_project_unload (AmpProject *project);
