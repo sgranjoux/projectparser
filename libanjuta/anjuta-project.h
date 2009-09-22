@@ -42,7 +42,9 @@ typedef enum
 	ANJUTA_TARGET_UNKNOWN,
 	ANJUTA_TARGET_SHAREDLIB,
 	ANJUTA_TARGET_STATICLIB,
-	ANJUTA_TARGET_EXECUTABLE
+	ANJUTA_TARGET_EXECUTABLE,
+	ANJUTA_TARGET_PYTHON,
+	ANJUTA_TARGET_JAVA
 } AnjutaProjectTargetClass;
 
 typedef struct 
@@ -88,20 +90,22 @@ AnjutaProjectNode *anjuta_project_node_last_child (AnjutaProjectNode *node);
 AnjutaProjectNode *anjuta_project_node_next_sibling (AnjutaProjectNode *node);
 AnjutaProjectNode *anjuta_project_node_prev_sibling (AnjutaProjectNode *node);
 AnjutaProjectNode *anjuta_project_node_nth_child (AnjutaProjectNode *node, guint n);
+GList *anjuta_project_node_all_child (AnjutaProjectNode *node, AnjutaProjectNodeType type);
+GList *anjuta_project_node_all (AnjutaProjectNode *node, AnjutaProjectNodeType type);
 void anjuta_project_node_all_foreach (AnjutaProjectNode *node, AnjutaProjectNodeFunc func, gpointer data);
 
-AnjutaProjectNodeType anjuta_project_node_get_type (AnjutaProjectNode *node);
+AnjutaProjectNodeType anjuta_project_node_get_type (const AnjutaProjectNode *node);
 
-GFile *anjuta_project_group_get_directory (AnjutaProjectGroup *group);
+GFile *anjuta_project_group_get_directory (const AnjutaProjectGroup *group);
 
-const gchar *anjuta_project_target_get_name (AnjutaProjectTarget *target);
-AnjutaProjectTargetType anjuta_project_target_get_type (AnjutaProjectTarget *target);
+const gchar *anjuta_project_target_get_name (const AnjutaProjectTarget *target);
+AnjutaProjectTargetType anjuta_project_target_get_type (const AnjutaProjectTarget *target);
 
-GFile *anjuta_project_source_get_file (AnjutaProjectSource *source);
+GFile *anjuta_project_source_get_file (const AnjutaProjectSource *source);
 
-const gchar *anjuta_project_target_type_name (AnjutaProjectTargetType type);
-const gchar *anjuta_project_target_type_mime (AnjutaProjectTargetType type);
-AnjutaProjectTargetClass anjuta_project_target_type_class (AnjutaProjectTargetType type);
+const gchar *anjuta_project_target_type_name (const AnjutaProjectTargetType type);
+const gchar *anjuta_project_target_type_mime (const AnjutaProjectTargetType type);
+AnjutaProjectTargetClass anjuta_project_target_type_class (const AnjutaProjectTargetType type);
 
 G_END_DECLS
 

@@ -201,13 +201,13 @@ static AmpTargetInformation AmpTargetTypes[] = {
 	"_TEXINFOS",
 	"info"},
 	
-	{{N_("Java Module"), ANJUTA_TARGET_UNKNOWN,
+	{{N_("Java Module"), ANJUTA_TARGET_JAVA,
 	"application/x-java"},
 	AM_TOKEN__JAVA,
 	"_JAVA",
 	NULL},
 	
-	{{N_("Python Module"), ANJUTA_TARGET_UNKNOWN,
+	{{N_("Python Module"), ANJUTA_TARGET_PYTHON,
 	"application/x-python"},
 	AM_TOKEN__PYTHON,
 	"_PYTHON",
@@ -319,7 +319,7 @@ file_type (GFile *file, const gchar *filename)
 
 	child = filename != NULL ? g_file_get_child (file, filename) : g_object_ref (file);
 
-	//g_message ("check file %s", g_file_get_path (file));
+	//g_message ("check file %s", g_file_get_path (child));
 	
 	info = g_file_query_info (child,
 	                          G_FILE_ATTRIBUTE_STANDARD_TYPE, 
@@ -1695,11 +1695,11 @@ amp_project_unload (AmpProject *project)
 	amp_project_free_module_hash (project);
 }
 
-gboolean 
+gint
 amp_project_probe (GFile *file,
 	    GError     **error)
 {
-	gboolean probe;
+	gint probe;
 	gboolean dir;
 
 	dir = (file_type (file, NULL) == G_FILE_TYPE_DIRECTORY);
@@ -1710,7 +1710,7 @@ amp_project_probe (GFile *file,
 			   _("Project doesn't exist or invalid path"));
 	}
 	
-	probe =  dir;
+	probe =  dir; 
 	if (probe)
 	{
 		const gchar **makefile;
@@ -1730,6 +1730,7 @@ amp_project_probe (GFile *file,
 		{
 			probe = ((file_type (file, "configure.ac") == G_FILE_TYPE_REGULAR) ||
 			 				(file_type (file, "configure.in") == G_FILE_TYPE_REGULAR));
+			if (probe) probe = 10;
 		}
 	}
 	

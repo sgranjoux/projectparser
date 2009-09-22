@@ -108,7 +108,7 @@ impl_probe (GbfProject  *_project,
 	GFile *file = g_file_new_for_path (uri);
 	gboolean ok;
 	
-	ok = amp_project_probe (AMP_PROJECT (_project), file, error);
+	ok = amp_project_probe (file, error);
 	g_object_unref (file);
 
 	return ok;
@@ -130,7 +130,7 @@ impl_load (GbfProject  *_project,
 	file = g_file_new_for_path (uri);
 	
 	/* some basic checks */
-	if (!amp_project_probe (project, file, error)) return;
+	if (!amp_project_probe (file, error)) return;
 	
 	/* now try loading the project */
 	amp_project_load (project, file, error);

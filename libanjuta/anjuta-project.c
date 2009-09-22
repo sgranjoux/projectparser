@@ -66,6 +66,52 @@ AnjutaProjectNode *anjuta_project_node_nth_child (AnjutaProjectNode *node, guint
 	return g_node_nth_child (node, n);
 }
 
+GList *
+anjuta_project_node_all_child (AnjutaProjectNode *parent, AnjutaProjectNodeType type)
+{
+	AnjutaProjectNode *node;
+	GList *list = NULL;
+	
+	for (node = anjuta_project_node_first_child (parent); node != NULL; node = anjuta_project_node_next_sibling (node))
+	{
+		if (anjuta_project_node_get_type (node) == type)
+		{
+			list = g_list_prepend (list, node);
+		}
+	}
+
+	list = g_list_reverse (list);
+
+	return list;
+}
+
+GList *
+anjuta_project_node_all (AnjutaProjectNode *parent, AnjutaProjectNodeType type)
+{
+	AnjutaProjectNode *node;
+	GList *list = NULL;
+	
+	for (node = anjuta_project_node_first_child (parent); node != NULL; node = anjuta_project_node_next_sibling (node))
+	{
+		if (anjuta_project_node_get_type (node) == type)
+		{
+			list = g_list_prepend (list, node);
+		}
+		if (anjuta_project_node_get_type (node) == ANJUTA_PROJECT_GROUP)
+		{
+			GList *child_list;
+
+			child_list = anjuta_project_node_all (node, type);
+			child_list = g_list_reverse (child_list);
+			list = g_list_concat (child_list, list);
+		}
+	}
+
+	list = g_list_reverse (list);
+
+	return list;
+}
+
 void
 anjuta_project_node_all_foreach (AnjutaProjectNode *node, AnjutaProjectNodeFunc func, gpointer data)
 {
@@ -73,7 +119,7 @@ anjuta_project_node_all_foreach (AnjutaProjectNode *node, AnjutaProjectNodeFunc 
 }
 
 AnjutaProjectNodeType
-anjuta_project_node_get_type (AnjutaProjectNode *node)
+anjuta_project_node_get_type (const AnjutaProjectNode *node)
 {
 	return NODE_DATA (node)->type;
 }
@@ -82,7 +128,7 @@ anjuta_project_node_get_type (AnjutaProjectNode *node)
  *---------------------------------------------------------------------------*/
 
 GFile*
-anjuta_project_group_get_directory (AnjutaProjectGroup *group)
+anjuta_project_group_get_directory (const AnjutaProjectGroup *group)
 {
 	return GROUP_DATA (group)->directory;
 }
@@ -91,13 +137,13 @@ anjuta_project_group_get_directory (AnjutaProjectGroup *group)
  *---------------------------------------------------------------------------*/
 
 const gchar *
-anjuta_project_target_get_name (AnjutaProjectTarget *target)
+anjuta_project_target_get_name (const AnjutaProjectTarget *target)
 {
 	return TARGET_DATA (target)->name;
 }
 
 AnjutaProjectTargetType
-anjuta_project_target_get_type (AnjutaProjectTarget *target)
+anjuta_project_target_get_type (const AnjutaProjectTarget *target)
 {
 	return TARGET_DATA (target)->type;
 }
@@ -106,7 +152,7 @@ anjuta_project_target_get_type (AnjutaProjectTarget *target)
  *---------------------------------------------------------------------------*/
 
 GFile*
-anjuta_project_source_get_file (AnjutaProjectSource *source)
+anjuta_project_source_get_file (const AnjutaProjectSource *source)
 {
 	return SOURCE_DATA (source)->file;
 }
@@ -115,19 +161,19 @@ anjuta_project_source_get_file (AnjutaProjectSource *source)
  *---------------------------------------------------------------------------*/
 
 const gchar *
-anjuta_project_target_type_name (AnjutaProjectTargetType type)
+anjuta_project_target_type_name (const AnjutaProjectTargetType type)
 {
 	return type->name;
 }
 
-const gchar *
-anjuta_project_target_type_mime (AnjutaProjectTargetType type)
+const gchar *   
+anjuta_project_target_type_mime (const AnjutaProjectTargetType type)
 {
 	return type->mime_type;
 }
 
 AnjutaProjectTargetClass
-anjuta_project_target_type_class (AnjutaProjectTargetType type)
+anjuta_project_target_type_class (const AnjutaProjectTargetType type)
 {
 	return type->base;
 }
