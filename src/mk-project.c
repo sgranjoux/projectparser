@@ -827,7 +827,7 @@ mkp_project_unload (MkpProject *project)
 	if (project->arg_list) anjuta_token_style_free (project->arg_list);
 }
 
-gboolean 
+gint
 mkp_project_probe (GFile *directory,
 	    GError     **error)
 {
@@ -859,8 +859,7 @@ mkp_project_probe (GFile *directory,
 		}
 	}
 
-	
-	return probe;
+	return probe ? IANJUTA_PROJECT_PROBE_MAKE_FILES : 0;
 }
 
 static AnjutaTokenType

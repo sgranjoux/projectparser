@@ -1,0 +1,3 @@
+    GROUP (0): makefile
+        TARGET (0:0): foorbar
+            SOURCE (0:0:0): foobar.c

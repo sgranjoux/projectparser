@@ -1730,11 +1730,10 @@ amp_project_probe (GFile *file,
 		{
 			probe = ((file_type (file, "configure.ac") == G_FILE_TYPE_REGULAR) ||
 			 				(file_type (file, "configure.in") == G_FILE_TYPE_REGULAR));
-			if (probe) probe = 10;
 		}
 	}
-	
-	return probe;
+
+	return probe ? IANJUTA_PROJECT_PROBE_PROJECT_FILES : 0;
 }
 
 AmpGroup* 

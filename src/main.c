@@ -144,27 +144,30 @@ void list_group (IAnjutaProject *project, AnjutaProjectGroup *group, gint indent
 
 void list_property (IAnjutaProject *project)
 {
-	gchar *value;
+	if (AMP_IS_PROJECT (project))
+	{
+		gchar *value;
+		
+		value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_NAME);
+		if (value) print ("%*sNAME: %s", INDENT, "", value);
+		g_free (value);
 
-	value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_NAME);
-	if (value) print ("%*sNAME: %s", INDENT, "", value);
-	g_free (value);
+		value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_VERSION);
+		if (value) print ("%*sVERSION: %s", INDENT, "", value);
+		g_free (value);
 
-	value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_VERSION);
-	if (value) print ("%*sVERSION: %s", INDENT, "", value);
-	g_free (value);
+		value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_BUG_REPORT);
+		if (value) print ("%*sBUG_REPORT: %s", INDENT, "", value);
+		g_free (value);
 
-	value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_BUG_REPORT);
-	if (value) print ("%*sBUG_REPORT: %s", INDENT, "", value);
-	g_free (value);
-
-	value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_TARNAME);
-	if (value) print ("%*sTARNAME: %s", INDENT, "", value);
-	g_free (value);
+		value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_TARNAME);
+		if (value) print ("%*sTARNAME: %s", INDENT, "", value);
+		g_free (value);
 	
-	value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_URL);
-	if (value) print ("%*sURL: %s", INDENT, "", value);
-	g_free (value);
+		value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_URL);
+		if (value) print ("%*sURL: %s", INDENT, "", value);
+		g_free (value);
+	}
 }
 
 void list_package (IAnjutaProject *project)
@@ -283,15 +286,44 @@ main(int argc, char *argv[])
 		exit (1);
 	}
 
-	/* Create project */
-	project = IANJUTA_PROJECT (g_object_new (AMP_TYPE_PROJECT, NULL));
-
 	/* Execute commands */
 	for (command = &argv[1]; *command != NULL; command++)
 	{
 		if (g_ascii_strcasecmp (*command, "load") == 0)
 		{
 			GFile *file = g_file_new_for_commandline_arg (*(++command));
+
+			if (project == NULL)
+			{
+				gint best = 0;
+				gint probe;
+				GType type;
+				
+				/* Check for project type */
+				probe = amp_project_probe (file, NULL);
+				if (probe > best)
+				{
+					best = probe;
+					type = AMP_TYPE_PROJECT;
+				}
+
+				probe = mkp_project_probe (file, NULL);
+				if (probe > best)
+				{
+					best = probe;
+					type = MKP_TYPE_PROJECT;
+				}
+
+				if (best == 0)
+				{
+					fprintf (stderr, "Error: No backend for loading project in %s\n", *command);
+					break;
+				}
+				else
+				{
+					project = IANJUTA_PROJECT (g_object_new (type, NULL));
+				}
+			}
 			
 			ianjuta_project_load (project, file, &error);
 			g_object_unref (file);
@@ -306,11 +338,17 @@ main(int argc, char *argv[])
 		}
 		else if (g_ascii_strcasecmp (*command, "move") == 0)
 		{
-			amp_project_move (AMP_PROJECT (project), *(++command));
+			if (AMP_IS_PROJECT (project))
+			{
+				amp_project_move (AMP_PROJECT (project), *(++command));
+			}
 		}
 		else if (g_ascii_strcasecmp (*command, "save") == 0)
 		{
-			amp_project_save (AMP_PROJECT (project), NULL);
+			if (AMP_IS_PROJECT (project))
+			{
+				amp_project_save (AMP_PROJECT (project), NULL);
+			}
 		}
 		else if (g_ascii_strcasecmp (*command, "remove") == 0)
 		{
@@ -347,7 +385,10 @@ main(int argc, char *argv[])
 		}
 		else if (g_ascii_strcasecmp (command[0], "set") == 0)
 		{
-			amp_project_set_property (AMP_PROJECT (project), atoi(command[1]), command[2]);
+			if (AMP_IS_PROJECT (project))
+			{
+				amp_project_set_property (AMP_PROJECT (project), atoi(command[1]), command[2]);
+			}
 			command += 2;
 		}
 		else
@@ -366,7 +407,7 @@ main(int argc, char *argv[])
 	}
 
 	/* Free objects */
-	g_object_unref (project);
+	if (project) g_object_unref (project);
 	close_output ();
 	
 	return (0);
