@@ -24,32 +24,35 @@
 
 #include <glib-object.h>
 
+#include <libanjuta/anjuta-project.h>
 #include <libanjuta/anjuta-token.h>
 #include <libanjuta/anjuta-token-file.h>
 #include <libanjuta/anjuta-token-style.h>
-#include <libanjuta/gbf-project.h>
 
 G_BEGIN_DECLS
 
 #define YYSTYPE AnjutaToken*
 
-#define MKP_TYPE_PROJECT		(mkp_project_get_type (NULL))
+#define MKP_TYPE_PROJECT		(mkp_project_get_type ())
 #define MKP_PROJECT(obj)		(G_TYPE_CHECK_INSTANCE_CAST ((obj), MKP_TYPE_PROJECT, MkpProject))
 #define MKP_PROJECT_CLASS(klass)	(G_TYPE_CHECK_CLASS_CAST ((klass), MKP_TYPE_PROJECT, MkpProjectClass))
 #define MKP_IS_PROJECT(obj)		(G_TYPE_CHECK_INSTANCE_TYPE ((obj), MKP_TYPE_PROJECT))
 #define MKP_IS_PROJECT_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE ((obj), MKP_TYPE_PROJECT))
 
+#define MKP_GROUP(obj)		((MkpGroup *)obj)
+#define MKP_TARGET(obj)		((MkpTarget *)obj)
+#define MKP_SOURCE(obj)		((MkpSource *)obj)
+
 typedef struct _MkpProject        MkpProject;
 typedef struct _MkpProjectClass   MkpProjectClass;
 
 struct _MkpProjectClass {
-	GbfProjectClass parent_class;
+	GObjectClass parent_class;
 };
 
-typedef GNode MkpNode;
-typedef GNode MkpGroup;
-typedef GNode MkpTarget;
-typedef GNode MkpSource;
+typedef AnjutaProjectGroup MkpGroup;
+typedef AnjutaProjectTarget MkpTarget;
+typedef AnjutaProjectSource MkpSource;
 typedef struct _MkpProperty MkpProperty;
 
 typedef enum {
@@ -60,21 +63,13 @@ typedef enum {
 	MKP_PROPERTY_URL
 } MkpPropertyType;
 
-typedef GNodeTraverseFunc MkpNodeFunc;
 
-typedef enum {
-	MKP_NODE_GROUP,
-	MKP_NODE_TARGET,
-	MKP_NODE_SOURCE
-} MkpNodeType;
-
-
-GType         mkp_project_get_type (GTypeModule *plugin);
+GType         mkp_project_get_type (void);
 MkpProject   *mkp_project_new      (void);
 
 
-gboolean mkp_project_probe (MkpProject  *project, const gchar *uri, GError     **error);
-gboolean mkp_project_load (MkpProject *project, const gchar *uri, GError **error);
+gint mkp_project_probe (GFile *directory, GError     **error);
+gboolean mkp_project_load (MkpProject *project, GFile *directory, GError **error);
 gboolean mkp_project_reload (MkpProject *project, GError **error);
 void mkp_project_unload (MkpProject *project);
 
@@ -90,15 +85,14 @@ gboolean mkp_project_save (MkpProject *project, GError **error);
 gchar * mkp_project_get_uri (MkpProject *project);
 GFile* mkp_project_get_file (MkpProject *project);
 
-MkpGroup* mkp_project_add_group (MkpProject  *project, const gchar *parent_id,	const gchar *name, GError **error);
-void mkp_project_remove_group (MkpProject  *project, const gchar *id, GError **error);
+MkpGroup* mkp_project_add_group (MkpProject  *project, MkpGroup *parent,	const gchar *name, GError **error);
+void mkp_project_remove_group (MkpProject  *project, MkpGroup *group, GError **error);
 
-MkpTarget* mkp_project_add_target (MkpProject  *project, const gchar *group_id, const gchar *name, const gchar *type, GError **error);
-void mkp_project_remove_target (MkpProject  *project, const gchar *id, GError **error);
+MkpTarget* mkp_project_add_target (MkpProject  *project, MkpGroup *parent, const gchar *name, const gchar *type, GError **error);
+void mkp_project_remove_target (MkpProject  *project, MkpTarget *target, GError **error);
 
-MkpSource* mkp_project_add_source (MkpProject  *project, const gchar *target_id, const gchar *uri, GError **error);
-void mkp_project_remove_source (MkpProject  *project, const gchar *id, GError **error);
-
+MkpSource* mkp_project_add_source (MkpProject  *project, MkpTarget *target, const gchar *uri, GError **error);
+void mkp_project_remove_source (MkpProject  *project, MkpSource *source, GError **error);
 
 GList *mkp_project_get_config_modules (MkpProject *project, GError **error);
 GList *mkp_project_get_config_packages  (MkpProject *project, const gchar* module, GError **error);
@@ -108,20 +102,12 @@ gboolean mkp_project_set_property (MkpProject *project, MkpPropertyType type, co
 
 gchar * mkp_project_get_node_id (MkpProject *project, const gchar *path);
 
-MkpNode *mkp_node_parent (MkpNode *node);
-MkpNode *mkp_node_first_child (MkpNode *node);
-MkpNode *mkp_node_last_child (MkpNode *node);
-MkpNode *mkp_node_next_sibling (MkpNode *node);
-MkpNode *mkp_node_prev_sibling (MkpNode *node);
-MkpNodeType mkp_node_get_type (MkpNode *node);
-void mkp_node_all_foreach (MkpNode *node, MkpNodeFunc func, gpointer data);
-
 GFile *mkp_group_get_directory (MkpGroup *group);
 GFile *mkp_group_get_makefile (MkpGroup *group);
 gchar *mkp_group_get_id (MkpGroup *group);
 
 const gchar *mkp_target_get_name (MkpTarget *target);
-const gchar *mkp_target_get_type (MkpTarget *target);
+AnjutaProjectTargetType amp_target_get_type (MkpTarget *target);
 gchar *mkp_target_get_id (MkpTarget *target);
 
 gchar *mkp_source_get_id (MkpSource *source);

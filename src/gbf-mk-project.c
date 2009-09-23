@@ -97,7 +97,13 @@ impl_probe (GbfProject  *_project,
 	    const gchar *uri,
 	    GError     **error)
 {
-	return mkp_project_probe (MKP_PROJECT (_project), uri, error);
+	GFile *file = g_file_new_for_path (uri);
+	gint ok;
+	
+	ok = mkp_project_probe (file, error);
+	g_object_unref (file);
+
+	return ok;
 }
 
 static void 
@@ -106,17 +112,22 @@ impl_load (GbfProject  *_project,
 	   GError     **error)
 {
 	MkpProject *project = MKP_PROJECT (_project);
+	GFile *file;
 	
 	g_return_if_fail (uri != NULL);
 
 	/* unload current project */
 	mkp_project_unload (project);
 
+	file = g_file_new_for_path (uri);
+	
 	/* some basic checks */
-	if (!mkp_project_probe (project, uri, error)) return;
+	if (!mkp_project_probe (file, error)) return;
 	
 	/* now try loading the project */
-	mkp_project_load (project, uri, error);	
+	mkp_project_load (project, file, error);
+	
+	g_object_unref (file);
 }
 
 static void
@@ -150,7 +161,7 @@ impl_get_group (GbfProject  *_project,
 	MkpProject *project;
 	GbfProjectGroup *group;
 	MkpGroup *g_node;
-	MkpNode *node;
+	AnjutaProjectNode *node;
 	
 	g_return_val_if_fail (MKP_IS_PROJECT (_project), NULL);
 
@@ -170,23 +181,23 @@ impl_get_group (GbfProject  *_project,
 	}
 	
 	group = g_new0 (GbfProjectGroup, 1);
-	group->id = g_file_get_uri (mkp_group_get_directory (g_node));
-	group->name = g_file_get_basename (mkp_group_get_directory (g_node));
-	if (mkp_node_parent (g_node))
-		group->parent_id = g_file_get_uri (mkp_group_get_directory (mkp_node_parent (g_node)));
+	group->id = g_file_get_uri (anjuta_project_group_get_directory (g_node));
+	group->name = g_file_get_basename (anjuta_project_group_get_directory (g_node));
+	if (anjuta_project_node_parent (g_node))
+		group->parent_id = g_file_get_uri (anjuta_project_group_get_directory (anjuta_project_node_parent (g_node)));
 	else
 		group->parent_id = NULL;
 	group->groups = NULL;
 	group->targets = NULL;
 
 	/* add subgroups and targets of the group */
-	for (node = mkp_node_first_child (g_node); node != NULL; node = mkp_node_next_sibling (node))
+	for (node = anjuta_project_node_first_child (g_node); node != NULL; node = anjuta_project_node_next_sibling (node))
 	{
-		switch (mkp_node_get_type (node)) {
-			case MKP_NODE_GROUP:
+		switch (anjuta_project_node_get_type (node)) {
+			case ANJUTA_PROJECT_GROUP:
 				group->groups = g_list_prepend (group->groups, mkp_group_get_id (node));
 				break;
-			case MKP_NODE_TARGET:
+			case ANJUTA_PROJECT_TARGET:
 				group->targets = g_list_prepend (group->targets, mkp_target_get_id (node));
 				break;
 			default:
@@ -200,11 +211,11 @@ impl_get_group (GbfProject  *_project,
 }
 
 static gboolean
-foreach_group (MkpNode *node, gpointer data)
+foreach_group (AnjutaProjectNode *node, gpointer data)
 {
 	GList **groups = data;
 
-	if (mkp_node_get_type (node) == MKP_NODE_GROUP)
+	if (anjuta_project_node_get_type (node) == ANJUTA_PROJECT_GROUP)
 	{
 		*groups = g_list_prepend (*groups, mkp_group_get_id (node));
 	}
@@ -223,7 +234,7 @@ impl_get_all_groups (GbfProject *_project,
 
 	project = MKP_PROJECT (_project);
 
-	mkp_node_all_foreach (mkp_project_get_root (project), foreach_group, &groups);
+	anjuta_project_node_all_foreach (mkp_project_get_root (project), foreach_group, &groups);
 
 	return groups;
 }
@@ -271,7 +282,7 @@ impl_get_target (GbfProject  *_project,
 	MkpProject *project;
 	GbfProjectTarget *target;
 	MkpTarget *t_node;
-	MkpNode *node;
+	AnjutaProjectNode *node;
 
 	g_return_val_if_fail (MKP_IS_PROJECT (_project), NULL);
 
@@ -279,17 +290,17 @@ impl_get_target (GbfProject  *_project,
 	t_node = mkp_project_get_target (project, id);
 	
 	target = g_new0 (GbfProjectTarget, 1);
-	target->group_id = mkp_group_get_id (mkp_node_parent (t_node));
+	target->group_id = mkp_group_get_id (anjuta_project_node_parent (t_node));
 	target->id = mkp_target_get_id (t_node);
-	target->name = g_strdup (mkp_target_get_name (t_node));
-	target->type = g_strdup (mkp_target_get_type (t_node));
+	target->name = g_strdup (anjuta_project_target_get_name (t_node));
+	target->type = g_strdup ("unknown");
 	target->sources = NULL;
 
 	/* add sources to the target */
-	for (node = mkp_node_first_child (t_node); node != NULL; node = mkp_node_next_sibling (node))
+	for (node = anjuta_project_node_first_child (t_node); node != NULL; node = anjuta_project_node_next_sibling (node))
 	{
-		switch (mkp_node_get_type (node)) {
-			case MKP_NODE_SOURCE:
+		switch (anjuta_project_node_get_type (node)) {
+			case ANJUTA_PROJECT_SOURCE:
 				target->sources = g_list_prepend (target->sources, mkp_source_get_id (node));
 				break;
 			default:
@@ -302,11 +313,11 @@ impl_get_target (GbfProject  *_project,
 }
 
 static gboolean
-foreach_target (MkpNode *node, gpointer data)
+foreach_target (AnjutaProjectNode *node, gpointer data)
 {
 	GList **targets = data;
 
-	if (mkp_node_get_type (node) == MKP_NODE_GROUP)
+	if (anjuta_project_node_get_type (node) == ANJUTA_PROJECT_GROUP)
 	{
 		*targets = g_list_prepend (*targets, mkp_target_get_id (node));
 	}
@@ -325,7 +336,7 @@ impl_get_all_targets (GbfProject *_project,
 
 	project = MKP_PROJECT (_project);
 
-	mkp_node_all_foreach (mkp_project_get_root (project), foreach_target, &targets);
+	anjuta_project_node_all_foreach (mkp_project_get_root (project), foreach_target, &targets);
 
 	return targets;
 }
@@ -455,17 +466,17 @@ impl_get_source (GbfProject  *_project,
 	source = g_new0 (GbfProjectTargetSource, 1);
 	source->id = mkp_source_get_id (s_node);
 	source->source_uri = g_file_get_uri (mkp_source_get_file (s_node));
-	source->target_id = mkp_target_get_id (mkp_node_parent (s_node));
+	source->target_id = mkp_target_get_id (anjuta_project_node_parent (s_node));
 
 	return source;
 }
 
 static gboolean
-foreach_source (MkpNode *node, gpointer user_data)
+foreach_source (AnjutaProjectNode *node, gpointer user_data)
 {
 	GHashTable *hash = (GHashTable *)user_data;
 	
-	if (mkp_node_get_type (node) == MKP_NODE_SOURCE)
+	if (anjuta_project_node_get_type (node) == ANJUTA_PROJECT_SOURCE)
 	{
 		g_hash_table_insert (hash, mkp_source_get_file (node), mkp_source_get_id (node));
 	}
@@ -488,7 +499,7 @@ impl_get_all_sources (GbfProject *_project,
 	project = MKP_PROJECT (_project);
 
 	hash = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, g_free);
-	mkp_node_all_foreach (mkp_project_get_root (project), foreach_source, hash);
+	anjuta_project_node_all_foreach (mkp_project_get_root (project), foreach_source, hash);
 	sources = g_hash_table_get_values (hash);
 	g_hash_table_steal_all (hash);
 	g_hash_table_destroy (hash);

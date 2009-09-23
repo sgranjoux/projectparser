@@ -106,7 +106,7 @@ impl_probe (GbfProject  *_project,
 	    GError     **error)
 {
 	GFile *file = g_file_new_for_path (uri);
-	gboolean ok;
+	gint ok;
 	
 	ok = amp_project_probe (file, error);
 	g_object_unref (file);

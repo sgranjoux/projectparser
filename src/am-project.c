@@ -254,7 +254,7 @@ error_set (GError **error, gint code, const gchar *message)
                         g_free (tmp);
 
                 } else {
-                        *error = g_error_new_literal (GBF_PROJECT_ERROR,
+                        *error = g_error_new_literal (IANJUTA_PROJECT_ERROR,
                                                       code,
                                                       message);
                 }
@@ -1600,8 +1600,8 @@ amp_project_reload (AmpProject *project, GError **error)
 	}
 	else
 	{
-		g_set_error (error, GBF_PROJECT_ERROR, 
-		             GBF_PROJECT_ERROR_DOESNT_EXIST,
+		g_set_error (error, IANJUTA_PROJECT_ERROR, 
+		             IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
 			   _("Project doesn't exist or invalid path"));
 
 		return FALSE;
@@ -1616,8 +1616,8 @@ amp_project_reload (AmpProject *project, GError **error)
 	amp_ac_scanner_free (scanner);
 	if (!ok)
 	{
-		g_set_error (error, GBF_PROJECT_ERROR, 
-		             	GBF_PROJECT_ERROR_PROJECT_MALFORMED,
+		g_set_error (error, IANJUTA_PROJECT_ERROR, 
+		             	IANJUTA_PROJECT_ERROR_PROJECT_MALFORMED,
 		    			err == NULL ? _("Unable to parse project file") : err->message);
 		if (err != NULL) g_error_free (err);
 
@@ -1635,8 +1635,8 @@ amp_project_reload (AmpProject *project, GError **error)
 	project_list_config_files (project);
 	if (project_load_makefile (project, project->root_file, NULL, FALSE) == NULL)
 	{
-		g_set_error (error, GBF_PROJECT_ERROR, 
-		             GBF_PROJECT_ERROR_DOESNT_EXIST,
+		g_set_error (error, IANJUTA_PROJECT_ERROR, 
+		             IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
 			   _("Project doesn't exist or invalid path"));
 
 		ok = FALSE;
@@ -1705,8 +1705,8 @@ amp_project_probe (GFile *file,
 	dir = (file_type (file, NULL) == G_FILE_TYPE_DIRECTORY);
 	if (!dir)
 	{
-		g_set_error (error, GBF_PROJECT_ERROR, 
-		             GBF_PROJECT_ERROR_DOESNT_EXIST,
+		g_set_error (error, IANJUTA_PROJECT_ERROR, 
+		             IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
 			   _("Project doesn't exist or invalid path"));
 	}
 	
@@ -1760,7 +1760,7 @@ amp_project_add_group (AmpProject  *project,
 	/* Validate group name */
 	if (!name || strlen (name) <= 0)
 	{
-		error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
+		error_set (error, IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
 			   _("Please specify group name"));
 		return NULL;
 	}
@@ -1774,7 +1774,7 @@ amp_project_add_group (AmpProject  *project,
 			ptr++;
 		}
 		if (failed) {
-			error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
+			error_set (error, IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
 				   _("Group name can only contain alphanumeric, '_', '-' or '.' characters"));
 			return NULL;
 		}
@@ -1786,7 +1786,7 @@ amp_project_add_group (AmpProject  *project,
 	if (g_hash_table_lookup (project->groups, uri) != NULL)
 	{
 		g_free (uri);
-		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
+		error_set (error, IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
 			_("Group already exists"));
 		return NULL;
 	}
@@ -1961,7 +1961,7 @@ amp_project_add_target (AmpProject  *project,
 	/* Validate target name */
 	if (!name || strlen (name) <= 0)
 	{
-		error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
+		error_set (error, IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
 			   _("Please specify target name"));
 		return NULL;
 	}
@@ -1975,7 +1975,7 @@ amp_project_add_target (AmpProject  *project,
 			ptr++;
 		}
 		if (failed) {
-			error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
+			error_set (error, IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
 				   _("Target name can only contain alphanumeric, '_', '-' or '.' characters"));
 			return NULL;
 		}
@@ -1984,7 +1984,7 @@ amp_project_add_target (AmpProject  *project,
 		if (strlen (name) < 7 ||
 		    strncmp (name, "lib", strlen("lib")) != 0 ||
 		    strcmp (&name[strlen(name) - 3], ".la") != 0) {
-			error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
+			error_set (error, IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
 				   _("Shared library target name must be of the form 'libxxx.la'"));
 			return NULL;
 		}
@@ -1993,7 +1993,7 @@ amp_project_add_target (AmpProject  *project,
 		if (strlen (name) < 6 ||
 		    strncmp (name, "lib", strlen("lib")) != 0 ||
 		    strcmp (&name[strlen(name) - 2], ".a") != 0) {
-			error_set (error, GBF_PROJECT_ERROR_VALIDATION_FAILED,
+			error_set (error, IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
 				   _("Static library target name must be of the form 'libxxx.a'"));
 			return NULL;
 		}
@@ -2004,7 +2004,7 @@ amp_project_add_target (AmpProject  *project,
 	g_node_children_foreach (parent, G_TRAVERSE_ALL, find_target, &find);
 	if ((gchar *)find != name)
 	{
-		error_set (error, GBF_PROJECT_ERROR_DOESNT_EXIST,
+		error_set (error, IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
 			_("Target already exists"));
 
 		return NULL;
@@ -2732,7 +2732,7 @@ amp_project_class_init (AmpProjectClass *klass)
 	object_class->dispose = amp_project_dispose;
 }
 
-ANJUTA_TYPE_BEGIN(AmpProject, amp_project, GBF_TYPE_PROJECT);
+ANJUTA_TYPE_BEGIN(AmpProject, amp_project, G_TYPE_OBJECT);
 ANJUTA_TYPE_ADD_INTERFACE(iproject, IANJUTA_TYPE_PROJECT);
 ANJUTA_TYPE_END;
 //GBF_BACKEND_BOILERPLATE (AmpProject, amp_project);

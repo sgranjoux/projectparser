@@ -36,16 +36,12 @@ projectparser_SOURCES = \
 	ac-writer.c \
 	am-dialogs.c \
 	am-dialogs.h \
-	gbf-am-project.c \
-	gbf-am-project.h \
 	mk-project.c \
 	mk-project.h \
 	mk-project-private.h \
 	mk-parser.y \
 	mk-scanner.l \
-	mk-scanner.h \
-	gbf-mk-project.c \
-	gbf-mk-project.h
+	mk-scanner.h
 
 projectparser_LDFLAGS = 
 

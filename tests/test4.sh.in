@@ -7,7 +7,7 @@ rm -fr empty2
 @top_builddir@/src/projectparser -o out \
 	load @srcdir@/empty \
 	move empty3 \
-	add target 0 target1 program \
+	add target 0 target1 1 \
 	list \
 	save >> @TESTLOGFILE@ 2>&1 \
 && diff out @srcdir@/empty3.lst >> @TESTLOGFILE@ 2>&1 \

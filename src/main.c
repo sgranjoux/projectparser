@@ -20,6 +20,7 @@
 #include "config.h"
 
 #include "am-project.h"
+#include "mk-project.h"
 #include "libanjuta/anjuta-debug.h"
 #include "libanjuta/anjuta-project.h"
 #include "libanjuta/interfaces/ianjuta-project.h"

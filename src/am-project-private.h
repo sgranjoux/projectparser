@@ -36,7 +36,7 @@ struct _AmpProperty {
 };
 
 struct _AmpProject {
-	GbfProject         parent;
+	GObject         parent;
 
 	/* uri of the project; this can be a full uri, even though we
 	 * can only work with native local files */

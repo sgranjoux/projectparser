@@ -28,7 +28,9 @@
 
 #include "mk-project-private.h"
 
+#include <libanjuta/interfaces/ianjuta-project.h>
 #include <libanjuta/anjuta-debug.h>
+#include <libanjuta/anjuta-utils.h>
 
 #include <string.h>
 #include <memory.h>
@@ -54,7 +56,7 @@
 static const gchar *valid_makefiles[] = {"GNUmakefile", "makefile", "Makefile", NULL};
 
 /* convenient shortcut macro the get the MkpNode from a GNode */
-#define MKP_NODE_DATA(node)  ((node) != NULL ? (MkpNodeData *)((node)->data) : NULL)
+#define MKP_NODE_DATA(node)  ((node) != NULL ? (AnjutaProjectNodeData *)((node)->data) : NULL)
 #define MKP_GROUP_DATA(node)  ((node) != NULL ? (MkpGroupData *)((node)->data) : NULL)
 #define MKP_TARGET_DATA(node)  ((node) != NULL ? (MkpTargetData *)((node)->data) : NULL)
 #define MKP_SOURCE_DATA(node)  ((node) != NULL ? (MkpSourceData *)((node)->data) : NULL)
@@ -73,13 +75,6 @@ struct _MkpModule {
     AnjutaToken *module;
 };
 
-typedef struct _MkpNodeData MkpNodeData;
-
-struct _MkpNodeData {
-	MkpNodeType	type;			/* Node type */
-	gchar				*id;				/* Node string id, FIXME: to be removed */
-};
-
 typedef enum {
 	AM_GROUP_TOKEN_CONFIGURE,
 	AM_GROUP_TOKEN_SUBDIRS,
@@ -91,9 +86,8 @@ typedef enum {
 typedef struct _MkpGroupData MkpGroupData;
 
 struct _MkpGroupData {
-	MkpNodeData node;			/* Common node data */
+	AnjutaProjectGroupData base;		/* Common node data */
 	gboolean dist_only;			/* TRUE if the group is distributed but not built */
-	GFile *directory;				/* GFile corresponding to group directory */
 	GFile *makefile;				/* GFile corresponding to group makefile */
 	AnjutaTokenFile *tfile;		/* Corresponding Makefile */
 	GList *tokens[AM_GROUP_TOKEN_LAST];					/* List of token used by this group */
@@ -114,9 +108,7 @@ typedef enum _MkpTargetFlag
 typedef struct _MkpTargetData MkpTargetData;
 
 struct _MkpTargetData {
-	MkpNodeData node;
-	gchar *name;
-	gchar *type;
+	AnjutaProjectTargetData base;
 	gchar *install;
 	gint flags;
 	GList* tokens;
@@ -125,10 +117,36 @@ struct _MkpTargetData {
 typedef struct _MkpSourceData MkpSourceData;
 
 struct _MkpSourceData {
-	MkpNodeData node;
-	GFile *file;
+	AnjutaProjectSourceData base;
 	AnjutaToken* token;
 };
+
+typedef struct _MkpTargetInformation MkpTargetInformation;
+
+struct _MkpTargetInformation {
+	AnjutaProjectTargetInformation base;
+	AnjutaTokenType token;
+	const gchar *prefix;
+	const gchar *install;
+};
+
+/* Target types
+ *---------------------------------------------------------------------------*/
+
+static MkpTargetInformation MkpTargetTypes[] = {
+	{{N_("Unknown"), ANJUTA_TARGET_UNKNOWN,
+	"text/plain"},
+	ANJUTA_TOKEN_NONE,
+	NULL,
+	NULL},
+
+	{{NULL, ANJUTA_TARGET_UNKNOWN,
+	NULL},
+	ANJUTA_TOKEN_NONE,
+	NULL,
+	NULL}
+};
+
 
 /* ----- Standard GObject types and variables ----- */
 
@@ -157,7 +175,7 @@ error_set (GError **error, gint code, const gchar *message)
                         g_free (tmp);
 
                 } else {
-                        *error = g_error_new_literal (GBF_PROJECT_ERROR,
+                        *error = g_error_new_literal (IANJUTA_PROJECT_ERROR,
                                                       code,
                                                       message);
                 }
@@ -222,7 +240,7 @@ file_type (GFile *file, const gchar *filename)
 
 	child = filename != NULL ? g_file_get_child (file, filename) : g_object_ref (file);
 
-	//g_message ("check file %s", g_file_get_path (file));
+	//g_message ("check file %s", g_file_get_path (child));
 	
 	info = g_file_query_info (child,
 	                          G_FILE_ATTRIBUTE_STANDARD_TYPE, 
@@ -254,7 +272,7 @@ mkp_group_add_token (MkpGroup *node, AnjutaToken *token, MkpGroupTokenCategory c
 	
 	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
 
- 	group = (MkpGroupData *)node->data;
+ 	group = MKP_GROUP_DATA (node);
 	group->tokens[category] = g_list_prepend (group->tokens[category], token);
 }
 
@@ -265,7 +283,7 @@ mkp_group_get_token (MkpGroup *node, MkpGroupTokenCategory category)
 	
 	g_return_val_if_fail ((node != NULL) && (node->data != NULL), NULL); 
 
- 	group = (MkpGroupData *)node->data;
+ 	group = MKP_GROUP_DATA (node);
 	return group->tokens[category];
 }
 
@@ -276,7 +294,7 @@ mkp_group_set_makefile (MkpGroup *node, GFile *makefile)
 	
 	g_return_val_if_fail ((node != NULL) && (node->data != NULL), NULL); 
 
- 	group = (MkpGroupData *)node->data;
+ 	group = MKP_GROUP_DATA (node);
 	if (group->makefile != NULL) g_object_unref (group->makefile);
 	if (group->tfile != NULL) anjuta_token_file_free (group->tfile);
 	if (makefile != NULL)
@@ -301,8 +319,8 @@ mkp_group_new (GFile *file)
 	g_return_val_if_fail (file != NULL, NULL);
 	
 	group = g_slice_new0(MkpGroupData); 
-	group->node.type = MKP_NODE_GROUP;
-	group->directory = g_object_ref (file);
+	group->base.node.type = ANJUTA_PROJECT_GROUP;
+	group->base.directory = g_object_ref (file);
 
     return g_node_new (group);
 }
@@ -313,8 +331,8 @@ mkp_group_free (MkpGroup *node)
     MkpGroupData *group = (MkpGroupData *)node->data;
 	gint i;
 	
+	if (group->base.directory) g_object_unref (group->base.directory);
 	if (group->tfile) anjuta_token_file_free (group->tfile);
-	if (group->directory) g_object_unref (group->directory);
 	if (group->makefile) g_object_unref (group->makefile);
 	for (i = 0; i < AM_GROUP_TOKEN_LAST; i++)
 	{
@@ -335,7 +353,7 @@ mkp_target_add_token (MkpGroup *node, AnjutaToken *token)
 	
 	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
 
- 	target = (MkpTargetData *)node->data;
+ 	target = MKP_TARGET_DATA (node);
 	target->tokens = g_list_prepend (target->tokens, token);
 }
 
@@ -346,20 +364,20 @@ mkp_target_get_token (MkpGroup *node)
 	
 	g_return_val_if_fail ((node != NULL) && (node->data != NULL), NULL); 
 
- 	target = (MkpTargetData *)node->data;
+ 	target = MKP_TARGET_DATA (node);
 	return target->tokens;
 }
 
 
 static MkpTarget*
-mkp_target_new (const gchar *name, const gchar *type)
+mkp_target_new (const gchar *name, AnjutaProjectTargetType type)
 {
     MkpTargetData *target = NULL;
 
-	target = g_slice_new0(MkpTargetData); 
-	target->node.type = MKP_NODE_TARGET;
-	target->name = g_strdup (name);
-	target->type = g_strdup (type);
+	target = g_slice_new0(MkpTargetData);
+	target->base.node.type = ANJUTA_PROJECT_TARGET;
+	target->base.name = g_strdup (name);
+	target->base.type = type;
 
     return g_node_new (target);
 }
@@ -367,10 +385,10 @@ mkp_target_new (const gchar *name, const gchar *type)
 static void
 mkp_target_free (MkpTarget *node)
 {
-    MkpTargetData *target = (MkpTargetData *)node->data;
+    MkpTargetData *target = MKP_TARGET_DATA (node);
 	
-    g_free (target->name);
-    g_free (target->type);
+    g_free (target->base.name);
+    g_free (target->install);
     g_slice_free (MkpTargetData, target);
 
 	g_node_destroy (node);
@@ -380,13 +398,13 @@ mkp_target_free (MkpTarget *node)
  *---------------------------------------------------------------------------*/
 
 static MkpSource*
-mkp_source_new (GFile *parent, const gchar *name)
+mkp_source_new (GFile *file)
 {
     MkpSourceData *source = NULL;
 
 	source = g_slice_new0(MkpSourceData); 
-	source->node.type = MKP_NODE_SOURCE;
-	source->file = g_file_get_child (parent, name);
+	source->base.node.type = ANJUTA_PROJECT_SOURCE;
+	source->base.file = g_object_ref (file);
 
     return g_node_new (source);
 }
@@ -394,9 +412,9 @@ mkp_source_new (GFile *parent, const gchar *name)
 static void
 mkp_source_free (MkpSource *node)
 {
-    MkpSourceData *source = (MkpSourceData *)node->data;
+    MkpSourceData *source = MKP_SOURCE_DATA (node);
 	
-    g_object_unref (source->file);
+    g_object_unref (source->base.file);
     g_slice_free (MkpSourceData, source);
 
 	g_node_destroy (node);
@@ -485,7 +503,7 @@ group_hash_foreach_monitor (gpointer key,
 	MkpGroup *group_node = value;
 	MkpProject *project = user_data;
 
-	monitor_add (project, MKP_GROUP_DATA(group_node)->directory);
+	monitor_add (project, MKP_GROUP_DATA(group_node)->base.directory);
 }
 
 static void
@@ -515,16 +533,16 @@ mkp_dump_node (GNode *g_node)
 	gchar *name = NULL;
 	
 	switch (MKP_NODE_DATA (g_node)->type) {
-		case MKP_NODE_GROUP:
-			name = g_file_get_uri (MKP_GROUP_DATA (g_node)->directory);
+		case ANJUTA_PROJECT_GROUP:
+			name = g_file_get_uri (MKP_GROUP_DATA (g_node)->base.directory);
 			DEBUG_PRINT ("GROUP: %s", name);
 			break;
-		case MKP_NODE_TARGET:
-			name = g_strdup (MKP_TARGET_DATA (g_node)->name);
+		case ANJUTA_PROJECT_TARGET:
+			name = g_strdup (MKP_TARGET_DATA (g_node)->base.name);
 			DEBUG_PRINT ("TARGET: %s", name);
 			break;
-		case MKP_NODE_SOURCE:
-			name = g_file_get_uri (MKP_SOURCE_DATA (g_node)->file);
+		case ANJUTA_PROJECT_SOURCE:
+			name = g_file_get_uri (MKP_SOURCE_DATA (g_node)->base.file);
 			DEBUG_PRINT ("SOURCE: %s", name);
 			break;
 		default:
@@ -539,14 +557,14 @@ foreach_node_destroy (GNode    *g_node,
 		      gpointer  data)
 {
 	switch (MKP_NODE_DATA (g_node)->type) {
-		case MKP_NODE_GROUP:
+		case ANJUTA_PROJECT_GROUP:
 			//g_hash_table_remove (project->groups, g_file_get_uri (MKP_GROUP_NODE (g_node)->file));
 			mkp_group_free (g_node);
 			break;
-		case MKP_NODE_TARGET:
+		case ANJUTA_PROJECT_TARGET:
 			mkp_target_free (g_node);
 			break;
-		case MKP_NODE_SOURCE:
+		case ANJUTA_PROJECT_SOURCE:
 			//g_hash_table_remove (project->sources, MKP_NODE (g_node)->id);
 			mkp_source_free (g_node);
 			break;
@@ -579,9 +597,9 @@ project_node_destroy (MkpProject *project, GNode *g_node)
 static void
 find_target (GNode *node, gpointer data)
 {
-	if (MKP_NODE_DATA (node)->type == MKP_NODE_TARGET)
+	if (MKP_NODE_DATA (node)->type == ANJUTA_PROJECT_TARGET)
 	{
-		if (strcmp (MKP_TARGET_DATA (node)->name, *(gchar **)data) == 0)
+		if (strcmp (MKP_TARGET_DATA (node)->base.name, *(gchar **)data) == 0)
 		{
 			/* Find target, return node value in pointer */
 			*(GNode **)data = node;
@@ -596,7 +614,6 @@ project_load_rule (MkpProject *project, AnjutaToken *rule, GNode *parent)
 {
 	AnjutaToken *arg;
 	AnjutaToken *prerequisite;
-	gchar *name;
 
 	/* Search for prerequisite */
 	prerequisite = NULL;
@@ -627,7 +644,7 @@ project_load_rule (MkpProject *project, AnjutaToken *rule, GNode *parent)
 		else
 		{
 			/* Create target */
-			target = mkp_target_new (value, "unknown");
+			target = mkp_target_new (value, (AnjutaProjectTargetType)&MkpTargetTypes[0]);
 			mkp_target_add_token (target, arg);
 			g_node_append (parent, target);
 		}
@@ -638,10 +655,12 @@ project_load_rule (MkpProject *project, AnjutaToken *rule, GNode *parent)
 		for (arg = prerequisite; arg != NULL; arg = anjuta_token_list_next (arg))
 		{
 			MkpSource *source;
+			GFile *src_file;
 
 			value = anjuta_token_evaluate (arg);
-
-			source = mkp_source_new (project->root_file, name);
+			src_file = g_file_get_child (project->root_file, value);
+			source = mkp_source_new (src_file);
+			g_object_unref (src_file);
 			g_node_append (target, source);
 		}
 	}
@@ -694,8 +713,8 @@ project_load_makefile (MkpProject *project, GFile *file, GNode *parent, GError *
 	mkp_scanner_free (scanner);
 	if (!ok)
 	{
-		g_set_error (error, GBF_PROJECT_ERROR, 
-		             	GBF_PROJECT_ERROR_PROJECT_MALFORMED,
+		g_set_error (error, IANJUTA_PROJECT_ERROR, 
+		             	IANJUTA_PROJECT_ERROR_PROJECT_MALFORMED,
 		    			err == NULL ? _("Unable to parse make file") : err->message);
 		if (err != NULL) g_error_free (err);
 
@@ -750,8 +769,8 @@ mkp_project_reload (MkpProject *project, GError **error)
 	}
 	if (make_file == NULL)
 	{
-		g_set_error (error, GBF_PROJECT_ERROR, 
-		             GBF_PROJECT_ERROR_DOESNT_EXIST,
+		g_set_error (error, IANJUTA_PROJECT_ERROR, 
+		             IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
 			   _("Project doesn't exist or invalid path"));
 
 		return FALSE;
@@ -770,12 +789,12 @@ mkp_project_reload (MkpProject *project, GError **error)
 
 gboolean
 mkp_project_load (MkpProject  *project,
-    const gchar *uri,
+    GFile *directory,
 	GError     **error)
 {
-	g_return_val_if_fail (uri != NULL, FALSE);
+	g_return_val_if_fail (directory != NULL, FALSE);
 
-	project->root_file = g_file_new_for_path (uri);
+	project->root_file = g_object_ref (directory);
 	if (!mkp_project_reload (project, error))
 	{
 		g_object_unref (project->root_file);
@@ -809,21 +828,17 @@ mkp_project_unload (MkpProject *project)
 }
 
 gboolean 
-mkp_project_probe (MkpProject  *project,
-	    const gchar *uri,
+mkp_project_probe (GFile *directory,
 	    GError     **error)
 {
-	GFile *file;
 	gboolean probe;
 	gboolean dir;
 	
-	file = g_file_new_for_path (uri);
-
-	dir = (file_type (file, NULL) == G_FILE_TYPE_DIRECTORY);
+	dir = (file_type (directory, NULL) == G_FILE_TYPE_DIRECTORY);
 	if (!dir)
 	{
-		g_set_error (error, GBF_PROJECT_ERROR, 
-		             GBF_PROJECT_ERROR_DOESNT_EXIST,
+		g_set_error (error, IANJUTA_PROJECT_ERROR, 
+		             IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
 			   _("Project doesn't exist or invalid path"));
 	}
 	
@@ -836,15 +851,14 @@ mkp_project_probe (MkpProject  *project,
 		probe = FALSE;
 		for (makefile = valid_makefiles; *makefile != NULL; makefile++)
 		{
-			if (file_type (file, *makefile) == G_FILE_TYPE_REGULAR)
+			if (file_type (directory, *makefile) == G_FILE_TYPE_REGULAR)
 			{
 				probe = TRUE;
 				break;
 			}
 		}
 	}
-	
-	g_object_unref (file);
+
 	
 	return probe;
 }
@@ -963,11 +977,11 @@ mkp_project_move (MkpProject *project, const gchar *path)
 	{
 		MkpGroup *group = (MkpGroup *)value;
 		
-		relative = get_relative_path (old_root_file, MKP_GROUP_DATA (group)->directory);
+		relative = get_relative_path (old_root_file, MKP_GROUP_DATA (group)->base.directory);
 		new_file = g_file_resolve_relative_path (project->root_file, relative);
 		g_free (relative);
-		g_object_unref (MKP_GROUP_DATA (group)->directory);
-		MKP_GROUP_DATA (group)->directory = new_file;
+		g_object_unref (MKP_GROUP_DATA (group)->base.directory);
+		MKP_GROUP_DATA (group)->base.directory = new_file;
 
 		g_hash_table_insert (project->groups, g_file_get_uri (new_file), group);
 	}
@@ -1092,10 +1106,10 @@ mkp_project_get_node_id (MkpProject *project, const gchar *path)
 
 	switch (MKP_NODE_DATA (node)->type)
 	{
-		case MKP_NODE_GROUP:
-			return g_file_get_uri (MKP_GROUP_DATA (node)->directory);
-		case MKP_NODE_TARGET:
-		case MKP_NODE_SOURCE:
+		case ANJUTA_PROJECT_GROUP:
+			return g_file_get_uri (MKP_GROUP_DATA (node)->base.directory);
+		case ANJUTA_PROJECT_TARGET:
+		case ANJUTA_PROJECT_SOURCE:
 			return g_base64_encode ((guchar *)&node, sizeof (node));
 		default:
 			return NULL;
@@ -1130,50 +1144,106 @@ mkp_project_set_property (MkpProject *project, MkpPropertyType type, const gchar
 	return TRUE;
 }
 
+GList *
+mkp_project_get_target_types (MkpProject *project, GError **error)
+{
+	MkpTargetInformation *targets = MkpTargetTypes; 
+	GList *types = NULL;
 
-/* Node access functions
+	while (targets->base.name != NULL)
+	{
+		types = g_list_prepend (types, targets);
+		targets++;
+	}
+	types = g_list_reverse (types);
+
+	return types;
+}
+
+
+/* Implement IAnjutaProject
  *---------------------------------------------------------------------------*/
 
-MkpNode *
-mkp_node_parent(MkpNode *node)
+static AnjutaProjectGroup* 
+iproject_add_group (IAnjutaProject *obj, AnjutaProjectGroup *parent,  const gchar *name, GError **err)
 {
-	return node->parent;
+	return NULL;
 }
 
-MkpNode *
-mkp_node_first_child(MkpNode *node)
+static AnjutaProjectSource* 
+iproject_add_source (IAnjutaProject *obj, AnjutaProjectTarget *parent,  GFile *file, GError **err)
 {
-	return g_node_first_child (node);
+	return NULL;
 }
 
-MkpNode *
-mkp_node_last_child(MkpNode *node)
+static AnjutaProjectTarget* 
+iproject_add_target (IAnjutaProject *obj, AnjutaProjectGroup *parent,  const gchar *name,  AnjutaProjectTargetType type, GError **err)
 {
-	return g_node_last_child (node);
+	return NULL;
 }
 
-MkpNode *
-mkp_node_next_sibling (MkpNode *node)
+static GtkWidget* 
+iproject_configure (IAnjutaProject *obj, GError **err)
 {
-	return g_node_next_sibling (node);
+	return NULL;
 }
 
-MkpNode *
-mkp_node_prev_sibling (MkpNode *node)
+static guint 
+iproject_get_capabilities (IAnjutaProject *obj, GError **err)
 {
-	return g_node_prev_sibling (node);
+	return IANJUTA_PROJECT_CAN_ADD_NONE;
 }
 
-MkpNodeType
-mkp_node_get_type (MkpNode *node)
+static GList* 
+iproject_get_packages (IAnjutaProject *obj, GError **err)
 {
-	return MKP_NODE_DATA (node)->type;
+	return NULL;
 }
 
-void
-mkp_node_all_foreach (MkpNode *node, MkpNodeFunc func, gpointer data)
+static AnjutaProjectGroup* 
+iproject_get_root (IAnjutaProject *obj, GError **err)
 {
-	g_node_traverse (node, G_PRE_ORDER, G_TRAVERSE_ALL, -1, func, data);
+	return mkp_project_get_root (MKP_PROJECT (obj));
+}
+
+static GList* 
+iproject_get_target_types (IAnjutaProject *obj, GError **err)
+{
+	return mkp_project_get_target_types (MKP_PROJECT (obj), err);
+}
+
+static gboolean
+iproject_load (IAnjutaProject *obj, GFile *file, GError **err)
+{
+	return mkp_project_load (MKP_PROJECT (obj), file, err);
+}
+
+static gboolean
+iproject_refresh (IAnjutaProject *obj, GError **err)
+{
+	return mkp_project_reload (MKP_PROJECT (obj), err);
+}
+
+static gboolean
+iproject_remove_node (IAnjutaProject *obj, AnjutaProjectNode *node, GError **err)
+{
+	return TRUE;
+}
+
+static void
+iproject_iface_init(IAnjutaProjectIface* iface)
+{
+	iface->add_group = iproject_add_group;
+	iface->add_source = iproject_add_source;
+	iface->add_target = iproject_add_target;
+	iface->configure = iproject_configure;
+	iface->get_capabilities = iproject_get_capabilities;
+	iface->get_packages = iproject_get_packages;
+	iface->get_root = iproject_get_root;
+	iface->get_target_types = iproject_get_target_types;
+	iface->load = iproject_load;
+	iface->refresh = iproject_refresh;
+	iface->remove_node = iproject_remove_node;
 }
 
 /* Group access functions
@@ -1182,7 +1252,7 @@ mkp_node_all_foreach (MkpNode *node, MkpNodeFunc func, gpointer data)
 GFile*
 mkp_group_get_directory (MkpGroup *group)
 {
-	return MKP_GROUP_DATA (group)->directory;
+	return MKP_GROUP_DATA (group)->base.directory;
 }
 
 GFile*
@@ -1194,7 +1264,7 @@ mkp_group_get_makefile (MkpGroup *group)
 gchar *
 mkp_group_get_id (MkpGroup *group)
 {
-	return g_file_get_uri (MKP_GROUP_DATA (group)->directory);
+	return g_file_get_uri (MKP_GROUP_DATA (group)->base.directory);
 }
 
 /* Target access functions
@@ -1203,13 +1273,13 @@ mkp_group_get_id (MkpGroup *group)
 const gchar *
 mkp_target_get_name (MkpTarget *target)
 {
-	return MKP_TARGET_DATA (target)->name;
+	return MKP_TARGET_DATA (target)->base.name;
 }
 
-const gchar *
+AnjutaProjectTargetType
 mkp_target_get_type (MkpTarget *target)
 {
-	return MKP_TARGET_DATA (target)->type;
+	return MKP_TARGET_DATA (target)->base.type;
 }
 
 gchar *
@@ -1230,7 +1300,7 @@ mkp_source_get_id (MkpSource *source)
 GFile*
 mkp_source_get_file (MkpSource *source)
 {
-	return MKP_SOURCE_DATA (source)->file;
+	return MKP_SOURCE_DATA (source)->base.file;
 }
 
 /* GbfProject implementation
@@ -1272,4 +1342,7 @@ mkp_project_class_init (MkpProjectClass *klass)
 	object_class->dispose = mkp_project_dispose;
 }
 
-GBF_BACKEND_BOILERPLATE (MkpProject, mkp_project);
+ANJUTA_TYPE_BEGIN(MkpProject, mkp_project, G_TYPE_OBJECT);
+ANJUTA_TYPE_ADD_INTERFACE(iproject, IANJUTA_TYPE_PROJECT);
+ANJUTA_TYPE_END;
+//GBF_BACKEND_BOILERPLATE (MkpProject, mkp_project);

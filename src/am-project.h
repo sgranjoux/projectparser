@@ -28,7 +28,6 @@
 #include <libanjuta/anjuta-token.h>
 #include <libanjuta/anjuta-token-file.h>
 #include <libanjuta/anjuta-token-style.h>
-#include <libanjuta/gbf-project.h>
 
 G_BEGIN_DECLS
 
@@ -47,7 +46,7 @@ typedef struct _AmpProject        AmpProject;
 typedef struct _AmpProjectClass   AmpProjectClass;
 
 struct _AmpProjectClass {
-	GbfProjectClass parent_class;
+	GObjectClass parent_class;
 };
 
 typedef AnjutaProjectGroup AmpGroup;
