@@ -61,18 +61,11 @@ static const gchar *valid_makefiles[] = {"GNUmakefile", "makefile", "Makefile", 
 #define MKP_TARGET_DATA(node)  ((node) != NULL ? (MkpTargetData *)((node)->data) : NULL)
 #define MKP_SOURCE_DATA(node)  ((node) != NULL ? (MkpSourceData *)((node)->data) : NULL)
 
-typedef struct _MkpPackage MkpPackage;
 
-struct _MkpPackage {
-    gchar *name;
-    gchar *version;
-};
-
-typedef struct _MkpModule MkpModule;
-	
-struct _MkpModule {
-    GList *packages;
-    AnjutaToken *module;
+struct _MkpVariable {
+	gchar *name;
+	AnjutaTokenType assign;
+	AnjutaToken *value;
 };
 
 typedef enum {
@@ -517,7 +510,7 @@ monitors_setup (MkpProject *project)
 	project->monitors = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
 						   (GDestroyNotify) g_file_monitor_cancel);
 
-	monitor_add (project, anjuta_token_file_get_file (project->make_file));
+	//monitor_add (project, anjuta_token_file_get_file (project->make_file));
 	if (project->groups)
 		g_hash_table_foreach (project->groups, group_hash_foreach_monitor, project);
 }
@@ -679,36 +672,22 @@ remove_make_file (gpointer data, GObject *object, gboolean is_last_ref)
 }
 
 static MkpGroup*
-project_load_makefile (MkpProject *project, GFile *file, GNode *parent, GError **error)
+project_load_makefile (MkpProject *project, GFile *file, MkpGroup *parent, GError **error)
 {
 	MkpScanner *scanner;
-	MkpGroup *group;
 	AnjutaToken *rule_tok;
 	AnjutaToken *arg;
 	AnjutaTokenFile *tfile;
-	GFile *makefile = NULL;
 	gboolean found;
 	gboolean ok;
 	GError *err = NULL;
 
-	/* Create group */
-	group = mkp_group_new (file);
-	g_hash_table_insert (project->groups, g_file_get_uri (file), group);
-	if (parent == NULL)
-	{
-		project->root_node = group;
-	}
-	else
-	{
-		g_node_append (parent, group);
-	}
-		
 	/* Parse makefile */	
-	DEBUG_PRINT ("Parse: %s", g_file_get_uri (makefile));
-	tfile = mkp_group_set_makefile (group, makefile);
-	g_hash_table_insert (project->files, file, tfile);
-	g_object_add_toggle_ref (G_OBJECT (project->make_file), remove_make_file, project);
-	scanner = mkp_scanner_new ();
+	DEBUG_PRINT ("Parse: %s", g_file_get_uri (file));
+	tfile = mkp_group_set_makefile (parent, file);
+	g_hash_table_insert (project->files, g_object_ref (file), g_object_ref (tfile));
+//	g_object_add_toggle_ref (G_OBJECT (project->make_file), remove_make_file, project);
+	scanner = mkp_scanner_new (project);
 	ok = mkp_scanner_parse (scanner, tfile, &err);
 	mkp_scanner_free (scanner);
 	if (!ok)
@@ -724,294 +703,13 @@ project_load_makefile (MkpProject *project, GFile *file, GNode *parent, GError *
 	/* Load target */
 	rule_tok = anjuta_token_new_static (MK_TOKEN_RULE, NULL);
 	
-	arg = anjuta_token_file_first (MKP_GROUP_DATA (group)->tfile);
+	arg = anjuta_token_file_first (tfile);
 	for (found = anjuta_token_match (rule_tok, ANJUTA_SEARCH_INTO, arg, &arg); found; found = anjuta_token_match (rule_tok, ANJUTA_SEARCH_INTO, anjuta_token_next_sibling (arg), &arg))
 	{
-		project_load_rule (project, arg, group);
+		project_load_rule (project, arg, parent);
 	}
 
-	return group;
-}
-
-/* Public functions
- *---------------------------------------------------------------------------*/
-
-gboolean
-mkp_project_reload (MkpProject *project, GError **error) 
-{
-	GFile *root_file;
-	GFile *make_file;
-	const gchar **makefile;
-	gboolean ok;
-
-	/* Unload current project */
-	root_file = g_object_ref (project->root_file);
-	mkp_project_unload (project);
-	project->root_file = root_file;
-	DEBUG_PRINT ("reload project %p root file %p", project, project->root_file);
-
-	/* shortcut hash tables */
-	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
-
-	/* Initialize list styles */
-	project->space_list = anjuta_token_style_new (NULL, " ", "\\n", NULL, 0);
-	project->arg_list = anjuta_token_style_new (NULL, ", ", ",\\n ", ")", 0);
-
-	/* Find make file */
-	for (makefile = valid_makefiles; *makefile != NULL; makefile++)
-	{
-		if (file_type (root_file, *makefile) == G_FILE_TYPE_REGULAR)
-		{
-			make_file = g_file_get_child (root_file, *makefile);
-			break;
-		}
-	}
-	if (make_file == NULL)
-	{
-		g_set_error (error, IANJUTA_PROJECT_ERROR, 
-		             IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Project doesn't exist or invalid path"));
-
-		return FALSE;
-	}
-	
-	/* Parse make file */	
-	project->make_file = anjuta_token_file_new (make_file);
-		     
-
-	project_load_makefile (project, make_file, NULL, error);
-
-	monitors_setup (project);
-	
-	return ok;
-}
-
-gboolean
-mkp_project_load (MkpProject  *project,
-    GFile *directory,
-	GError     **error)
-{
-	g_return_val_if_fail (directory != NULL, FALSE);
-
-	project->root_file = g_object_ref (directory);
-	if (!mkp_project_reload (project, error))
-	{
-		g_object_unref (project->root_file);
-		project->root_file = NULL;
-	}
-
-	return project->root_file != NULL;
-}
-
-void
-mkp_project_unload (MkpProject *project)
-{
-	monitors_remove (project);
-	
-	/* project data */
-	project_node_destroy (project, project->root_node);
-	project->root_node = NULL;
-
-	if (project->root_file) g_object_unref (project->root_file);
-	project->root_file = NULL;
-
-	/* shortcut hash tables */
-	if (project->groups) g_hash_table_destroy (project->groups);
-	if (project->files) g_hash_table_destroy (project->files);
-	project->groups = NULL;
-	project->files = NULL;
-
-	/* List styles */
-	if (project->space_list) anjuta_token_style_free (project->space_list);
-	if (project->arg_list) anjuta_token_style_free (project->arg_list);
-}
-
-gint
-mkp_project_probe (GFile *directory,
-	    GError     **error)
-{
-	gboolean probe;
-	gboolean dir;
-	
-	dir = (file_type (directory, NULL) == G_FILE_TYPE_DIRECTORY);
-	if (!dir)
-	{
-		g_set_error (error, IANJUTA_PROJECT_ERROR, 
-		             IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
-			   _("Project doesn't exist or invalid path"));
-	}
-	
-	probe =  dir;
-	if (probe)
-	{
-		const gchar **makefile;
-
-		/* Look for makefiles */
-		probe = FALSE;
-		for (makefile = valid_makefiles; *makefile != NULL; makefile++)
-		{
-			if (file_type (directory, *makefile) == G_FILE_TYPE_REGULAR)
-			{
-				probe = TRUE;
-				break;
-			}
-		}
-	}
-
-	return probe ? IANJUTA_PROJECT_PROBE_MAKE_FILES : 0;
-}
-
-static AnjutaTokenType
-anjuta_token_for_target_type (const gchar *type)
-{
-	return ANJUTA_TOKEN_NAME;
-}
-
-static const gchar*
-autotool_prefix_for_target_type (const gchar *type)
-{
-	if (!strcmp (type, "static_lib")) {
-		return "_LIBRARIES";
-	} else if (!strcmp (type, "shared_lib")) {
-		return "_LTLIBRARIES";
-	} else if (!strcmp (type, "headers")) {
-		return "_HEADERS";
-	} else if (!strcmp (type, "man")) {
-		return "_MANS";
-	} else if (!strcmp (type, "data")) {
-		return "_DATA";
-	} else if (!strcmp (type, "program")) {
-		return "_PROGRAMS";
-	} else if (!strcmp (type, "script")) {
-		return "_SCRIPTS";
-	} else if (!strcmp (type, "info")) {
-		return "_TEXINFOS";
-	} else if (!strcmp (type, "java")) {
-		return "_JAVA";
-	} else if (!strcmp (type, "python")) {
-		return "_PYTHON";
-	} else if (!strcmp (type, "lisp")) {
-		return "_LISP";
-	} else {
-		return "";
-	}
-}
-
-static const gchar * 
-default_install_for_target_type (const gchar *type)
-{
-	if (!strcmp (type, "static_lib")) {
-		return _("lib");
-	} else if (!strcmp (type, "shared_lib")) {
-		return _("lib");
-	} else if (!strcmp (type, "headers")) {
-		return _("include");
-	} else if (!strcmp (type, "man")) {
-		return _("man");
-	} else if (!strcmp (type, "data")) {
-		return _("data");
-	} else if (!strcmp (type, "program")) {
-		return _("bin");
-	} else if (!strcmp (type, "script")) {
-		return _("bin");
-	} else if (!strcmp (type, "info")) {
-		return _("info");
-	} else if (!strcmp (type, "java")) {
-		return _("Java Module");
-	} else if (!strcmp (type, "python")) {
-		return _("Python Module");
-	} else if (!strcmp (type, "lisp")) {
-		return _("lisp");
-	} else {
-		return _("Unknown");
-	}
-}
-
-/* Public functions
- *---------------------------------------------------------------------------*/
-
-gboolean
-mkp_project_save (MkpProject *project, GError **error)
-{
-	gpointer key;
-	gpointer value;
-	GHashTableIter iter;
-
-	g_return_val_if_fail (project != NULL, FALSE);
-
-	g_hash_table_iter_init (&iter, project->files);
-	while (g_hash_table_iter_next (&iter, &key, &value))
-	{
-		GError *error = NULL;
-		AnjutaTokenFile *tfile = (AnjutaTokenFile *)value;
-		;
-		anjuta_token_file_save (tfile, &error);
-	}
-
-	return TRUE;
-}
-
-gboolean
-mkp_project_move (MkpProject *project, const gchar *path)
-{
-	GFile	*old_root_file;
-	GFile *new_file;
-	gchar *relative;
-	GHashTableIter iter;
-	gpointer key;
-	gpointer value;
-	AnjutaTokenFile *tfile;
-	GHashTable* old_hash;
-
-	/* Change project root directory */
-	old_root_file = project->root_file;
-	project->root_file = g_file_new_for_path (path);
-
-	/* Change project root directory in groups */
-	old_hash = project->groups;
-	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	g_hash_table_iter_init (&iter, old_hash);
-	while (g_hash_table_iter_next (&iter, &key, &value))
-	{
-		MkpGroup *group = (MkpGroup *)value;
-		
-		relative = get_relative_path (old_root_file, MKP_GROUP_DATA (group)->base.directory);
-		new_file = g_file_resolve_relative_path (project->root_file, relative);
-		g_free (relative);
-		g_object_unref (MKP_GROUP_DATA (group)->base.directory);
-		MKP_GROUP_DATA (group)->base.directory = new_file;
-
-		g_hash_table_insert (project->groups, g_file_get_uri (new_file), group);
-	}
-	g_hash_table_destroy (old_hash);
-
-	/* Change all files */
-	old_hash = project->files;
-	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
-	g_hash_table_iter_init (&iter, old_hash);
-	while (g_hash_table_iter_next (&iter, &key, (gpointer *)&tfile))
-	{
-		relative = get_relative_path (old_root_file, anjuta_token_file_get_file (tfile));
-		new_file = g_file_resolve_relative_path (project->root_file, relative);
-		g_free (relative);
-		anjuta_token_file_move (tfile, new_file);
-		
-		g_hash_table_insert (project->files, new_file, tfile);
-		g_object_unref (key);
-	}
-	g_hash_table_steal_all (old_hash);
-	g_hash_table_destroy (old_hash);
-
-	g_object_unref (old_root_file);
-
-	return TRUE;
-}
-
-MkpProject *
-mkp_project_new (void)
-{
-	return MKP_PROJECT (g_object_new (MKP_TYPE_PROJECT, NULL));
+	return parent;
 }
 
 /* Project access functions
@@ -1030,6 +728,22 @@ mkp_project_get_root (MkpProject *project)
 	}
 
 	return g_node;
+}
+
+GList *
+mkp_project_list_variable (MkpProject *project)
+{
+	return g_hash_table_get_values (project->variables);
+}
+
+MkpVariable*
+mkp_project_get_variable (MkpProject *project, const gchar *name)
+{
+	MkpVariable *var;
+	
+	var = (MkpVariable *)g_hash_table_lookup (project->groups, name);
+
+	return var;
 }
 
 MkpGroup *
@@ -1131,18 +845,6 @@ mkp_project_get_file (MkpProject *project)
 	return project->root_file;
 }
 	
-gchar *
-mkp_project_get_property (MkpProject *project, MkpPropertyType type)
-{
-	return NULL;
-}
-
-gboolean
-mkp_project_set_property (MkpProject *project, MkpPropertyType type, const gchar *value)
-{
-	return TRUE;
-}
-
 GList *
 mkp_project_get_target_types (MkpProject *project, GError **error)
 {
@@ -1159,6 +861,387 @@ mkp_project_get_target_types (MkpProject *project, GError **error)
 	return types;
 }
 
+/* Group access functions
+ *---------------------------------------------------------------------------*/
+
+GFile*
+mkp_group_get_directory (MkpGroup *group)
+{
+	return MKP_GROUP_DATA (group)->base.directory;
+}
+
+GFile*
+mkp_group_get_makefile (MkpGroup *group)
+{
+	return MKP_GROUP_DATA (group)->makefile;
+}
+
+gchar *
+mkp_group_get_id (MkpGroup *group)
+{
+	return g_file_get_uri (MKP_GROUP_DATA (group)->base.directory);
+}
+
+/* Target access functions
+ *---------------------------------------------------------------------------*/
+
+const gchar *
+mkp_target_get_name (MkpTarget *target)
+{
+	return MKP_TARGET_DATA (target)->base.name;
+}
+
+AnjutaProjectTargetType
+mkp_target_get_type (MkpTarget *target)
+{
+	return MKP_TARGET_DATA (target)->base.type;
+}
+
+gchar *
+mkp_target_get_id (MkpTarget *target)
+{
+	return g_base64_encode ((guchar *)&target, sizeof (target));
+}
+
+/* Source access functions
+ *---------------------------------------------------------------------------*/
+
+gchar *
+mkp_source_get_id (MkpSource *source)
+{
+	return g_base64_encode ((guchar *)&source, sizeof (source));
+}
+
+GFile*
+mkp_source_get_file (MkpSource *source)
+{
+	return MKP_SOURCE_DATA (source)->base.file;
+}
+
+/* Variable access functions
+ *---------------------------------------------------------------------------*/
+
+const gchar *
+mkp_variable_get_name (MkpVariable *variable)
+{
+	return variable->name;
+}
+
+gchar *
+mkp_variable_evaluate (MkpVariable *variable, AnjutaProjectNode *context)
+{
+	return anjuta_token_evaluate (variable->value);
+}
+
+static MkpVariable*
+mkp_variable_new (gchar *name, AnjutaTokenType assign, AnjutaToken *value)
+{
+    MkpVariable *variable = NULL;
+
+	g_return_val_if_fail (name != NULL, NULL);
+	
+	variable = g_slice_new0(MkpVariable); 
+	variable->name = g_strdup (name);
+	variable->assign = assign;
+	variable->value = value;
+
+	return variable;
+}
+
+static void
+mkp_variable_free (MkpVariable *variable)
+{
+	g_free (variable->name);
+	
+    g_slice_free (MkpVariable, variable);
+}
+
+/* Public functions
+ *---------------------------------------------------------------------------*/
+
+gboolean
+mkp_project_reload (MkpProject *project, GError **error) 
+{
+	GFile *root_file;
+	GFile *make_file;
+	const gchar **makefile;
+	MkpGroup *group;
+	gboolean ok = TRUE;
+
+	/* Unload current project */
+	root_file = g_object_ref (project->root_file);
+	mkp_project_unload (project);
+	project->root_file = root_file;
+	DEBUG_PRINT ("reload project %p root file %p", project, project->root_file);
+
+	/* shortcut hash tables */
+	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
+	project->variables = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, mkp_variable_free);
+
+	/* Initialize list styles */
+	project->space_list = anjuta_token_style_new (NULL, " ", "\\n", NULL, 0);
+	project->arg_list = anjuta_token_style_new (NULL, ", ", ",\\n ", ")", 0);
+
+	/* Find make file */
+	for (makefile = valid_makefiles; *makefile != NULL; makefile++)
+	{
+		if (file_type (root_file, *makefile) == G_FILE_TYPE_REGULAR)
+		{
+			make_file = g_file_get_child (root_file, *makefile);
+			break;
+		}
+	}
+	if (make_file == NULL)
+	{
+		g_set_error (error, IANJUTA_PROJECT_ERROR, 
+		             IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
+			   _("Project doesn't exist or invalid path"));
+
+		return FALSE;
+	}
+
+	/* Create group */
+	group = mkp_group_new (root_file);
+	g_hash_table_insert (project->groups, g_file_get_uri (root_file), group);
+	project->root_node = group;
+
+	
+	/* Parse make file */	
+	project_load_makefile (project, make_file, group, error);
+	g_object_unref (make_file);
+
+	monitors_setup (project);
+	
+	
+	return ok;
+}
+
+gboolean
+mkp_project_load (MkpProject  *project,
+    GFile *directory,
+	GError     **error)
+{
+	g_return_val_if_fail (directory != NULL, FALSE);
+
+	project->root_file = g_object_ref (directory);
+	if (!mkp_project_reload (project, error))
+	{
+		g_object_unref (project->root_file);
+		project->root_file = NULL;
+	}
+
+	return project->root_file != NULL;
+}
+
+void
+mkp_project_unload (MkpProject *project)
+{
+	monitors_remove (project);
+	
+	/* project data */
+	project_node_destroy (project, project->root_node);
+	project->root_node = NULL;
+
+	if (project->root_file) g_object_unref (project->root_file);
+	project->root_file = NULL;
+
+	/* shortcut hash tables */
+	if (project->groups) g_hash_table_destroy (project->groups);
+	project->groups = NULL;
+	if (project->files) g_hash_table_destroy (project->files);
+	project->files = NULL;
+	if (project->variables) g_hash_table_destroy (project->variables);
+	project->variables = NULL;
+
+	/* List styles */
+	if (project->space_list) anjuta_token_style_free (project->space_list);
+	if (project->arg_list) anjuta_token_style_free (project->arg_list);
+}
+
+gint
+mkp_project_probe (GFile *directory,
+	    GError     **error)
+{
+	gboolean probe;
+	gboolean dir;
+	
+	dir = (file_type (directory, NULL) == G_FILE_TYPE_DIRECTORY);
+	if (!dir)
+	{
+		g_set_error (error, IANJUTA_PROJECT_ERROR, 
+		             IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
+			   _("Project doesn't exist or invalid path"));
+	}
+	
+	probe =  dir;
+	if (probe)
+	{
+		const gchar **makefile;
+
+		/* Look for makefiles */
+		probe = FALSE;
+		for (makefile = valid_makefiles; *makefile != NULL; makefile++)
+		{
+			if (file_type (directory, *makefile) == G_FILE_TYPE_REGULAR)
+			{
+				probe = TRUE;
+				break;
+			}
+		}
+	}
+
+	return probe ? IANJUTA_PROJECT_PROBE_MAKE_FILES : 0;
+}
+
+void
+mkp_project_update_variable (MkpProject *project, AnjutaToken *variable)
+{
+	AnjutaToken *arg;
+	char *name = NULL;
+	MakeTokenType assign = 0;	
+	AnjutaToken *value = NULL;
+
+	for (arg = anjuta_token_next_child (variable); arg != NULL; arg = anjuta_token_next_sibling (arg))
+	{
+		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_NAME)
+		{
+			name = anjuta_token_evaluate (arg);
+			break;
+		}
+	}
+	for (; arg != NULL; arg = anjuta_token_next_sibling (arg))
+	{
+		switch (anjuta_token_get_type (arg))
+		{
+		case MK_TOKEN_EQUAL:
+		case MK_TOKEN_IMMEDIATE_EQUAL:
+		case MK_TOKEN_CONDITIONAL_EQUAL:
+		case MK_TOKEN_APPEND:
+			assign = anjuta_token_get_type (arg);
+			break;
+		default:
+			continue;
+		}
+		break;
+	}
+	for (; arg != NULL; arg = anjuta_token_next_sibling (arg))
+	{
+		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_VALUE)
+		{
+			value = arg;
+			break;
+		}
+	}
+
+	if (assign != 0)
+	{
+		MkpVariable *var;
+
+		var = (MkpVariable *)g_hash_table_lookup (project->variables, name);
+		if (var != NULL)
+		{
+			var->assign = assign;
+			var->value = value;
+		}
+		else
+		{
+			var = mkp_variable_new (name, assign, value);
+			g_hash_table_insert (project->variables, var->name, var);
+		}
+
+	}
+
+	g_message ("update variable %s", name);
+	
+	if (name) g_free (name);
+}
+
+/* Public functions
+ *---------------------------------------------------------------------------*/
+
+gboolean
+mkp_project_save (MkpProject *project, GError **error)
+{
+	gpointer key;
+	gpointer value;
+	GHashTableIter iter;
+
+	g_return_val_if_fail (project != NULL, FALSE);
+
+	g_hash_table_iter_init (&iter, project->files);
+	while (g_hash_table_iter_next (&iter, &key, &value))
+	{
+		GError *error = NULL;
+		AnjutaTokenFile *tfile = (AnjutaTokenFile *)value;
+		;
+		anjuta_token_file_save (tfile, &error);
+	}
+
+	return TRUE;
+}
+
+gboolean
+mkp_project_move (MkpProject *project, const gchar *path)
+{
+	GFile	*old_root_file;
+	GFile *new_file;
+	gchar *relative;
+	GHashTableIter iter;
+	gpointer key;
+	gpointer value;
+	AnjutaTokenFile *tfile;
+	GHashTable* old_hash;
+
+	/* Change project root directory */
+	old_root_file = project->root_file;
+	project->root_file = g_file_new_for_path (path);
+
+	/* Change project root directory in groups */
+	old_hash = project->groups;
+	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	g_hash_table_iter_init (&iter, old_hash);
+	while (g_hash_table_iter_next (&iter, &key, &value))
+	{
+		MkpGroup *group = (MkpGroup *)value;
+		
+		relative = get_relative_path (old_root_file, MKP_GROUP_DATA (group)->base.directory);
+		new_file = g_file_resolve_relative_path (project->root_file, relative);
+		g_free (relative);
+		g_object_unref (MKP_GROUP_DATA (group)->base.directory);
+		MKP_GROUP_DATA (group)->base.directory = new_file;
+
+		g_hash_table_insert (project->groups, g_file_get_uri (new_file), group);
+	}
+	g_hash_table_destroy (old_hash);
+
+	/* Change all files */
+	old_hash = project->files;
+	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
+	g_hash_table_iter_init (&iter, old_hash);
+	while (g_hash_table_iter_next (&iter, &key, (gpointer *)&tfile))
+	{
+		relative = get_relative_path (old_root_file, anjuta_token_file_get_file (tfile));
+		new_file = g_file_resolve_relative_path (project->root_file, relative);
+		g_free (relative);
+		anjuta_token_file_move (tfile, new_file);
+		
+		g_hash_table_insert (project->files, new_file, tfile);
+		g_object_unref (key);
+	}
+	g_hash_table_steal_all (old_hash);
+	g_hash_table_destroy (old_hash);
+
+	g_object_unref (old_root_file);
+
+	return TRUE;
+}
+
+MkpProject *
+mkp_project_new (void)
+{
+	return MKP_PROJECT (g_object_new (MKP_TYPE_PROJECT, NULL));
+}
 
 /* Implement IAnjutaProject
  *---------------------------------------------------------------------------*/
@@ -1243,63 +1326,6 @@ iproject_iface_init(IAnjutaProjectIface* iface)
 	iface->load = iproject_load;
 	iface->refresh = iproject_refresh;
 	iface->remove_node = iproject_remove_node;
-}
-
-/* Group access functions
- *---------------------------------------------------------------------------*/
-
-GFile*
-mkp_group_get_directory (MkpGroup *group)
-{
-	return MKP_GROUP_DATA (group)->base.directory;
-}
-
-GFile*
-mkp_group_get_makefile (MkpGroup *group)
-{
-	return MKP_GROUP_DATA (group)->makefile;
-}
-
-gchar *
-mkp_group_get_id (MkpGroup *group)
-{
-	return g_file_get_uri (MKP_GROUP_DATA (group)->base.directory);
-}
-
-/* Target access functions
- *---------------------------------------------------------------------------*/
-
-const gchar *
-mkp_target_get_name (MkpTarget *target)
-{
-	return MKP_TARGET_DATA (target)->base.name;
-}
-
-AnjutaProjectTargetType
-mkp_target_get_type (MkpTarget *target)
-{
-	return MKP_TARGET_DATA (target)->base.type;
-}
-
-gchar *
-mkp_target_get_id (MkpTarget *target)
-{
-	return g_base64_encode ((guchar *)&target, sizeof (target));
-}
-
-/* Source access functions
- *---------------------------------------------------------------------------*/
-
-gchar *
-mkp_source_get_id (MkpSource *source)
-{
-	return g_base64_encode ((guchar *)&source, sizeof (source));
-}
-
-GFile*
-mkp_source_get_file (MkpSource *source)
-{
-	return MKP_SOURCE_DATA (source)->base.file;
 }
 
 /* GbfProject implementation

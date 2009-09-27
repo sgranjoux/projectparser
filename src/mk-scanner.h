@@ -30,18 +30,29 @@ G_BEGIN_DECLS
 
 #define YYSTYPE AnjutaToken*
 
+#ifndef _MK_PROJECT_H_
+typedef struct _MkpProject        MkpProject;
+#endif
+
 typedef struct _MkpScanner MkpScanner;
 
-MkpScanner *mkp_scanner_new (void);
+MkpScanner *mkp_scanner_new (MkpProject *project);
 void mkp_scanner_free (MkpScanner *scanner);
 
 gboolean mkp_scanner_parse (MkpScanner *scanner, AnjutaTokenFile *file, GError **error);
+
+void mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable);
+void mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable);
 
 const gchar* mkp_scanner_get_filename (MkpScanner *scanner);
 
 typedef enum
 {
 	MK_TOKEN_RULE = ANJUTA_TOKEN_USER,
+	MK_TOKEN_EQUAL,
+	MK_TOKEN_IMMEDIATE_EQUAL,
+	MK_TOKEN_CONDITIONAL_EQUAL,
+	MK_TOKEN_APPEND,
 	MK_TOKEN_TARGET,
 	MK_TOKEN_PREREQUISITE,
 	MK_TOKEN_ORDER_PREREQUISITE,

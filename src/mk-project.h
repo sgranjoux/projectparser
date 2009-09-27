@@ -54,6 +54,7 @@ typedef AnjutaProjectGroup MkpGroup;
 typedef AnjutaProjectTarget MkpTarget;
 typedef AnjutaProjectSource MkpSource;
 typedef struct _MkpProperty MkpProperty;
+typedef struct _MkpVariable MkpVariable;
 
 typedef enum {
 	MKP_PROPERTY_NAME = 0,
@@ -74,10 +75,12 @@ gboolean mkp_project_reload (MkpProject *project, GError **error);
 void mkp_project_unload (MkpProject *project);
 
 MkpGroup *mkp_project_get_root (MkpProject *project);
+MkpVariable *mkp_project_get_variable (MkpProject *project, const gchar *name);
+GList *mkp_project_list_variable (MkpProject *project);
+
 MkpGroup *mkp_project_get_group (MkpProject *project, const gchar *id);
 MkpTarget *mkp_project_get_target (MkpProject *project, const gchar *id);
 MkpSource *mkp_project_get_source (MkpProject *project, const gchar *id);
-
 
 gboolean mkp_project_move (MkpProject *project, const gchar *path);
 gboolean mkp_project_save (MkpProject *project, GError **error);
@@ -94,12 +97,6 @@ void mkp_project_remove_target (MkpProject  *project, MkpTarget *target, GError 
 MkpSource* mkp_project_add_source (MkpProject  *project, MkpTarget *target, const gchar *uri, GError **error);
 void mkp_project_remove_source (MkpProject  *project, MkpSource *source, GError **error);
 
-GList *mkp_project_get_config_modules (MkpProject *project, GError **error);
-GList *mkp_project_get_config_packages  (MkpProject *project, const gchar* module, GError **error);
-
-gchar* mkp_project_get_property (MkpProject *project, MkpPropertyType type);
-gboolean mkp_project_set_property (MkpProject *project, MkpPropertyType type, const gchar* value);
-
 gchar * mkp_project_get_node_id (MkpProject *project, const gchar *path);
 
 GFile *mkp_group_get_directory (MkpGroup *group);
@@ -112,6 +109,9 @@ gchar *mkp_target_get_id (MkpTarget *target);
 
 gchar *mkp_source_get_id (MkpSource *source);
 GFile *mkp_source_get_file (MkpSource *source);
+
+gchar *mkp_variable_evaluate (MkpVariable *variable, AnjutaProjectNode *context);
+const gchar* mkp_variable_get_name (MkpVariable *variable);
 
 G_END_DECLS
 

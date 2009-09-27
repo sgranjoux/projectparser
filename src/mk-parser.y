@@ -33,6 +33,7 @@
 %token  HASH '#'
 %token	MACRO
 %token	VARIABLE
+%token  COMMA ','
 %token	COLON ':'
 %token	DOUBLE_COLON "::"
 %token	ORDER '|'
@@ -44,6 +45,7 @@
 %token	CHARACTER
 %token	NAME
 %token	MK_VARIABLE
+%token  DUMMY
 
 %defines
 
@@ -53,7 +55,7 @@
  * not "amp-scanner.c"
 %output="y.tab.c"*/
 
-%glr-parser
+/*%glr-parser*/
 
 %parse-param {void* scanner}
 %lex-param   {void* scanner}
@@ -61,6 +63,8 @@
 %name-prefix="mkp_yy"
 
 %locations
+
+%expect 1
 
 %start file
 
@@ -78,147 +82,54 @@ static void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s);
 %%
 
 file:
-    /* empty */
-	| file statement
-	;
-        
+    statement
+    | file statement
+    ;
+
 statement:
-    space_token
-    | comment
-    | variable
-    | rule
+    end_of_line
+    | space end_of_line
+    | definition end_of_line
+    | rule command_list 
 	;
 
-variable:
-	head_with_space equal_token optional_space value_list optional_space
-	| head equal_token optional_space value_list optional_space
-	;
+definition:
+    head_list equal_token value_list {
+		$$ = anjuta_token_merge (
+			anjuta_token_insert_before ($1,
+					anjuta_token_new_static (ANJUTA_TOKEN_DEFINITION, NULL)),
+			$3 != NULL ? $3 : $2);
+        mkp_scanner_update_variable (scanner, $$);
+    }        
+    ;    
 
 rule:
-	depend
-	| depend SEMI_COLON commands
-	| depend EOL TAB commands
+    depend_list end_of_line
+    | depend_list SEMI_COLON command_line EOL
+    ;
+
+depend_list:
+    head_list rule_token prerequisite_list order_prerequisite_list
+    ;
+
+command_list:
+    /* empty */
+	| command_list TAB command_line EOL
 	;
 		
-depend:
-	target_list rule_token optional_space prerequisite_list optional_space ORDER optional_space prerequisite_list 
-	;
-
-commands:
-	token_list
-	| commands EOL TAB token_list
-	;
+order_prerequisite_list:
+    /* empty */
+    | ORDER prerequisite_list
+    ;
 		
-mk_variable:
-	MK_VARIABLE space_list_value {
-		$$ = anjuta_token_merge (
-			anjuta_token_insert_before ($1,
-					anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT, NULL)),
-			$2);
-	}
-	| MK_VARIABLE optional_space equal_token optional_space
-	;
-				
-space_list_value: optional_space  equal_token   value_list  {
-		$$ = $3;
-	}
-	;
-
-value_list:
-	optional_space strip_value_list optional_space {
-		if ($1) anjuta_token_merge_previous ($2, $1);
-		if ($3) anjuta_token_merge ($2, $3);
-		$$ = $2;
-	}
-		
-strip_value_list:
-	value {
-		$$ = anjuta_token_merge (
-			anjuta_token_insert_before ($1,
-					anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL)),
-			$1);
-	}
-	| strip_value_list  space  value {
-		anjuta_token_merge ($1, $3);
-	}
-	;
-
-target_list:
-	head
-	| head_with_space
-	| head_with_space target_list2 optional_space
-	;
-
-target_list2:
-	target
-	| target_list2  space  target {
-		anjuta_token_merge ($1, $3);
-	}
-	;
-		
-token_list:
-	token
-	| token_list token
-	;
-		
-prerequisite_list:
-	prerequisite
-	| prerequisite_list space prerequisite {
-		anjuta_token_merge ($1, $3);
-	}
-	;
-
-		
-
-optional_space:
-	/* empty */ {
-		$$ = NULL;
-	}
-	| space
-	;
-
-
-head_with_space:
-	head space
-	;
-		
-head:
-	head_token
-	| head name_token {
-		anjuta_token_merge ($1, $2);
-	}
-	;
-
-target:
-	head_token
-	| target target_token {
-		anjuta_token_merge ($1, $2);
-	}
-	;
-		
-value:
-	value_token
-	| value value_token {
-		anjuta_token_merge ($1, $2);
-	}
-	;
-
-prerequisite:
-	prerequisite_token
-	| prerequisite prerequisite_token {
-		anjuta_token_merge ($1, $2);
-	}
-	;
-		
-space:
-	space_token
-	| space space_token	{
-		anjuta_token_merge ($1, $2);
-	}
-	;
 
 /* Lists
  *----------------------------------------------------------------------------*/
+
+end_of_line:
+    EOL
+    | comment
+    ;
 
 comment:
     HASH not_eol_list EOL {
@@ -232,55 +143,178 @@ not_eol_list:
     | not_eol_list not_eol_token
     ;
 
+value_list:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | space {
+        $$ = $1;
+    }
+    | optional_space value_list_body optional_space {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1 != NULL ? $1 : $2);
+        if ($1) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
+        if ($3) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
+        anjuta_token_group ($$, $3 != NULL ? $3 : $2);
+    }
+    ;
+
+value_list_body:
+    value
+    | value_list_body space value {
+        anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
+    }
+    ;
+
+prerequisite_list:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | optional_space prerequisite_list_body optional_space {
+        $$ = anjuta_token_group_new (MK_TOKEN_PREREQUISITE, $1 != NULL ? $1 : $2);
+        if ($1) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
+        if ($3) anjuta_token_set_type ($3, ANJUTA_TOKEN_START);
+        anjuta_token_group ($$, $3 != NULL ? $3 : $2);
+    }
+    ;
+
+prerequisite_list_body:
+	prerequisite
+	| prerequisite_list_body space prerequisite {
+        anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
+	}
+	;
+
+head_list:
+    optional_space head_list_body optional_space {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_NAME, $1 != NULL ? $1 : $2);
+        if ($1) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
+        if ($3) anjuta_token_set_type ($3, ANJUTA_TOKEN_START);
+        anjuta_token_group ($$, $3 != NULL ? $3 : $2);
+    }
+    ;
+
+head_list_body:
+    head
+    | head_list_body space head {
+        anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
+    }
+    ;
+
+command_line:
+    /* empty */
+    | command_line command_token
+    ;
+
+/* Items
+ *----------------------------------------------------------------------------*/
+
+optional_space:
+	/* empty */ {
+		$$ = NULL;
+	}
+	| space
+	;
+
+space:
+	space_token
+	| space space_token	{
+		anjuta_token_merge ($1, $2);
+	}
+	;
+
+head:
+    head_token {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_NAME, $1);    
+    }
+    | head head_token {
+        anjuta_token_group ($$, $2);
+    }
+    ;
+
+value:
+    value_token {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1);
+    }
+    | value value_token {
+        anjuta_token_group ($$, $2);
+    }
+    ;     
+
+prerequisite:
+    prerequisite_token {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1);
+    }
+    | prerequisite prerequisite_token {
+        anjuta_token_group ($$, $2);
+    }
+    ;     
+
 /* Tokens
  *----------------------------------------------------------------------------*/
 		
-token:
-	space_token
-	| value_token
-	;            
-	
 not_eol_token:
-    SPACE
-    | word_token    
+    word_token
+    | space_token
+    ;
+
+prerequisite_token:
+    name_token
+    | equal_token
+    | rule_token
+	;
+
+command_token:
+    name_token
+    | equal_token
+    | rule_token
+    | depend_token
+    | space_token
     ;
 
 value_token:
-	equal_token
-	| rule_token
-	| target_token
+    name_token
+    | equal_token
+    | rule_token
+    | depend_token
+    ;
+
+head_token:
+    name_token
+    | depend_token
+    ;
+
+name_token:
+	VARIABLE
+	| NAME
+	| CHARACTER
+    | COMMA
+    ;
+
+rule_token:
+	COLON
+	| DOUBLE_COLON
 	;
 
-prerequisite_token:
-	equal_token
-	| rule_token
-	| name_token
-	| automake_token
-	| ORDER
-	| SEMI_COLON
-	;
+depend_token:
+    ORDER
+    | SEMI_COLON
+    ;
 
 word_token:
-    SPACE
-    | TAB
-	| MACRO
-	| VARIABLE
+	VARIABLE
 	| NAME
 	| CHARACTER
 	| ORDER
+    | HASH
+    | COMMA
+    | COLON
+    | DOUBLE_COLON
 	| SEMI_COLON
 	| EQUAL
 	| IMMEDIATE_EQUAL
 	| CONDITIONAL_EQUAL
 	| APPEND
-    | TAB
     ;
-
-target_token:
-	head_token
-	| automake_token
-	;
-		
 		
 space_token:
 	SPACE
@@ -288,35 +322,18 @@ space_token:
 	;
 
 equal_token:
-	EQUAL
-	| IMMEDIATE_EQUAL
-	| CONDITIONAL_EQUAL
-	| APPEND
-	;
-
-rule_token:
-	COLON
-	| DOUBLE_COLON
-	;
-		
-head_token:
-	MACRO
-	| VARIABLE
-	| NAME
-	| CHARACTER
-	| ORDER
-	| SEMI_COLON
-	;
-
-name_token:
-	MACRO
-	| VARIABLE
-	| NAME
-	| CHARACTER
-	;
-		
-automake_token:
-	MK_VARIABLE
+	EQUAL {
+        anjuta_token_set_type ($$, MK_TOKEN_EQUAL);
+    }
+	| IMMEDIATE_EQUAL {
+        anjuta_token_set_type ($$, MK_TOKEN_IMMEDIATE_EQUAL);
+    }
+	| CONDITIONAL_EQUAL {
+        anjuta_token_set_type ($$, MK_TOKEN_CONDITIONAL_EQUAL);
+    }
+	| APPEND {
+        anjuta_token_set_type ($$, MK_TOKEN_APPEND);
+    }
 	;
 		
 %%

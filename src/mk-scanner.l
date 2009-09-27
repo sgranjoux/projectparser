@@ -46,6 +46,9 @@ static void mkp_scanner_update_line_width (MkpScanner *scanner, YYLTYPE *loc);
 static void mkp_update_location (YYLTYPE *loc, const gchar *text, gint length);
 static int mkp_parse (yyscan_t scanner);
 
+void mkp_project_update_variable (MkpProject *project, AnjutaToken *variable);
+
+
 #define RETURN(tok) *yylval = mkp_scanner_append_token (yyextra, tok); \
                     return tok
 
@@ -53,7 +56,7 @@ static int mkp_parse (yyscan_t scanner);
 
 %option reentrant stack noyywrap yylineno
 
-%option prefix="mkp_yy"
+%option prefix="mkp_mk_yy"
 
 /* Necessary because autotools wrapper always looks for a file named "lex.yy.c",
  * not "lex.mkp_yy.c" 
@@ -86,6 +89,8 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
 
 \$[^ \t\n\r\(\{]            { RETURN (VARIABLE); }
 
+,                           { RETURN (COMMA); }
+
 :                           { RETURN (COLON); }
 
 ::                          { RETURN (DOUBLE_COLON); }
@@ -112,7 +117,7 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
 
 {NAME}                      { RETURN (NAME);}
 
-<INITIAL>.                  { RETURN (CHARACTER); }
+.                           { RETURN (CHARACTER); }
 
 %%
      
@@ -124,6 +129,8 @@ struct _MkpScanner
 
     AnjutaTokenFile *file;
     gchar *filename;
+
+    MkpProject *project;
 
 	guint line_width;
 };
@@ -148,6 +155,12 @@ static void
 mkp_scanner_update_line_width (MkpScanner *scanner, YYLTYPE *loc)
 {
 	anjuta_token_file_update_line_width (scanner->file, loc->last_column);
+}
+
+void
+mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable)
+{
+    mkp_project_update_variable (scanner->project, variable);
 }
 
 static void
@@ -175,6 +188,13 @@ mkp_update_location (YYLTYPE *loc, const gchar *text, gint length)
 /* Public functions
  *---------------------------------------------------------------------------*/
 
+int
+mkp_yylex (YYSTYPE * yylval_param,YYLTYPE * yylloc_param ,MkpScanner *scanner)
+{
+    return mkp_mk_yylex (yylval_param, yylloc_param, scanner->scanner);
+}
+
+
 gboolean
 mkp_scanner_parse (MkpScanner *scanner, AnjutaTokenFile *file, GError **error)
 {
@@ -188,7 +208,7 @@ mkp_scanner_parse (MkpScanner *scanner, AnjutaTokenFile *file, GError **error)
 
     scanner->buffer = yy_scan_string (scanner->pos, scanner->scanner);
 	
-	return mkp_yyparse (scanner->scanner) == 0;
+	return mkp_yyparse (scanner) == 0;
 }
 
 guint
@@ -212,7 +232,7 @@ mkp_scanner_get_filename (MkpScanner *scanner)
  *---------------------------------------------------------------------------*/
 
 MkpScanner *
-mkp_scanner_new (void)
+mkp_scanner_new (MkpProject *project)
 {
 	MkpScanner *scanner;
 
@@ -220,6 +240,8 @@ mkp_scanner_new (void)
 
     yylex_init(&scanner->scanner);
     yyset_extra (scanner, scanner->scanner);
+
+    scanner->project = project;
 
 	return scanner;
 };

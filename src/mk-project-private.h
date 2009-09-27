@@ -55,9 +55,7 @@ struct _MkpProject {
 	/* shortcut hash tables, mapping id -> GNode from the tree above */
 	GHashTable		*groups;
 	GHashTable		*files;
-	GHashTable		*configs;		/* Config file from configure_file */
-	
-	GHashTable	*modules;
+	GHashTable		*variables;
 	
 	/* project files monitors */
 	GHashTable         *monitors;

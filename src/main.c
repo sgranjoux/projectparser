@@ -183,6 +183,25 @@ void list_package (IAnjutaProject *project)
 	g_list_free (packages);
 }
 
+void list_variable (IAnjutaProject *project)
+{
+	if (MKP_IS_PROJECT (project))
+	{
+		GList *variables = mkp_project_list_variable (MKP_PROJECT (project));
+		GList *var;
+
+		for (var = g_list_first (variables); var != NULL; var = g_list_next (var))
+		{
+			gchar *value = mkp_variable_evaluate ((MkpVariable *)var->data, NULL);
+			
+			print ("%*sVARIABLE: %s = %s", INDENT, "", mkp_variable_get_name ((MkpVariable *)var->data), value);
+			g_free (value);
+		}
+		g_list_free (variables);
+	}
+}
+
+
 static AnjutaProjectNode *
 get_node (IAnjutaProject *project, const char *path)
 {
@@ -333,6 +352,8 @@ main(int argc, char *argv[])
 			list_property (project);
 			
 			list_package (project);
+
+			list_variable (project);
 
 			list_group (project, ianjuta_project_get_root (project, NULL), 0, "0");
 		}
