@@ -42,7 +42,7 @@ void mkp_scanner_free (MkpScanner *scanner);
 gboolean mkp_scanner_parse (MkpScanner *scanner, AnjutaTokenFile *file, GError **error);
 
 void mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable);
-void mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable);
+void mkp_scanner_add_rule (MkpScanner *scanner, AnjutaToken *rule);
 
 const gchar* mkp_scanner_get_filename (MkpScanner *scanner);
 
@@ -56,6 +56,9 @@ typedef enum
 	MK_TOKEN_TARGET,
 	MK_TOKEN_PREREQUISITE,
 	MK_TOKEN_ORDER_PREREQUISITE,
+	MK_TOKEN_ORDER,
+	MK_TOKEN_COLON,
+	MK_TOKEN_DOUBLE_COLON,
 	MK_TOKEN_VARIABLE,
 	MK_TOKEN_PHONY,
 } MakeTokenType;

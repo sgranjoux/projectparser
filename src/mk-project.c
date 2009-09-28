@@ -1157,6 +1157,47 @@ mkp_project_update_variable (MkpProject *project, AnjutaToken *variable)
 	if (name) g_free (name);
 }
 
+void
+mkp_project_add_rule (MkpProject *project, AnjutaToken *rule)
+{
+	AnjutaToken *targ;
+	AnjutaToken *dep;
+	AnjutaToken *arg;
+	gboolean double_colon = FALSE;
+
+	targ = anjuta_token_list_first (rule);
+	arg = anjuta_token_list_next (targ);
+	if (anjuta_token_get_type (arg) == MK_TOKEN_DOUBLE_COLON) double_colon = TRUE;
+	dep = anjuta_token_list_next (arg);
+	for (arg = anjuta_token_list_first (targ); arg != NULL; arg = anjuta_token_list_next (arg))
+	{
+		AnjutaToken *src;
+		gchar *name;
+		gboolean order = FALSE;
+
+		name = anjuta_token_evaluate (arg);
+		g_message ("add rule %s", name);
+		
+		for (src = anjuta_token_list_first (dep); src != NULL; src = anjuta_token_list_next (src))
+		{
+			if (anjuta_token_get_type (src) == MK_TOKEN_ORDER)
+			{
+				order = TRUE;
+			}
+			else
+			{
+				gchar *src_name;
+
+				src_name = anjuta_token_evaluate (src);
+				g_message ("    with source %s", src_name);
+				if (src_name != NULL) g_free (src_name);
+			}
+		}
+
+		if (name != NULL) g_free (name);
+	}
+}
+
 /* Public functions
  *---------------------------------------------------------------------------*/
 

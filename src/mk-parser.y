@@ -90,7 +90,10 @@ statement:
     end_of_line
     | space end_of_line
     | definition end_of_line
-    | rule command_list 
+    | rule  command_list {
+        if ($2 != NULL) $$ = anjuta_token_group ($1, $2);
+        mkp_scanner_add_rule (scanner, $$);
+    }
 	;
 
 definition:
@@ -104,25 +107,43 @@ definition:
     ;    
 
 rule:
-    depend_list end_of_line
-    | depend_list SEMI_COLON command_line EOL
+    depend_list  end_of_line {
+        $$ = anjuta_token_group ($1, $2);
+    }
+    | depend_list  SEMI_COLON  command_line  EOL {
+        $$ = anjuta_token_group ($1, $4);
+    }
     ;
 
 depend_list:
-    head_list rule_token prerequisite_list order_prerequisite_list
+    head_list  rule_token  prerequisite_list {
+        $$ = anjuta_token_group_new (MK_TOKEN_RULE, $1);
+        anjuta_token_set_type ($1, MK_TOKEN_TARGET);
+        switch (anjuta_token_get_type ($2))
+        {
+        case COLON:
+            anjuta_token_set_type ($2, MK_TOKEN_COLON);
+            break;
+        case DOUBLE_COLON:
+            anjuta_token_set_type ($2, MK_TOKEN_DOUBLE_COLON);
+            break;
+        default:
+            break;
+        }
+        anjuta_token_group ($$, $3 != NULL ? $3 : $2);
+    }
     ;
 
 command_list:
-    /* empty */
-	| command_list TAB command_line EOL
+    /* empty */ {
+        $$ = NULL;
+    }
+	| command_list TAB command_line EOL {
+        $$ = $4;
+    }
 	;
-		
-order_prerequisite_list:
-    /* empty */
-    | ORDER prerequisite_list
-    ;
-		
 
+	
 /* Lists
  *----------------------------------------------------------------------------*/
 
@@ -153,15 +174,16 @@ value_list:
     | optional_space value_list_body optional_space {
         $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1 != NULL ? $1 : $2);
         if ($1) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
-        if ($3) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
+        if ($3) anjuta_token_set_type ($1, ANJUTA_TOKEN_LAST);
         anjuta_token_group ($$, $3 != NULL ? $3 : $2);
     }
     ;
 
 value_list_body:
     value
-    | value_list_body space value {
+    | value_list_body  space  value {
         anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
+        $$ = $3;
     }
     ;
 
@@ -169,18 +191,19 @@ prerequisite_list:
     /* empty */ {
         $$ = NULL;
     }
-    | optional_space prerequisite_list_body optional_space {
+    | optional_space  prerequisite_list_body  optional_space {
         $$ = anjuta_token_group_new (MK_TOKEN_PREREQUISITE, $1 != NULL ? $1 : $2);
         if ($1) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
-        if ($3) anjuta_token_set_type ($3, ANJUTA_TOKEN_START);
+        if ($3) anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
         anjuta_token_group ($$, $3 != NULL ? $3 : $2);
     }
     ;
 
 prerequisite_list_body:
 	prerequisite
-	| prerequisite_list_body space prerequisite {
+	| prerequisite_list_body  space  prerequisite {
         anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
+        $$ = $3;
 	}
 	;
 
@@ -188,15 +211,16 @@ head_list:
     optional_space head_list_body optional_space {
         $$ = anjuta_token_group_new (ANJUTA_TOKEN_NAME, $1 != NULL ? $1 : $2);
         if ($1) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
-        if ($3) anjuta_token_set_type ($3, ANJUTA_TOKEN_START);
+        if ($3) anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
         anjuta_token_group ($$, $3 != NULL ? $3 : $2);
     }
     ;
 
 head_list_body:
     head
-    | head_list_body space head {
+    | head_list_body  space  head {
         anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
+        $$ = $3;
     }
     ;
 
@@ -242,10 +266,11 @@ value:
 
 prerequisite:
     prerequisite_token {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1);
+        $$ = anjuta_token_group_new (anjuta_token_get_type ($$) == ORDER ? MK_TOKEN_ORDER : ANJUTA_TOKEN_VALUE, $1);
     }
     | prerequisite prerequisite_token {
-        anjuta_token_group ($$, $2);
+        $$ = anjuta_token_group ($1, $2);
+        anjuta_token_set_type ($$, ANJUTA_TOKEN_VALUE);
     }
     ;     
 
@@ -288,6 +313,7 @@ name_token:
 	| NAME
 	| CHARACTER
     | COMMA
+    | ORDER
     ;
 
 rule_token:
@@ -296,8 +322,7 @@ rule_token:
 	;
 
 depend_token:
-    ORDER
-    | SEMI_COLON
+    SEMI_COLON
     ;
 
 word_token:

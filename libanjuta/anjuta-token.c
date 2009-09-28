@@ -498,7 +498,8 @@ AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *last)
 	AnjutaToken *child;
 	AnjutaToken *tok;
 
-	if (parent == last) return parent;
+	if (parent == last) return parent; 
+	if (parent->children == last) return parent;
 
 	child = (AnjutaToken *)g_node_last_child ((GNode *)parent);
 	do

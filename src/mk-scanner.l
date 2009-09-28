@@ -47,6 +47,7 @@ static void mkp_update_location (YYLTYPE *loc, const gchar *text, gint length);
 static int mkp_parse (yyscan_t scanner);
 
 void mkp_project_update_variable (MkpProject *project, AnjutaToken *variable);
+void mkp_project_add_rule (MkpProject *project, AnjutaToken *rule);
 
 
 #define RETURN(tok) *yylval = mkp_scanner_append_token (yyextra, tok); \
@@ -161,6 +162,12 @@ void
 mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable)
 {
     mkp_project_update_variable (scanner->project, variable);
+}
+
+void
+mkp_scanner_add_rule (MkpScanner *scanner, AnjutaToken *rule)
+{
+    mkp_project_add_rule (scanner->project, rule);
 }
 
 static void
