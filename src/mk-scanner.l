@@ -116,6 +116,32 @@ NAME          [^ \t\n\r:#=$"'`&@\\]*
 
 \\#                         { RETURN (CHARACTER); }
 
+.PHONY                      { RETURN (_PHONY); }
+
+.SUFFIXES                   { RETURN (_SUFFIXES); }
+
+.DEFAULT                    { RETURN (_DEFAULT); }
+
+.PRECIOUS                   { RETURN (_PRECIOUS); }
+
+.INTERMEDIATE               { RETURN (_INTERMEDIATE); }
+    
+.SECONDARY                  { RETURN (_SECONDARY); }
+
+.SECONDEXPANSION            { RETURN (_SECONDEXPANSION); }
+
+.DELETE_ON_ERROR            { RETURN (_DELETE_ON_ERROR); }
+
+.IGNORE                     { RETURN (_IGNORE); }
+
+.LOW_RESOLUTION_TIME        { RETURN (_LOW_RESOLUTION_TIME); }
+
+.SILENT                     { RETURN (_SILENT); }
+
+.EXPORT_ALL_VARIABLES       { RETURN (_EXPORT_ALL_VARIABLES); }
+
+.NOTPARALLEL                { RETURN (_NOTPARALLEL); }
+
 {NAME}                      { RETURN (NAME);}
 
 .                           { RETURN (CHARACTER); }

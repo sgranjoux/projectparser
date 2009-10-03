@@ -41,7 +41,9 @@ projectparser_SOURCES = \
 	mk-project-private.h \
 	mk-parser.y \
 	mk-scanner.l \
-	mk-scanner.h
+	mk-scanner.h \
+	mk-rule.c \
+	mk-rule.h
 
 projectparser_LDFLAGS = 
 

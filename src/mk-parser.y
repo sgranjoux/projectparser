@@ -45,7 +45,20 @@
 %token	CHARACTER
 %token	NAME
 %token	MK_VARIABLE
-%token  DUMMY
+%token  _PHONY
+%token  _SUFFIXES
+%token  _DEFAULT
+%token  _PRECIOUS
+%token  _INTERMEDIATE
+%token  _SECONDARY
+%token  _SECONDEXPANSION
+%token  _DELETE_ON_ERROR
+%token  _IGNORE
+%token  _LOW_RESOLUTION_TIME
+%token  _SILENT
+%token  _EXPORT_ALL_VARIABLES
+%token  _NOTPARALLEL
+
 
 %defines
 
@@ -75,6 +88,8 @@
 //mkp_yydebug = 1;
 
 static void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s);
+static gint mkp_special_target (AnjutaToken *list);
+static gint mkp_special_prerequisite (AnjutaToken *token);
 
 %}
 
@@ -119,6 +134,7 @@ depend_list:
     head_list  rule_token  prerequisite_list {
         $$ = anjuta_token_group_new (MK_TOKEN_RULE, $1);
         anjuta_token_set_type ($1, MK_TOKEN_TARGET);
+        mkp_special_target ($1);
         switch (anjuta_token_get_type ($2))
         {
         case COLON:
@@ -266,7 +282,7 @@ value:
 
 prerequisite:
     prerequisite_token {
-        $$ = anjuta_token_group_new (anjuta_token_get_type ($$) == ORDER ? MK_TOKEN_ORDER : ANJUTA_TOKEN_VALUE, $1);
+        $$ = anjuta_token_group_new (mkp_special_prerequisite ($$), $1);
     }
     | prerequisite prerequisite_token {
         $$ = anjuta_token_group ($1, $2);
@@ -309,11 +325,26 @@ head_token:
     ;
 
 name_token:
-	VARIABLE
+	VARIABLE {
+        anjuta_token_set_type ($$, MK_TOKEN_VARIABLE);
+    }
 	| NAME
 	| CHARACTER
     | COMMA
     | ORDER
+    | _PHONY
+    | _SUFFIXES
+    | _DEFAULT
+    | _PRECIOUS
+    | _INTERMEDIATE
+    | _SECONDARY
+    | _SECONDEXPANSION
+    | _DELETE_ON_ERROR
+    | _IGNORE
+    | _LOW_RESOLUTION_TIME
+    | _SILENT
+    | _EXPORT_ALL_VARIABLES
+    | _NOTPARALLEL
     ;
 
 rule_token:
@@ -339,6 +370,19 @@ word_token:
 	| IMMEDIATE_EQUAL
 	| CONDITIONAL_EQUAL
 	| APPEND
+    | _PHONY
+    | _SUFFIXES
+    | _DEFAULT
+    | _PRECIOUS
+    | _INTERMEDIATE
+    | _SECONDARY
+    | _SECONDEXPANSION
+    | _DELETE_ON_ERROR
+    | _IGNORE
+    | _LOW_RESOLUTION_TIME
+    | _SILENT
+    | _EXPORT_ALL_VARIABLES
+    | _NOTPARALLEL
     ;
 		
 space_token:
@@ -372,6 +416,73 @@ mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s)
     filename = mkp_scanner_get_filename ((MkpScanner *)scanner);
     if (filename == NULL) filename = "?";
     g_message ("%s (%d:%d-%d:%d) %s\n", filename, loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
+}
+
+static gint
+mkp_special_prerequisite (AnjutaToken *token)
+{
+    switch (anjuta_token_get_type (token))
+    {
+        case ORDER:
+            return MK_TOKEN_ORDER;
+        default:
+            return ANJUTA_TOKEN_NAME;
+    }
+}
+
+static gint
+mkp_special_target (AnjutaToken *list)
+{
+    AnjutaToken *arg;
+
+    for (arg = anjuta_token_list_first (list); arg != NULL; arg = anjuta_token_list_next (arg))
+    {
+        AnjutaToken *child = anjuta_token_next_child (arg);
+
+        if ((child != NULL) && (anjuta_token_next_sibling (child) == NULL))
+        {
+            gint mk_token = 0;
+
+            switch (anjuta_token_get_type (child))
+            {
+            case _PHONY:
+                mk_token = MK_TOKEN__PHONY;
+            case _SUFFIXES:
+                mk_token = MK_TOKEN__SUFFIXES;
+            case _DEFAULT:
+                mk_token = MK_TOKEN__DEFAULT;
+            case _PRECIOUS:
+                mk_token = MK_TOKEN__PRECIOUS;
+            case _INTERMEDIATE:
+                mk_token = MK_TOKEN__INTERMEDIATE;
+            case _SECONDARY:
+                mk_token = MK_TOKEN__SECONDARY;
+            case _SECONDEXPANSION:
+                mk_token = MK_TOKEN__SECONDEXPANSION;
+            case _DELETE_ON_ERROR:
+                mk_token = MK_TOKEN__DELETE_ON_ERROR;
+            case _IGNORE:
+                mk_token = MK_TOKEN__IGNORE;
+            case _LOW_RESOLUTION_TIME:
+                mk_token = MK_TOKEN__LOW_RESOLUTION_TIME;
+            case _SILENT:
+                mk_token = MK_TOKEN__SILENT;
+            case _EXPORT_ALL_VARIABLES:
+                mk_token = MK_TOKEN__EXPORT_ALL_VARIABLES;
+            case _NOTPARALLEL:
+                mk_token = MK_TOKEN__NOTPARALLEL;
+            case ORDER:
+                mk_token = MK_TOKEN_ORDER;
+            default:
+                break;
+            }
+        
+            if (mk_token)
+            {
+                anjuta_token_set_type (arg, mk_token);
+            }
+        }
+    }
 }
      
 /* Public functions

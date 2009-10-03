@@ -68,6 +68,14 @@ struct _MkpVariable {
 	AnjutaToken *value;
 };
 
+struct _MkpRule {
+	gchar *name;
+	gboolean phony;
+	gboolean pattern;
+	GList *prerequisite;
+	AnjutaToken *rule;
+};
+
 typedef enum {
 	AM_GROUP_TOKEN_CONFIGURE,
 	AM_GROUP_TOKEN_SUBDIRS,
@@ -959,6 +967,83 @@ mkp_variable_free (MkpVariable *variable)
 /* Public functions
  *---------------------------------------------------------------------------*/
 
+static void
+mkp_project_token_evaluate_token (MkpProject *project, AnjutaToken *token, GString *value)
+{
+	if ((token != NULL) && (anjuta_token_get_length (token) != 0))
+	{
+		gint type = anjuta_token_get_type (token);
+		guint length;
+		const gchar *string;
+		gchar *name;
+		MkpVariable *var;
+		
+		switch (type)
+		{
+		case ANJUTA_TOKEN_COMMENT:
+		case ANJUTA_TOKEN_OPEN_QUOTE:
+		case ANJUTA_TOKEN_CLOSE_QUOTE:
+		case ANJUTA_TOKEN_ESCAPE:
+			break;
+		case MK_TOKEN_VARIABLE:
+			length = anjuta_token_get_length (token);
+			string = anjuta_token_get_string (token);
+			if (string[1] == '(')
+			{
+				name = g_strndup (string + 2, length - 3);
+			}
+			else
+			{
+				name = g_strndup (string + 1, 1);
+			}
+			var = g_hash_table_lookup (project->variables, name);
+			g_free (name);
+			if (var != NULL)
+			{
+				name = mkp_variable_evaluate (var, NULL);
+				g_string_append (value, name);
+				g_free (name);
+			}
+			break;	
+		default:
+			g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
+		}
+	}
+}	
+
+static  void
+mkp_project_token_evaluate_child (MkpProject *project, AnjutaToken *token, GString *value)
+{
+	AnjutaToken *child;
+	
+	mkp_project_token_evaluate_token (project, token, value);
+
+	child = anjuta_token_next_child (token);
+	if (child) mkp_project_token_evaluate_child (project, child, value);
+
+	child = anjuta_token_next_sibling (token);
+	if (child) mkp_project_token_evaluate_child (project, child, value);
+}
+
+gchar *mkp_project_token_evaluate (MkpProject *project, AnjutaToken *token)
+{
+	GString *value = g_string_new (NULL);
+	gchar *str;
+
+	if (token != NULL)
+	{
+		AnjutaToken *child;
+		
+		mkp_project_token_evaluate_token (project, token, value);
+
+		child = anjuta_token_next_child (token);
+		if (child != NULL) mkp_project_token_evaluate_child (project, child, value);
+	}
+
+	str = g_string_free (value, FALSE);
+	return *str == '\0' ? NULL : str; 	
+}
+
 gboolean
 mkp_project_reload (MkpProject *project, GError **error) 
 {
@@ -979,6 +1064,9 @@ mkp_project_reload (MkpProject *project, GError **error)
 	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
 	project->variables = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, mkp_variable_free);
 
+	/* Initialize rules data */
+	mkp_project_init_rules (project);
+	
 	/* Initialize list styles */
 	project->space_list = anjuta_token_style_new (NULL, " ", "\\n", NULL, 0);
 	project->arg_list = anjuta_token_style_new (NULL, ", ", ",\\n ", ")", 0);
@@ -1054,6 +1142,8 @@ mkp_project_unload (MkpProject *project)
 	if (project->variables) g_hash_table_destroy (project->variables);
 	project->variables = NULL;
 
+	mkp_project_free_rules (project);
+	
 	/* List styles */
 	if (project->space_list) anjuta_token_style_free (project->space_list);
 	if (project->arg_list) anjuta_token_style_free (project->arg_list);
@@ -1106,7 +1196,7 @@ mkp_project_update_variable (MkpProject *project, AnjutaToken *variable)
 	{
 		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_NAME)
 		{
-			name = anjuta_token_evaluate (arg);
+			name = g_strstrip (anjuta_token_evaluate (arg));
 			break;
 		}
 	}
@@ -1155,47 +1245,6 @@ mkp_project_update_variable (MkpProject *project, AnjutaToken *variable)
 	g_message ("update variable %s", name);
 	
 	if (name) g_free (name);
-}
-
-void
-mkp_project_add_rule (MkpProject *project, AnjutaToken *rule)
-{
-	AnjutaToken *targ;
-	AnjutaToken *dep;
-	AnjutaToken *arg;
-	gboolean double_colon = FALSE;
-
-	targ = anjuta_token_list_first (rule);
-	arg = anjuta_token_list_next (targ);
-	if (anjuta_token_get_type (arg) == MK_TOKEN_DOUBLE_COLON) double_colon = TRUE;
-	dep = anjuta_token_list_next (arg);
-	for (arg = anjuta_token_list_first (targ); arg != NULL; arg = anjuta_token_list_next (arg))
-	{
-		AnjutaToken *src;
-		gchar *name;
-		gboolean order = FALSE;
-
-		name = anjuta_token_evaluate (arg);
-		g_message ("add rule %s", name);
-		
-		for (src = anjuta_token_list_first (dep); src != NULL; src = anjuta_token_list_next (src))
-		{
-			if (anjuta_token_get_type (src) == MK_TOKEN_ORDER)
-			{
-				order = TRUE;
-			}
-			else
-			{
-				gchar *src_name;
-
-				src_name = anjuta_token_evaluate (src);
-				g_message ("    with source %s", src_name);
-				if (src_name != NULL) g_free (src_name);
-			}
-		}
-
-		if (name != NULL) g_free (name);
-	}
 }
 
 /* Public functions
@@ -1392,6 +1441,8 @@ mkp_project_instance_init (MkpProject *project)
 	project->root_file = NULL;
 	project->root_node = NULL;
 	project->property = NULL;
+	project->suffix = NULL;
+	project->rules = NULL;
 
 	project->space_list = NULL;
 	project->arg_list = NULL;

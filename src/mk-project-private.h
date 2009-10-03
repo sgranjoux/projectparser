@@ -56,6 +56,9 @@ struct _MkpProject {
 	GHashTable		*groups;
 	GHashTable		*files;
 	GHashTable		*variables;
+
+	GHashTable		*rules;
+	GHashTable		*suffix;
 	
 	/* project files monitors */
 	GHashTable         *monitors;
@@ -64,6 +67,8 @@ struct _MkpProject {
 	AnjutaTokenStyle *space_list;
 	AnjutaTokenStyle *arg_list;
 };
+
+gchar *mkp_project_token_evaluate (MkpProject *project, AnjutaToken *token);
 
 G_END_DECLS
 

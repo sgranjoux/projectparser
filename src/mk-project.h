@@ -55,6 +55,7 @@ typedef AnjutaProjectTarget MkpTarget;
 typedef AnjutaProjectSource MkpSource;
 typedef struct _MkpProperty MkpProperty;
 typedef struct _MkpVariable MkpVariable;
+typedef struct _MkpRule MkpRule;
 
 typedef enum {
 	MKP_PROPERTY_NAME = 0,

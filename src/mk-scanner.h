@@ -22,6 +22,7 @@
 
 #include "libanjuta/anjuta-token.h"
 #include "libanjuta/anjuta-token-file.h"
+#include "libanjuta/anjuta-token-style.h"
 
 #include <glib.h>
 #include <gio/gio.h>
@@ -60,7 +61,19 @@ typedef enum
 	MK_TOKEN_COLON,
 	MK_TOKEN_DOUBLE_COLON,
 	MK_TOKEN_VARIABLE,
-	MK_TOKEN_PHONY,
+	MK_TOKEN__PHONY,
+	MK_TOKEN__SUFFIXES,
+	MK_TOKEN__DEFAULT,
+	MK_TOKEN__PRECIOUS,
+	MK_TOKEN__INTERMEDIATE,
+	MK_TOKEN__SECONDARY,
+	MK_TOKEN__SECONDEXPANSION,
+	MK_TOKEN__DELETE_ON_ERROR,
+	MK_TOKEN__IGNORE,
+	MK_TOKEN__LOW_RESOLUTION_TIME,
+	MK_TOKEN__SILENT,
+	MK_TOKEN__EXPORT_ALL_VARIABLES,
+	MK_TOKEN__NOTPARALLEL,
 } MakeTokenType;
 
 G_END_DECLS
