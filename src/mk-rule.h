@@ -31,6 +31,7 @@ G_BEGIN_DECLS
 
 void mkp_project_init_rules (MkpProject *project);
 void mkp_project_free_rules (MkpProject *project);
+void mkp_project_enumerate_targets (MkpProject *project, AnjutaProjectGroup *parent);
 
 G_END_DECLS
 

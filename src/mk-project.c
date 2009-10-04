@@ -68,14 +68,6 @@ struct _MkpVariable {
 	AnjutaToken *value;
 };
 
-struct _MkpRule {
-	gchar *name;
-	gboolean phony;
-	gboolean pattern;
-	GList *prerequisite;
-	AnjutaToken *rule;
-};
-
 typedef enum {
 	AM_GROUP_TOKEN_CONFIGURE,
 	AM_GROUP_TOKEN_SUBDIRS,
@@ -347,7 +339,7 @@ mkp_group_free (MkpGroup *node)
 /* Target objects
  *---------------------------------------------------------------------------*/
 
-static void
+void
 mkp_target_add_token (MkpGroup *node, AnjutaToken *token)
 {
     MkpTargetData *target;
@@ -370,7 +362,7 @@ mkp_target_get_token (MkpGroup *node)
 }
 
 
-static MkpTarget*
+MkpTarget*
 mkp_target_new (const gchar *name, AnjutaProjectTargetType type)
 {
     MkpTargetData *target = NULL;
@@ -378,12 +370,13 @@ mkp_target_new (const gchar *name, AnjutaProjectTargetType type)
 	target = g_slice_new0(MkpTargetData);
 	target->base.node.type = ANJUTA_PROJECT_TARGET;
 	target->base.name = g_strdup (name);
+	if (type == NULL) type = (AnjutaProjectTargetType)&MkpTargetTypes[0];
 	target->base.type = type;
 
     return g_node_new (target);
 }
 
-static void
+void
 mkp_target_free (MkpTarget *node)
 {
     MkpTargetData *target = MKP_TARGET_DATA (node);
@@ -398,7 +391,7 @@ mkp_target_free (MkpTarget *node)
 /* Source objects
  *---------------------------------------------------------------------------*/
 
-static MkpSource*
+MkpSource*
 mkp_source_new (GFile *file)
 {
     MkpSourceData *source = NULL;
@@ -709,13 +702,15 @@ project_load_makefile (MkpProject *project, GFile *file, MkpGroup *parent, GErro
 	}
 
 	/* Load target */
-	rule_tok = anjuta_token_new_static (MK_TOKEN_RULE, NULL);
+	mkp_project_enumerate_targets (project, parent);
+	
+	/*rule_tok = anjuta_token_new_static (MK_TOKEN_RULE, NULL);
 	
 	arg = anjuta_token_file_first (tfile);
 	for (found = anjuta_token_match (rule_tok, ANJUTA_SEARCH_INTO, arg, &arg); found; found = anjuta_token_match (rule_tok, ANJUTA_SEARCH_INTO, anjuta_token_next_sibling (arg), &arg))
 	{
 		project_load_rule (project, arg, parent);
-	}
+	}*/
 
 	return parent;
 }

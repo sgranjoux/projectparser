@@ -447,32 +447,46 @@ mkp_special_target (AnjutaToken *list)
             {
             case _PHONY:
                 mk_token = MK_TOKEN__PHONY;
+                break;
             case _SUFFIXES:
                 mk_token = MK_TOKEN__SUFFIXES;
+                break;
             case _DEFAULT:
                 mk_token = MK_TOKEN__DEFAULT;
+                break;
             case _PRECIOUS:
                 mk_token = MK_TOKEN__PRECIOUS;
+                break;
             case _INTERMEDIATE:
                 mk_token = MK_TOKEN__INTERMEDIATE;
+                break;
             case _SECONDARY:
                 mk_token = MK_TOKEN__SECONDARY;
+                break;
             case _SECONDEXPANSION:
                 mk_token = MK_TOKEN__SECONDEXPANSION;
+                break;
             case _DELETE_ON_ERROR:
                 mk_token = MK_TOKEN__DELETE_ON_ERROR;
+                break;
             case _IGNORE:
                 mk_token = MK_TOKEN__IGNORE;
+                break;
             case _LOW_RESOLUTION_TIME:
                 mk_token = MK_TOKEN__LOW_RESOLUTION_TIME;
+                break;
             case _SILENT:
                 mk_token = MK_TOKEN__SILENT;
+                break;
             case _EXPORT_ALL_VARIABLES:
                 mk_token = MK_TOKEN__EXPORT_ALL_VARIABLES;
+                break;
             case _NOTPARALLEL:
                 mk_token = MK_TOKEN__NOTPARALLEL;
+                break;
             case ORDER:
                 mk_token = MK_TOKEN_ORDER;
+                break;
             default:
                 break;
             }
