@@ -327,6 +327,8 @@ head_token:
 name_token:
 	VARIABLE {
         anjuta_token_set_type ($$, MK_TOKEN_VARIABLE);
+        g_message ("variable is %s", anjuta_token_evaluate ($$));
+        //mkp_scanner_parse_variable (scanner, $$);
     }
 	| NAME
 	| CHARACTER

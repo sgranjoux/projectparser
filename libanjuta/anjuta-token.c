@@ -484,7 +484,7 @@ anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *child)
 AnjutaToken *
 anjuta_token_insert_after (AnjutaToken *sibling, AnjutaToken *token)
 {
-	return (AnjutaToken *)g_node_insert_after ((GNode *)sibling->parent, (GNode *)sibling, (GNode *)token);
+	return g_node_insert_after ((GNode *)sibling->parent, (GNode *)sibling, (GNode *)token);
 }
 
 AnjutaToken *
@@ -592,7 +592,7 @@ AnjutaToken *anjuta_token_get_next_arg (AnjutaToken *arg, gchar ** value)
 /* Constructor & Destructor
  *---------------------------------------------------------------------------*/
 
-AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const char *value)
+AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const gchar *value)
 {
 	if (value == NULL)
 	{
@@ -611,7 +611,7 @@ AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const char *value)
 		return (AnjutaToken *)g_node_new (data);
 	}
 }
-	
+
 AnjutaToken *
 anjuta_token_new_fragment (gint type, const gchar *pos, gsize length)
 {

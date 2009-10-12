@@ -123,6 +123,25 @@ anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error)
 	return file->content;
 }
 
+AnjutaToken*
+anjuta_token_file_load (AnjutaTokenFile *file, GError **error)
+{
+	if (file->content == NULL)
+	{
+		gchar *content;
+		gsize length;
+	
+		if (g_file_load_contents (file->file, NULL, &content, &length, NULL, error))
+		{
+			file->first = anjuta_token_new_static (ANJUTA_TOKEN_FILE, content);
+			file->content = content;
+			file->length = length;
+		}
+	}
+	
+	return file->first;
+}
+
 gsize
 anjuta_token_file_get_length (AnjutaTokenFile *file, GError **error)
 {

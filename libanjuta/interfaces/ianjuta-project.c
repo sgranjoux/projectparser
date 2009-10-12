@@ -146,6 +146,31 @@ ianjuta_project_configure_default (IAnjutaProject *obj, GError **err)
 }
 
 /**
+* ianjuta_project_configure_node:
+* @obj: Self
+* @node: node to configure
+* @err: Error propagation and reporting.
+*
+* Return a widget that can be use to set any options needed by this node
+*
+* Returns: A GtkWidget
+*/
+GtkWidget*
+ianjuta_project_configure_node (IAnjutaProject *obj, AnjutaProjectNode *node, GError **err)
+{
+	g_return_val_if_fail (IANJUTA_IS_PROJECT(obj), NULL);
+	g_return_val_if_fail ((node == NULL) ||ANJUTA_IS_PROJECT_NODE(node), NULL);
+	return IANJUTA_PROJECT_GET_IFACE (obj)->configure_node (obj, node, err);
+}
+
+/* Default implementation */
+static GtkWidget*
+ianjuta_project_configure_node_default (IAnjutaProject *obj, AnjutaProjectNode *node, GError **err)
+{
+	g_return_val_if_reached (NULL);
+}
+
+/**
 * ianjuta_project_get_capabilities:
 * @obj: Self
 * @err: Error propagation and reporting.
@@ -317,6 +342,7 @@ ianjuta_project_base_init (IAnjutaProjectIface* klass)
 	klass->add_source = ianjuta_project_add_source_default;
 	klass->add_target = ianjuta_project_add_target_default;
 	klass->configure = ianjuta_project_configure_default;
+	klass->configure_node = ianjuta_project_configure_node_default;
 	klass->get_capabilities = ianjuta_project_get_capabilities_default;
 	klass->get_packages = ianjuta_project_get_packages_default;
 	klass->get_root = ianjuta_project_get_root_default;
@@ -376,7 +402,7 @@ ianjuta_project_capabilities_get_type (void)
 {
 	static const GEnumValue values[] =
 	{
-		{ IANJUTA_PROJECT_HAS_NONE, "IANJUTA_PROJECT_HAS_NONE", "has-none" }, 
+		{ IANJUTA_PROJECT_CAN_ADD_NONE, "IANJUTA_PROJECT_CAN_ADD_NONE", "can-add-none" }, 
 		{ IANJUTA_PROJECT_CAN_ADD_GROUP, "IANJUTA_PROJECT_CAN_ADD_GROUP", "can-add-group" }, 
 		{ IANJUTA_PROJECT_CAN_ADD_TARGET, "IANJUTA_PROJECT_CAN_ADD_TARGET", "can-add-target" }, 
 		{ IANJUTA_PROJECT_CAN_ADD_SOURCE, "IANJUTA_PROJECT_CAN_ADD_SOURCE", "can-add-source" }, 
@@ -389,6 +415,51 @@ ianjuta_project_capabilities_get_type (void)
 	if (! type)
 	{
 		type = g_enum_register_static ("IAnjutaProjectCapabilities", values);
+	}
+
+	return type;
+}
+
+GType
+ianjuta_project_error_get_type (void)
+{
+	static const GEnumValue values[] =
+	{
+		{ IANJUTA_PROJECT_ERROR_SUCCESS, "IANJUTA_PROJECT_ERROR_SUCCESS", "error-success" }, 
+		{ IANJUTA_PROJECT_ERROR_DOESNT_EXIST, "IANJUTA_PROJECT_ERROR_DOESNT_EXIST", "error-doesnt-exist" }, 
+		{ IANJUTA_PROJECT_ERROR_ALREADY_EXISTS, "IANJUTA_PROJECT_ERROR_ALREADY_EXISTS", "error-already-exists" }, 
+		{ IANJUTA_PROJECT_ERROR_VALIDATION_FAILED, "IANJUTA_PROJECT_ERROR_VALIDATION_FAILED", "error-validation-failed" }, 
+		{ IANJUTA_PROJECT_ERROR_PROJECT_MALFORMED, "IANJUTA_PROJECT_ERROR_PROJECT_MALFORMED", "error-project-malformed" }, 
+		{ IANJUTA_PROJECT_ERROR_GENERAL_FAILURE, "IANJUTA_PROJECT_ERROR_GENERAL_FAILURE", "error-general-failure" }, 
+		{ 0, NULL, NULL }
+	};
+
+	static GType type = 0;
+
+	if (! type)
+	{
+		type = g_enum_register_static ("IAnjutaProjectError", values);
+	}
+
+	return type;
+}
+
+GType
+ianjuta_project_probe_get_type (void)
+{
+	static const GEnumValue values[] =
+	{
+		{ IANJUTA_PROJECT_PROBE_FILES, "IANJUTA_PROJECT_PROBE_FILES", "probe-files" }, 
+		{ IANJUTA_PROJECT_PROBE_MAKE_FILES, "IANJUTA_PROJECT_PROBE_MAKE_FILES", "probe-make-files" }, 
+		{ IANJUTA_PROJECT_PROBE_PROJECT_FILES, "IANJUTA_PROJECT_PROBE_PROJECT_FILES", "probe-project-files" }, 
+		{ 0, NULL, NULL }
+	};
+
+	static GType type = 0;
+
+	if (! type)
+	{
+		type = g_enum_register_static ("IAnjutaProjectProbe", values);
 	}
 
 	return type;

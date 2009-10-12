@@ -1,4 +1,3 @@
-
 ## Created by Anjuta
 
 CC = gcc

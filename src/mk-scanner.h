@@ -43,6 +43,7 @@ void mkp_scanner_free (MkpScanner *scanner);
 gboolean mkp_scanner_parse (MkpScanner *scanner, AnjutaTokenFile *file, GError **error);
 
 void mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable);
+void mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable);
 void mkp_scanner_add_rule (MkpScanner *scanner, AnjutaToken *rule);
 
 const gchar* mkp_scanner_get_filename (MkpScanner *scanner);

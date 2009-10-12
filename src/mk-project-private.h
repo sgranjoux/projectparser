@@ -79,6 +79,9 @@ struct _MkpRule {
 
 gchar *mkp_project_token_evaluate (MkpProject *project, AnjutaToken *token);
 
+AnjutaToken* mkp_project_get_variable_token (MkpProject *project, AnjutaToken *variable);
+
+
 MkpTarget* mkp_target_new (const gchar *name, AnjutaProjectTargetType type);
 void mkp_target_free (MkpTarget *node);
 void mkp_target_add_token (MkpGroup *node, AnjutaToken *token);

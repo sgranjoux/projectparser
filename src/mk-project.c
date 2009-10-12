@@ -688,8 +688,9 @@ project_load_makefile (MkpProject *project, GFile *file, MkpGroup *parent, GErro
 	tfile = mkp_group_set_makefile (parent, file);
 	g_hash_table_insert (project->files, g_object_ref (file), g_object_ref (tfile));
 //	g_object_add_toggle_ref (G_OBJECT (project->make_file), remove_make_file, project);
+	arg = anjuta_token_file_load (tfile, NULL);
 	scanner = mkp_scanner_new (project);
-	ok = mkp_scanner_parse (scanner, tfile, &err);
+	ok = mkp_scanner_parse_token (scanner, arg, &err);
 	mkp_scanner_free (scanner);
 	if (!ok)
 	{
@@ -1195,6 +1196,7 @@ mkp_project_update_variable (MkpProject *project, AnjutaToken *variable)
 			break;
 		}
 	}
+	g_message ("new variable %s", name);
 	for (; arg != NULL; arg = anjuta_token_next_sibling (arg))
 	{
 		switch (anjuta_token_get_type (arg))
@@ -1240,6 +1242,30 @@ mkp_project_update_variable (MkpProject *project, AnjutaToken *variable)
 	g_message ("update variable %s", name);
 	
 	if (name) g_free (name);
+}
+
+AnjutaToken*
+mkp_project_get_variable_token (MkpProject *project, AnjutaToken *variable)
+{
+	guint length;
+	const gchar *string;
+	gchar *name;
+	MkpVariable *var;
+		
+	length = anjuta_token_get_length (variable);
+	string = anjuta_token_get_string (variable);
+	if (string[1] == '(')
+	{
+		name = g_strndup (string + 2, length - 3);
+	}
+	else
+	{
+		name = g_strndup (string + 1, 1);
+	}
+	var = g_hash_table_lookup (project->variables, name);
+	g_free (name);
+
+	return var != NULL ? var->value : NULL;
 }
 
 /* Public functions

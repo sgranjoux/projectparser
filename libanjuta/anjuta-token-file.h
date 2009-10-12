@@ -43,6 +43,7 @@ AnjutaTokenFile *anjuta_token_file_new (GFile *file);
 void anjuta_token_file_free (AnjutaTokenFile *file);
 
 const gchar* anjuta_token_file_get_content (AnjutaTokenFile *file, GError **error);
+AnjutaToken* anjuta_token_file_load (AnjutaTokenFile *file, GError **error);
 gsize anjuta_token_file_get_length (AnjutaTokenFile *file, GError **error);
 void anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file);
 gboolean anjuta_token_file_save (AnjutaTokenFile *file, GError **error);

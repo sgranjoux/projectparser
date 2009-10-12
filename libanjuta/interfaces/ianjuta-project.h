@@ -32,6 +32,8 @@ G_BEGIN_DECLS
 #define IANJUTA_PROJECT_GET_IFACE(obj) (G_TYPE_INSTANCE_GET_INTERFACE ((obj), IANJUTA_TYPE_PROJECT, IAnjutaProjectIface))
 
 #define IANJUTA_TYPE_PROJECT_CAPABILITIES (ianjuta_project_capabilities_get_type())
+#define IANJUTA_TYPE_PROJECT_ERROR (ianjuta_project_error_get_type())
+#define IANJUTA_TYPE_PROJECT_PROBE (ianjuta_project_probe_get_type())
 
 #define IANJUTA_PROJECT_ERROR ianjuta_project_error_quark()
 
@@ -39,12 +41,28 @@ typedef struct _IAnjutaProject IAnjutaProject;
 typedef struct _IAnjutaProjectIface IAnjutaProjectIface;
 
 typedef enum {
-	IANJUTA_PROJECT_HAS_NONE		= 0,
+	IANJUTA_PROJECT_CAN_ADD_NONE	= 0,
 	IANJUTA_PROJECT_CAN_ADD_GROUP	= 1 << 0,
 	IANJUTA_PROJECT_CAN_ADD_TARGET	= 1 << 1,
 	IANJUTA_PROJECT_CAN_ADD_SOURCE	= 1 << 2,
 	IANJUTA_PROJECT_HAS_PACKAGES	= 1 << 3
 } IAnjutaProjectCapabilities;
+
+/* Types */
+typedef enum {
+	IANJUTA_PROJECT_ERROR_SUCCESS = 0,
+	IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
+	IANJUTA_PROJECT_ERROR_ALREADY_EXISTS,
+	IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
+	IANJUTA_PROJECT_ERROR_PROJECT_MALFORMED,
+	IANJUTA_PROJECT_ERROR_GENERAL_FAILURE
+} IAnjutaProjectError;
+
+typedef enum {
+	IANJUTA_PROJECT_PROBE_FILES = 10,
+	IANJUTA_PROJECT_PROBE_MAKE_FILES = 100,
+	IANJUTA_PROJECT_PROBE_PROJECT_FILES = 200
+} IAnjutaProjectProbe;
 
 
 struct _IAnjutaProjectIface {
@@ -57,6 +75,7 @@ struct _IAnjutaProjectIface {
 	AnjutaProjectSource* (*add_source) (IAnjutaProject *obj, AnjutaProjectTarget *parent,  GFile *file, GError **err);
 	AnjutaProjectTarget* (*add_target) (IAnjutaProject *obj, AnjutaProjectGroup *parent,  const gchar *name,  AnjutaProjectTargetType type, GError **err);
 	GtkWidget* (*configure) (IAnjutaProject *obj, GError **err);
+	GtkWidget* (*configure_node) (IAnjutaProject *obj, AnjutaProjectNode *node, GError **err);
 	guint (*get_capabilities) (IAnjutaProject *obj, GError **err);
 	GList* (*get_packages) (IAnjutaProject *obj, GError **err);
 	AnjutaProjectGroup* (*get_root) (IAnjutaProject *obj, GError **err);
@@ -68,6 +87,8 @@ struct _IAnjutaProjectIface {
 };
 
 GType ianjuta_project_capabilities_get_type (void);
+GType ianjuta_project_error_get_type (void);
+GType ianjuta_project_probe_get_type (void);
 
 GQuark ianjuta_project_error_quark     (void);
 GType  ianjuta_project_get_type        (void);
@@ -79,6 +100,8 @@ AnjutaProjectSource* ianjuta_project_add_source (IAnjutaProject *obj, AnjutaProj
 AnjutaProjectTarget* ianjuta_project_add_target (IAnjutaProject *obj, AnjutaProjectGroup *parent,  const gchar *name,  AnjutaProjectTargetType type, GError **err);
 
 GtkWidget* ianjuta_project_configure (IAnjutaProject *obj, GError **err);
+
+GtkWidget* ianjuta_project_configure_node (IAnjutaProject *obj, AnjutaProjectNode *node, GError **err);
 
 guint ianjuta_project_get_capabilities (IAnjutaProject *obj, GError **err);
 
