@@ -281,14 +281,32 @@ value:
     ;     
 
 prerequisite:
-    prerequisite_token {
-        $$ = anjuta_token_group_new (mkp_special_prerequisite ($$), $1);
+    name_prerequisite
+    | var_prerequisite
+    | var_prerequisite name_prerequisite {
+        $$ = $2;
     }
-    | prerequisite prerequisite_token {
+    ;
+
+name_prerequisite:
+    prerequisite_token {
+        $$ = anjuta_token_group_new (mkp_special_prerequisite ($1), $1);
+    }
+    | name_prerequisite prerequisite_token {
         $$ = anjuta_token_group ($1, $2);
         anjuta_token_set_type ($$, ANJUTA_TOKEN_VALUE);
     }
+    | name_prerequisite variable_token {
+        anjuta_token_set_type ($$, ANJUTA_TOKEN_VALUE);
+    }
     ;     
+
+var_prerequisite:
+    variable_token
+    | var_prerequisite variable_token {
+        $$ = $2;
+    }
+    ;
 
 /* Tokens
  *----------------------------------------------------------------------------*/
@@ -306,6 +324,7 @@ prerequisite_token:
 
 command_token:
     name_token
+    | variable_token
     | equal_token
     | rule_token
     | depend_token
@@ -314,6 +333,7 @@ command_token:
 
 value_token:
     name_token
+    | variable_token
     | equal_token
     | rule_token
     | depend_token
@@ -321,16 +341,20 @@ value_token:
 
 head_token:
     name_token
+    | variable_token
     | depend_token
     ;
 
-name_token:
+variable_token:
 	VARIABLE {
         anjuta_token_set_type ($$, MK_TOKEN_VARIABLE);
         g_message ("variable is %s", anjuta_token_evaluate ($$));
-        //mkp_scanner_parse_variable (scanner, $$);
+        mkp_scanner_parse_variable (scanner, $$);
     }
-	| NAME
+    ;
+
+name_token:
+	NAME
 	| CHARACTER
     | COMMA
     | ORDER

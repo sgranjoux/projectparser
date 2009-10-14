@@ -690,7 +690,7 @@ project_load_makefile (MkpProject *project, GFile *file, MkpGroup *parent, GErro
 //	g_object_add_toggle_ref (G_OBJECT (project->make_file), remove_make_file, project);
 	arg = anjuta_token_file_load (tfile, NULL);
 	scanner = mkp_scanner_new (project);
-	ok = mkp_scanner_parse_token (scanner, arg, &err);
+	ok = mkp_scanner_parse_token (scanner, anjuta_token_next_child (arg), &err);
 	mkp_scanner_free (scanner);
 	if (!ok)
 	{
@@ -980,8 +980,10 @@ mkp_project_token_evaluate_token (MkpProject *project, AnjutaToken *token, GStri
 		case ANJUTA_TOKEN_OPEN_QUOTE:
 		case ANJUTA_TOKEN_CLOSE_QUOTE:
 		case ANJUTA_TOKEN_ESCAPE:
+		case ANJUTA_TOKEN_VARIABLE:
+		case ANJUTA_TOKEN_EOV:
 			break;
-		case MK_TOKEN_VARIABLE:
+		/*case MK_TOKEN_VARIABLE:
 			length = anjuta_token_get_length (token);
 			string = anjuta_token_get_string (token);
 			if (string[1] == '(')
@@ -1000,7 +1002,7 @@ mkp_project_token_evaluate_token (MkpProject *project, AnjutaToken *token, GStri
 				g_string_append (value, name);
 				g_free (name);
 			}
-			break;	
+			break;	*/
 		default:
 			g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
 		}

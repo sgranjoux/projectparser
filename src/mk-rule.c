@@ -239,13 +239,16 @@ mkp_project_add_rule (MkpProject *project, AnjutaToken *token)
 			for (src = anjuta_token_list_first (dep); src != NULL; src = anjuta_token_list_next (src))
 			{
 				gchar *src_name = mkp_project_token_evaluate (project, src);
-				
-				g_message ("    with source %s", src_name);
-				if (anjuta_token_get_type (src) == MK_TOKEN_ORDER)
+
+				if (src_name != NULL)
 				{
-					order = TRUE;
+					g_message ("    with source %s", src_name);
+					if (anjuta_token_get_type (src) == MK_TOKEN_ORDER)
+					{
+						order = TRUE;
+					}
+					rule->prerequisite = g_list_prepend (rule->prerequisite, src_name);
 				}
-				rule->prerequisite = g_list_prepend (rule->prerequisite, src_name);
 			}
 
 			if (target != NULL) g_free (target);
@@ -337,8 +340,12 @@ mkp_project_enumerate_targets (MkpProject *project, AnjutaProjectGroup *parent)
 			GFile *src_file;
 			gchar *name;
 
-			name = g_strstrip (mkp_project_token_evaluate (project, arg));
-			name = mkp_project_find_source (project, name, parent, 0);
+			name = mkp_project_token_evaluate (project, arg);
+			if (name != NULL)
+			{
+				name = g_strstrip (name);
+				name = mkp_project_find_source (project, name, parent, 0);
+			}
 
 			if (name != NULL)
 			{

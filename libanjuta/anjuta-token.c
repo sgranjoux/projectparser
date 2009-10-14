@@ -286,10 +286,17 @@ anjuta_token_evaluate_token (AnjutaToken *token, GString *value, gboolean raw)
 	{
 		if (!raw)
 		{
-			gint type = anjuta_token_get_type (token);
-			if ((type == ANJUTA_TOKEN_COMMENT) || (type == ANJUTA_TOKEN_OPEN_QUOTE) || (type == ANJUTA_TOKEN_CLOSE_QUOTE) || (type == ANJUTA_TOKEN_ESCAPE))
+			switch (anjuta_token_get_type (token))
 			{
+			case ANJUTA_TOKEN_COMMENT:
+			case ANJUTA_TOKEN_OPEN_QUOTE:
+			case ANJUTA_TOKEN_CLOSE_QUOTE:
+			case ANJUTA_TOKEN_ESCAPE:
+			case ANJUTA_TOKEN_VARIABLE:
+			case ANJUTA_TOKEN_EOV:
 				return;
+			default:
+				break;
 			}
 		}
 		g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));

@@ -274,15 +274,11 @@ mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable)
 
     if (token != NULL)
     {
-        token = anjuta_token_next_child (token);
-        if (token != NULL)
-        {
-            anjuta_token_set_type (variable, ANJUTA_TOKEN_VARIABLE);
-            token = anjuta_token_copy (token);
-            anjuta_token_insert_after (variable, token);
+        anjuta_token_set_type (variable, ANJUTA_TOKEN_VARIABLE);
+        token = anjuta_token_copy (token);
+        anjuta_token_insert_after (variable, token);
 
-            mkp_scanner_parse_token (scanner, token, NULL);
-        }
+        mkp_scanner_parse_token (scanner, token, NULL);
     }
 }
 
@@ -345,7 +341,7 @@ mkp_scanner_input (MkpScanner *scanner, gchar *buffer, gsize max_size)
                 for (;;)
                 {
                     scanner->buffer->next = anjuta_token_next_sibling (scanner->buffer->next);
-                    if (scanner->buffer->next == NULL)
+                    if ((scanner->buffer->next == NULL) || (anjuta_token_get_type (scanner->buffer->next) == ANJUTA_TOKEN_EOV))
                     {
                         /* Last token */
                         return 0;
@@ -433,6 +429,7 @@ gboolean
 mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error)
 {
     AnjutaToken *child;
+    AnjutaToken *first = NULL;
     gboolean ok;
     MkpBuffer *buffer;
 
@@ -443,6 +440,7 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
     buffer->parent = NULL;
     scanner->file = NULL;
 
+#if 0
     /* Add a level for this operation if it is not already done */
     if (anjuta_token_get_length (token) != 0)
     {
@@ -451,9 +449,11 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
         anjuta_token_insert_child (token, copy);
         anjuta_token_clear (token);
     }
+#endif
 
     /* Move all know data in a list */
-    for (child = anjuta_token_next_child (token); child != NULL;)
+    anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_EOV, NULL));
+    for (child = token;anjuta_token_get_type (child) != ANJUTA_TOKEN_EOV;)
     {
         child = anjuta_token_ungroup (child);
         if (anjuta_token_get_length (child) == 0)
@@ -462,11 +462,12 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
         }
         else
         {
+            if (first == NULL) first = child;
             child = anjuta_token_next_sibling (child);
         }
     }
 
-    buffer->next = anjuta_token_next_child (token);
+    buffer->next = first;
     buffer->start = buffer->next;
 
     if (scanner->buffer != NULL)

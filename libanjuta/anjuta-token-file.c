@@ -133,7 +133,8 @@ anjuta_token_file_load (AnjutaTokenFile *file, GError **error)
 	
 		if (g_file_load_contents (file->file, NULL, &content, &length, NULL, error))
 		{
-			file->first = anjuta_token_new_static (ANJUTA_TOKEN_FILE, content);
+			file->first = anjuta_token_new_static (ANJUTA_TOKEN_FILE, NULL);
+			anjuta_token_insert_child (file->first, anjuta_token_new_static (ANJUTA_TOKEN_FILE, content));
 			file->content = content;
 			file->length = length;
 		}
