@@ -292,7 +292,7 @@ anjuta_token_evaluate_token (AnjutaToken *token, GString *value, gboolean raw)
 			case ANJUTA_TOKEN_OPEN_QUOTE:
 			case ANJUTA_TOKEN_CLOSE_QUOTE:
 			case ANJUTA_TOKEN_ESCAPE:
-			case ANJUTA_TOKEN_VARIABLE:
+			case ANJUTA_TOKEN_MACRO:
 			case ANJUTA_TOKEN_EOV:
 				return;
 			default:

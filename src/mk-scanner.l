@@ -274,7 +274,7 @@ mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable)
 
     if (token != NULL)
     {
-        anjuta_token_set_type (variable, ANJUTA_TOKEN_VARIABLE);
+        anjuta_token_set_type (variable, ANJUTA_TOKEN_MACRO);
         token = anjuta_token_copy (token);
         anjuta_token_insert_after (variable, token);
 

@@ -980,7 +980,7 @@ mkp_project_token_evaluate_token (MkpProject *project, AnjutaToken *token, GStri
 		case ANJUTA_TOKEN_OPEN_QUOTE:
 		case ANJUTA_TOKEN_CLOSE_QUOTE:
 		case ANJUTA_TOKEN_ESCAPE:
-		case ANJUTA_TOKEN_VARIABLE:
+		case ANJUTA_TOKEN_MACRO:
 		case ANJUTA_TOKEN_EOV:
 			break;
 		/*case MK_TOKEN_VARIABLE:
