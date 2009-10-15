@@ -220,7 +220,7 @@ anjuta_token_file_save (AnjutaTokenFile *file, GError **error)
 	data.error = error;
 	data.stream = stream;
 	data.fail = FALSE;
-	g_node_traverse ((GNode *)file->first, G_PRE_ORDER, G_TRAVERSE_ALL, -1, (GNodeTraverseFunc)save_node, &data);
+	anjuta_token_foreach (file->first, save_node, &data);
 	ok = g_output_stream_close (G_OUTPUT_STREAM (stream), NULL, NULL);
 	g_object_unref (stream);
 	
@@ -243,15 +243,15 @@ anjuta_token_file_append (AnjutaTokenFile *file, AnjutaToken *token)
 	}
 	else if (file->last == file->first)
 	{
-		g_node_insert_after ((GNode *)file->first, NULL, (GNode *)token);
+		anjuta_token_insert_child (file->first, token);
 	}
 	else
 	{
-		while (((GNode *)file->last)->parent != (GNode *)file->first)
+		while (anjuta_token_parent (file->last) != file->first)
 		{
-			file->last = (AnjutaToken *)((GNode *)file->last)->parent;
+			file->last = anjuta_token_parent (file->last);
 		}
-		g_node_insert_after ((GNode *)file->first, (GNode *)file->last, (GNode *)token);
+		anjuta_token_insert_after (file->last, token);
 	}
 	file->last = token;
 }

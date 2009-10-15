@@ -115,8 +115,29 @@ anjuta_project_node_all (AnjutaProjectNode *parent, AnjutaProjectNodeType type)
 void
 anjuta_project_node_all_foreach (AnjutaProjectNode *node, AnjutaProjectNodeFunc func, gpointer data)
 {
-	g_node_traverse (node, G_PRE_ORDER, G_TRAVERSE_ALL, -1, func, data);
+	/* POST_ORDER is important when deleting the node, children has to be
+	 * deleted first */
+	g_node_traverse (node, G_POST_ORDER, G_TRAVERSE_ALL, -1, func, data);
 }
+
+void
+anjuta_project_node_children_foreach (AnjutaProjectNode *node, AnjutaProjectNodeFunc func, gpointer data)
+{
+	g_node_children_foreach (node, G_TRAVERSE_ALL, func, data);
+}
+
+AnjutaProjectNode *
+anjuta_project_node_append (AnjutaProjectNode *parent, AnjutaProjectNode *node)
+{
+	return g_node_append (parent, node);
+}
+
+AnjutaProjectNode *
+anjuta_project_node_prepend (AnjutaProjectNode *parent, AnjutaProjectNode *node)
+{
+	return g_node_prepend (parent, node);
+}
+
 
 AnjutaProjectNodeType
 anjuta_project_node_get_type (const AnjutaProjectNode *node)

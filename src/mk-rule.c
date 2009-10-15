@@ -320,7 +320,7 @@ mkp_project_enumerate_targets (MkpProject *project, AnjutaProjectGroup *parent)
 		/* Create target */
 		target = mkp_target_new (rule->name, NULL);
 		mkp_target_add_token (target, rule->rule);
-		g_node_append (parent, target);
+		anjuta_project_node_append (parent, target);
 
 		/* Search for prerequisite */
 		prerequisite = NULL;
@@ -352,7 +352,7 @@ mkp_project_enumerate_targets (MkpProject *project, AnjutaProjectGroup *parent)
 				src_file = g_file_get_child (project->root_file, name);
 				source = mkp_source_new (src_file);
 				g_object_unref (src_file);
-				g_node_append (target, source);
+				anjuta_project_node_append (target, source);
 
 				g_free (name);
 			}

@@ -522,7 +522,7 @@ monitors_setup (MkpProject *project)
  */
 
 static void
-mkp_dump_node (GNode *g_node)
+mkp_dump_node (AnjutaProjectNode *g_node)
 {
 	gchar *name = NULL;
 	
@@ -547,7 +547,7 @@ mkp_dump_node (GNode *g_node)
 }
 
 static gboolean 
-foreach_node_destroy (GNode    *g_node,
+foreach_node_destroy (AnjutaProjectNode    *g_node,
 		      gpointer  data)
 {
 	switch (MKP_NODE_DATA (g_node)->type) {
@@ -572,15 +572,14 @@ foreach_node_destroy (GNode    *g_node,
 }
 
 static void
-project_node_destroy (MkpProject *project, GNode *g_node)
+project_node_destroy (MkpProject *project, AnjutaProjectNode *g_node)
 {
 	g_return_if_fail (project != NULL);
 	g_return_if_fail (MKP_IS_PROJECT (project));
 	
 	if (g_node) {
 		/* free each node's data first */
-		g_node_traverse (g_node,
-				 G_POST_ORDER, G_TRAVERSE_ALL, -1,
+		anjuta_project_node_all_foreach (g_node,
 				 foreach_node_destroy, project);
 
 		/* now destroy the tree itself */
@@ -589,14 +588,14 @@ project_node_destroy (MkpProject *project, GNode *g_node)
 }
 
 static void
-find_target (GNode *node, gpointer data)
+find_target (AnjutaProjectTarget *node, gpointer data)
 {
 	if (MKP_NODE_DATA (node)->type == ANJUTA_PROJECT_TARGET)
 	{
 		if (strcmp (MKP_TARGET_DATA (node)->base.name, *(gchar **)data) == 0)
 		{
 			/* Find target, return node value in pointer */
-			*(GNode **)data = node;
+			*(AnjutaProjectTarget **)data = node;
 
 			return;
 		}
@@ -604,7 +603,7 @@ find_target (GNode *node, gpointer data)
 }
 
 static AnjutaToken*
-project_load_rule (MkpProject *project, AnjutaToken *rule, GNode *parent)
+project_load_rule (MkpProject *project, AnjutaToken *rule, AnjutaProjectGroup *parent)
 {
 	AnjutaToken *arg;
 	AnjutaToken *prerequisite;
@@ -629,7 +628,7 @@ project_load_rule (MkpProject *project, AnjutaToken *rule, GNode *parent)
 
 		/* Check if target already exists */
 		find = value;
-		g_node_children_foreach (parent, G_TRAVERSE_ALL, find_target, &find);
+		anjuta_project_node_children_foreach (parent, find_target, &find);
 		if ((gchar *)find != value)
 		{
 			/* Find target */
@@ -640,7 +639,7 @@ project_load_rule (MkpProject *project, AnjutaToken *rule, GNode *parent)
 			/* Create target */
 			target = mkp_target_new (value, (AnjutaProjectTargetType)&MkpTargetTypes[0]);
 			mkp_target_add_token (target, arg);
-			g_node_append (parent, target);
+			anjuta_project_node_append (parent, target);
 		}
 
 		g_free (value);
@@ -655,7 +654,7 @@ project_load_rule (MkpProject *project, AnjutaToken *rule, GNode *parent)
 			src_file = g_file_get_child (project->root_file, value);
 			source = mkp_source_new (src_file);
 			g_object_unref (src_file);
-			g_node_append (target, source);
+			anjuta_project_node_append (target, source);
 		}
 	}
 
@@ -787,7 +786,7 @@ mkp_project_get_source (MkpProject *project, const gchar *id)
 gchar *
 mkp_project_get_node_id (MkpProject *project, const gchar *path)
 {
-	GNode *node = NULL;
+	AnjutaProjectNode *node = NULL;
 
 	if (path != NULL)
 	{
@@ -808,7 +807,7 @@ mkp_project_get_node_id (MkpProject *project, const gchar *path)
 			}
 			else
 			{
-				node = g_node_nth_child (node, child);
+				node = anjuta_project_node_nth_child (node, child);
 			}
 			if (node == NULL)
 			{

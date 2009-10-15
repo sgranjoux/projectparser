@@ -923,7 +923,7 @@ monitors_setup (AmpProject *project)
  */
 
 static void
-amp_dump_node (GNode *g_node)
+amp_dump_node (AnjutaProjectNode *g_node)
 {
 	gchar *name = NULL;
 	
@@ -948,7 +948,7 @@ amp_dump_node (GNode *g_node)
 }
 
 static gboolean 
-foreach_node_destroy (GNode    *g_node,
+foreach_node_destroy (AnjutaProjectNode    *g_node,
 		      gpointer  data)
 {
 	switch (AMP_NODE_DATA (g_node)->type) {
@@ -973,17 +973,16 @@ foreach_node_destroy (GNode    *g_node,
 }
 
 static void
-project_node_destroy (AmpProject *project, GNode *g_node)
+project_node_destroy (AmpProject *project, AnjutaProjectNode *g_node)
 {
 	g_return_if_fail (project != NULL);
 	g_return_if_fail (AMP_IS_PROJECT (project));
 	
 	if (g_node) {
 		/* free each node's data first */
-		g_node_traverse (g_node,
-				 G_POST_ORDER, G_TRAVERSE_ALL, -1,
+		anjuta_project_node_all_foreach (g_node,
 				 foreach_node_destroy, project);
-
+		
 		/* now destroy the tree itself */
 		//g_node_destroy (g_node);
 	}
@@ -1168,14 +1167,14 @@ project_list_config_files (AmpProject *project)
 }
 
 static void
-find_target (GNode *node, gpointer data)
+find_target (AnjutaProjectTarget *node, gpointer data)
 {
 	if (AMP_NODE_DATA (node)->type == ANJUTA_PROJECT_TARGET)
 	{
 		if (strcmp (AMP_TARGET_DATA (node)->base.name, *(gchar **)data) == 0)
 		{
 			/* Find target, return node value in pointer */
-			*(GNode **)data = node;
+			*(AnjutaProjectTarget **)data = node;
 
 			return;
 		}
@@ -1183,7 +1182,7 @@ find_target (GNode *node, gpointer data)
 }
 
 static void
-find_canonical_target (GNode *node, gpointer data)
+find_canonical_target (AnjutaProjectTarget *node, gpointer data)
 {
 	if (AMP_NODE_DATA (node)->type == ANJUTA_PROJECT_TARGET)
 	{
@@ -1192,7 +1191,7 @@ find_canonical_target (GNode *node, gpointer data)
 		if (strcmp (canon_name, *(gchar **)data) == 0)
 		{
 			/* Find target, return node value in pointer */
-			*(GNode **)data = node;
+			*(AnjutaProjectTarget **)data = node;
 			g_free (canon_name);
 
 			return;
@@ -1202,7 +1201,7 @@ find_canonical_target (GNode *node, gpointer data)
 }
 
 static AnjutaToken*
-project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHashTable *orphan_sources)
+project_load_target (AmpProject *project, AnjutaToken *start, AnjutaProjectGroup *parent, GHashTable *orphan_sources)
 {
 	AnjutaToken *arg;
 	AnjutaProjectTargetType type = NULL;
@@ -1251,7 +1250,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		
 		/* Check if target already exists */
 		find = value;
-		g_node_children_foreach (parent, G_TRAVERSE_ALL, find_target, &find);
+		anjuta_project_node_children_foreach (parent, find_target, &find);
 		if ((gchar *)find != value)
 		{
 			/* Find target */
@@ -1263,7 +1262,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 		/* Create target */
 		target = amp_target_new (value, type, install, flags);
 		amp_target_add_token (target, arg);
-		g_node_append (parent, target);
+		anjuta_project_node_append (parent, target);
 		DEBUG_PRINT ("create target %p name %s", target, value);
 
 		/* Check if there are source availables */
@@ -1275,7 +1274,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 			{
 				AmpSource *source = src->data;
 
-				g_node_prepend (target, source);
+				anjuta_project_node_prepend (target, source);
 			}
 			g_free (orig_key);
 			g_list_free (sources);
@@ -1289,7 +1288,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, GNode *parent, GHa
 }
 
 static AnjutaToken*
-project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GHashTable *orphan_sources)
+project_load_sources (AmpProject *project, AnjutaToken *start, AnjutaProjectGroup *parent, GHashTable *orphan_sources)
 {
 	AnjutaToken *arg;
 	AmpGroupData *group = AMP_GROUP_DATA (parent);
@@ -1313,8 +1312,8 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 		
 		find = target_id;
 		DEBUG_PRINT ("search for canonical %s", target_id);
-		g_node_children_foreach (parent, G_TRAVERSE_ALL, find_canonical_target, &find);
-		parent = (gchar *)find != target_id ? (GNode *)find : NULL;
+		anjuta_project_node_children_foreach (parent, find_canonical_target, &find);
+		parent = (gchar *)find != target_id ? (AnjutaProjectTarget *)find : NULL;
 
 		arg = anjuta_token_next_sibling (start);		/* Get variable data */
 		if (arg == NULL) return NULL;
@@ -1348,7 +1347,7 @@ project_load_sources (AmpProject *project, AnjutaToken *start, GNode *parent, GH
 			{
 				DEBUG_PRINT ("add target child %p", parent);
 				/* Add as target child */
-				g_node_append (parent, source);
+				anjuta_project_node_append (parent, source);
 			}
 
 			g_free (value);
@@ -1449,7 +1448,7 @@ remove_config_file (gpointer data, GObject *object, gboolean is_last_ref)
 }
 
 static AmpGroup*
-project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean dist_only)
+project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *parent, gboolean dist_only)
 {
 	GHashTable *orphan_sources = NULL;
 	const gchar **filename;
@@ -1470,7 +1469,7 @@ project_load_makefile (AmpProject *project, GFile *file, GNode *parent, gboolean
 	}
 	else
 	{
-		g_node_append (parent, group);
+		anjuta_project_node_append (parent, group);
 	}
 		
 	/* Find makefile name
@@ -1794,7 +1793,7 @@ amp_project_add_group (AmpProject  *project,
 	child = amp_group_new (directory, FALSE);
 	g_hash_table_insert (project->groups, uri, child);
 	g_object_unref (directory);
-	g_node_append (parent, child);
+	anjuta_project_node_append (parent, child);
 
 	/* Create directory */
 	g_file_make_directory (directory, NULL, NULL);
@@ -1840,7 +1839,7 @@ amp_project_add_group (AmpProject  *project,
 	}
 	
 	/* Add in Makefile.am */
-	for (last = g_node_prev_sibling (child); (last != NULL) && (AMP_NODE_DATA (last)->type != ANJUTA_PROJECT_GROUP); last = g_node_prev_sibling (last));
+	for (last = anjuta_project_node_prev_sibling (child); (last != NULL) && (AMP_NODE_DATA (last)->type != ANJUTA_PROJECT_GROUP); last = anjuta_project_node_prev_sibling (last));
 	if (last == NULL)
 	{
 		AnjutaToken *prev_token;
@@ -2000,7 +1999,7 @@ amp_project_add_target (AmpProject  *project,
 	
 	/* Check that the new target doesn't already exist */
 	find = (gchar *)name;
-	g_node_children_foreach (parent, G_TRAVERSE_ALL, find_target, &find);
+	anjuta_project_node_children_foreach (parent, find_target, &find);
 	if ((gchar *)find != name)
 	{
 		error_set (error, IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
@@ -2011,7 +2010,7 @@ amp_project_add_target (AmpProject  *project,
 	
 	/* Add target node in project tree */
 	child = amp_target_new (name, type, "", 0);
-	g_node_append (parent, child);
+	anjuta_project_node_append (parent, child);
 
 	/* Add in Makefile.am */
 	targetname = g_strconcat (((AmpTargetInformation *)type)->install, ((AmpTargetInformation *)type)->prefix, NULL);
@@ -2130,7 +2129,7 @@ amp_project_add_source (AmpProject  *project,
 	relative_name = g_file_get_relative_path (AMP_GROUP_DATA (group)->base.directory, file);
 
 	/* Add token */
-	last = g_node_last_child (target);
+	last = anjuta_project_node_last_child (target);
 	if (last == NULL)
 	{
 		/* First child */
@@ -2174,7 +2173,7 @@ amp_project_add_source (AmpProject  *project,
 	/* Add source node in project tree */
 	source = amp_source_new (file);
 	AMP_SOURCE_DATA(source)->token = token;
-	g_node_append (target, source);
+	anjuta_project_node_append (target, source);
 
 	return source;
 }
@@ -2403,7 +2402,7 @@ amp_project_get_source (AmpProject *project, const gchar *id)
 gchar *
 amp_project_get_node_id (AmpProject *project, const gchar *path)
 {
-	GNode *node = NULL;
+	AnjutaProjectNode *node = NULL;
 
 	if (path != NULL)
 	{
@@ -2424,7 +2423,7 @@ amp_project_get_node_id (AmpProject *project, const gchar *path)
 			}
 			else
 			{
-				node = g_node_nth_child (node, child);
+				node = anjuta_project_node_nth_child (node, child);
 			}
 			if (node == NULL)
 			{

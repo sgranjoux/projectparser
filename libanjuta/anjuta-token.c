@@ -500,6 +500,12 @@ anjuta_token_insert_before (AnjutaToken *sibling, AnjutaToken *baby)
 	return (AnjutaToken *)g_node_insert_before ((GNode *)sibling->parent, (GNode *)sibling, (GNode *)baby);
 }	
 
+void
+anjuta_token_foreach (AnjutaToken *token, AnjutaTokenFunc func, gpointer data)
+{
+	g_node_traverse ((GNode *)token, G_PRE_ORDER, G_TRAVERSE_ALL, -1, func, data);
+}
+
 AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *last)
 {
 	AnjutaToken *child;
