@@ -62,7 +62,9 @@
 
 %defines
 
-%pure_parser
+%define api.pure
+%define api.push_pull "push"
+
 
 /* Necessary because autotools wrapper always looks for a file named "y.tab.c",
  * not "amp-scanner.c"

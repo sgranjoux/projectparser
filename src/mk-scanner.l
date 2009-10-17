@@ -52,7 +52,6 @@ static gint mkp_scanner_parse_end (MkpScanner *scanner);
 
 void mkp_project_update_variable (MkpProject *project, AnjutaToken *variable);
 void mkp_project_add_rule (MkpProject *project, AnjutaToken *rule);
-gboolean mkp_ac_yyparse (MkpScanner *scanner);
 
 #define RETURN(tok) *yylval = mkp_scanner_append_token (yyextra, tok); \
                     return tok
@@ -407,6 +406,10 @@ gboolean
 mkp_scanner_parse (MkpScanner *scanner, AnjutaTokenFile *file, GError **error)
 {
     gboolean ok;
+    gint status;
+    mkp_yypstate *ps;
+    YYSTYPE yylval_param;
+    YYLTYPE yylloc_param;
 
     g_return_val_if_fail (file != NULL, FALSE);
 
@@ -417,7 +420,13 @@ mkp_scanner_parse (MkpScanner *scanner, AnjutaTokenFile *file, GError **error)
     scanner->buffer->begin = 0;
     scanner->buffer->token = NULL;
 	
-	ok = mkp_yyparse (scanner) == 0;
+    ps = mkp_yypstate_new ();
+    do
+    {
+        status = mkp_yypush_parse (ps, mkp_yylex (&yylval_param, &yylloc_param, scanner), &yylval_param, &yylloc_param, scanner);
+    } while (status == YYPUSH_MORE);
+    mkp_yypstate_delete (ps);
+	//ok = mkp_yyparse (scanner) == 0;
 
     g_free (scanner->buffer);
     scanner->buffer = NULL;
@@ -482,9 +491,22 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
     }
     else
     {
+        mkp_yypstate *ps;
+        gint status;
+        YYSTYPE yylval_param;
+        YYLTYPE yylloc_param;
+
         scanner->buffer = buffer;
 
-	    return mkp_yyparse (scanner) == 0;
+        ps = mkp_yypstate_new ();
+        do
+        {
+            status = mkp_yypush_parse (ps, mkp_yylex (&yylval_param, &yylloc_param, scanner), &yylval_param, &yylloc_param, scanner);
+        } while (status == YYPUSH_MORE);
+        mkp_yypstate_delete (ps);
+
+        return TRUE;
+	    //return mkp_yyparse (scanner) == 0;
     }
 }
 
