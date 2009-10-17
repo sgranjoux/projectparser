@@ -350,8 +350,8 @@ head_token:
 variable_token:
 	VARIABLE {
         anjuta_token_set_type ($$, MK_TOKEN_VARIABLE);
-        g_message ("variable is %s", anjuta_token_evaluate ($$));
-        mkp_scanner_parse_variable (scanner, $$);
+        /*g_message ("variable is %s", anjuta_token_evaluate ($$));
+        mkp_scanner_parse_variable (scanner, $$);*/
     }
     ;
 

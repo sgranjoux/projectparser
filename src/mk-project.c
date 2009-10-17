@@ -650,7 +650,7 @@ project_load_rule (MkpProject *project, AnjutaToken *rule, AnjutaProjectGroup *p
 			MkpSource *source;
 			GFile *src_file;
 
-			value = anjuta_token_evaluate (arg);
+			value = mkp_project_token_evaluate (project, arg);
 			src_file = g_file_get_child (project->root_file, value);
 			source = mkp_source_new (src_file);
 			g_object_unref (src_file);
@@ -982,7 +982,7 @@ mkp_project_token_evaluate_token (MkpProject *project, AnjutaToken *token, GStri
 		case ANJUTA_TOKEN_MACRO:
 		case ANJUTA_TOKEN_EOV:
 			break;
-		/*case MK_TOKEN_VARIABLE:
+		case MK_TOKEN_VARIABLE:
 			length = anjuta_token_get_length (token);
 			string = anjuta_token_get_string (token);
 			if (string[1] == '(')
@@ -1001,7 +1001,7 @@ mkp_project_token_evaluate_token (MkpProject *project, AnjutaToken *token, GStri
 				g_string_append (value, name);
 				g_free (name);
 			}
-			break;	*/
+			break;
 		default:
 			g_string_append_len (value, anjuta_token_get_string (token), anjuta_token_get_length (token));
 		}
