@@ -322,7 +322,7 @@ raw_string_body:
 
 arg_string:
     LEFT_BRACE arg_string_body RIGHT_BRACE  {
-        $$ = anjuta_token_group_new (NAME, $1);
+        $$ = anjuta_token_new_group (NAME, $1);
         anjuta_token_set_type ($1, ANJUTA_TOKEN_OPEN_QUOTE);
         anjuta_token_set_type ($3, ANJUTA_TOKEN_CLOSE_QUOTE);
         anjuta_token_group ($$, $3);
@@ -354,7 +354,7 @@ arg:
         $$ = NULL;
     }
     | arg_part arg_body {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, $1);
+        $$ = anjuta_token_new_group (ANJUTA_TOKEN_ARGUMENT, $1);
         if ($2 != NULL) anjuta_token_group ($$, $2);
     }        
     ;
@@ -388,10 +388,10 @@ arg_part:
 
 separator:
     COMMA {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_NEXT, $1);
+        $$ = anjuta_token_new_group (ANJUTA_TOKEN_NEXT, $1);
     }
     | COMMA spaces {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_NEXT, $1);
+        $$ = anjuta_token_new_group (ANJUTA_TOKEN_NEXT, $1);
         anjuta_token_group ($$, $2);
     }
     ;

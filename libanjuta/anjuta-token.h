@@ -118,6 +118,8 @@ AnjutaToken *anjuta_token_delete (AnjutaToken *token);
 AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *last);
 AnjutaToken *anjuta_token_ungroup (AnjutaToken *parent);
 
+AnjutaToken *anjuta_token_new_group (AnjutaTokenType type, AnjutaToken* first);
+
 AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size);
 
 AnjutaToken * anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *child);

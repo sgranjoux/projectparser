@@ -2,8 +2,8 @@
     VARIABLE: OBJECTS =  foobar.o
     VARIABLE: LDFLAGS =  -Wl,-rpath,/usr/local/lib
     VARIABLE: CC =  gcc
-    VARIABLE: LIBS = (null)
-    VARIABLE: INCFLAGS = (null)
+    VARIABLE: LIBS =  
+    VARIABLE: INCFLAGS =  
     GROUP (0): makefile
         TARGET (0:0): foobar
             SOURCE (0:0:0): foobar.c

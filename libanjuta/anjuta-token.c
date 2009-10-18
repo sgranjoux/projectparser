@@ -544,6 +544,14 @@ AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *last)
 	
 }
 
+AnjutaToken *anjuta_token_new_group (AnjutaTokenType type, AnjutaToken* first)
+{
+	AnjutaToken *parent = anjuta_token_new_static (type, NULL);
+
+	g_node_insert_before ((GNode *)first->parent, (GNode *)first, (GNode *)parent);
+	return anjuta_token_group (parent, first);
+}
+
 AnjutaToken *anjuta_token_ungroup (AnjutaToken *token)
 {
 	GNode *last = (GNode *)token;
