@@ -924,6 +924,8 @@ mkp_source_get_file (MkpSource *source)
 /* Variable access functions
  *---------------------------------------------------------------------------*/
 
+static void mkp_project_token_evaluate_token (MkpProject *project, AnjutaToken *token, GString *value);
+
 const gchar *
 mkp_variable_get_name (MkpVariable *variable)
 {
@@ -931,9 +933,19 @@ mkp_variable_get_name (MkpVariable *variable)
 }
 
 gchar *
-mkp_variable_evaluate (MkpVariable *variable, AnjutaProjectNode *context)
+mkp_variable_evaluate (MkpVariable *variable, MkpProject *project)
 {
-	return anjuta_token_evaluate (variable->value);
+	GString *value = g_string_new (NULL);
+	AnjutaToken *child;
+	char *str;
+
+	for (child = anjuta_token_group_first (variable->value); child != NULL; child = anjuta_token_group_next (child))
+	{
+		mkp_project_token_evaluate_token (project, anjuta_token_group_get_token (child), value);
+	}
+
+	str = g_string_free (value, FALSE);
+	return *str == '\0' ? NULL : str; 	
 }
 
 static MkpVariable*
@@ -958,9 +970,6 @@ mkp_variable_free (MkpVariable *variable)
 	
     g_slice_free (MkpVariable, variable);
 }
-
-/* Public functions
- *---------------------------------------------------------------------------*/
 
 static void
 mkp_project_token_evaluate_token (MkpProject *project, AnjutaToken *token, GString *value)
@@ -997,7 +1006,7 @@ mkp_project_token_evaluate_token (MkpProject *project, AnjutaToken *token, GStri
 			g_free (name);
 			if (var != NULL)
 			{
-				name = mkp_variable_evaluate (var, NULL);
+				name = mkp_variable_evaluate (var, project);
 				g_string_append (value, name);
 				g_free (name);
 			}
@@ -1008,33 +1017,22 @@ mkp_project_token_evaluate_token (MkpProject *project, AnjutaToken *token, GStri
 	}
 }	
 
-static  void
-mkp_project_token_evaluate_child (MkpProject *project, AnjutaToken *token, GString *value)
-{
-	AnjutaToken *child;
-	
-	mkp_project_token_evaluate_token (project, token, value);
+/* Public functions
+ *---------------------------------------------------------------------------*/
 
-	child = anjuta_token_next_child (token);
-	if (child) mkp_project_token_evaluate_child (project, child, value);
-
-	child = anjuta_token_next_sibling (token);
-	if (child) mkp_project_token_evaluate_child (project, child, value);
-}
-
-gchar *mkp_project_token_evaluate (MkpProject *project, AnjutaToken *token)
+gchar *mkp_project_token_evaluate (MkpProject *project, AnjutaToken *group)
 {
 	GString *value = g_string_new (NULL);
 	gchar *str;
 
-	if (token != NULL)
+	if (group != NULL)
 	{
 		AnjutaToken *child;
-		
-		mkp_project_token_evaluate_token (project, token, value);
 
-		child = anjuta_token_next_child (token);
-		if (child != NULL) mkp_project_token_evaluate_child (project, child, value);
+		for (child = anjuta_token_group_first (group); child != NULL; child = anjuta_token_group_next (child))
+		{
+			mkp_project_token_evaluate_token (project, anjuta_token_group_get_token (child), value);
+		}
 	}
 
 	str = g_string_free (value, FALSE);
@@ -1189,38 +1187,24 @@ mkp_project_update_variable (MkpProject *project, AnjutaToken *variable)
 	MakeTokenType assign = 0;	
 	AnjutaToken *value = NULL;
 
-	for (arg = anjuta_token_next_child (variable); arg != NULL; arg = anjuta_token_next_sibling (arg))
-	{
-		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_NAME)
-		{
-			name = g_strstrip (anjuta_token_evaluate (arg));
-			break;
-		}
-	}
+	arg = anjuta_token_group_first (variable);
+	name = g_strstrip (mkp_project_token_evaluate (project, arg));
+	arg = anjuta_token_group_next (arg);
+	
 	g_message ("new variable %s", name);
-	for (; arg != NULL; arg = anjuta_token_next_sibling (arg))
+	switch (anjuta_token_get_type (anjuta_token_group_get_token (arg)))
 	{
-		switch (anjuta_token_get_type (arg))
-		{
-		case MK_TOKEN_EQUAL:
-		case MK_TOKEN_IMMEDIATE_EQUAL:
-		case MK_TOKEN_CONDITIONAL_EQUAL:
-		case MK_TOKEN_APPEND:
-			assign = anjuta_token_get_type (arg);
-			break;
-		default:
-			continue;
-		}
+	case MK_TOKEN_EQUAL:
+	case MK_TOKEN_IMMEDIATE_EQUAL:
+	case MK_TOKEN_CONDITIONAL_EQUAL:
+	case MK_TOKEN_APPEND:
+		assign = anjuta_token_get_type (anjuta_token_group_get_token (arg));
+		break;
+	default:
 		break;
 	}
-	for (; arg != NULL; arg = anjuta_token_next_sibling (arg))
-	{
-		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_VALUE)
-		{
-			value = arg;
-			break;
-		}
-	}
+	
+	value = anjuta_token_group_next (arg);
 
 	if (assign != 0)
 	{

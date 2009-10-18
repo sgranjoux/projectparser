@@ -111,7 +111,7 @@ gchar *mkp_target_get_id (MkpTarget *target);
 gchar *mkp_source_get_id (MkpSource *source);
 GFile *mkp_source_get_file (MkpSource *source);
 
-gchar *mkp_variable_evaluate (MkpVariable *variable, AnjutaProjectNode *context);
+gchar *mkp_variable_evaluate (MkpVariable *variable, MkpProject *project);
 const gchar* mkp_variable_get_name (MkpVariable *variable);
 
 G_END_DECLS

@@ -145,18 +145,18 @@ mkp_project_find_source (MkpProject *project, gchar *target, AnjutaProjectGroup 
  *---------------------------------------------------------------------------*/
 
 void
-mkp_project_add_rule (MkpProject *project, AnjutaToken *token)
+mkp_project_add_rule (MkpProject *project, AnjutaToken *group)
 {
 	AnjutaToken *targ;
 	AnjutaToken *dep;
 	AnjutaToken *arg;
 	gboolean double_colon = FALSE;
 
-	targ = anjuta_token_list_first (token);
-	arg = anjuta_token_list_next (targ);
-	if (anjuta_token_get_type (arg) == MK_TOKEN_DOUBLE_COLON) double_colon = TRUE;
-	dep = anjuta_token_list_next (arg);
-	for (arg = anjuta_token_list_first (targ); arg != NULL; arg = anjuta_token_list_next (arg))
+	targ = anjuta_token_group_first (group);
+	arg = anjuta_token_group_next (targ);
+	if (anjuta_token_get_type (anjuta_token_group_get_token(arg)) == MK_TOKEN_DOUBLE_COLON) double_colon = TRUE;
+	dep = anjuta_token_group_next (arg);
+	for (arg = anjuta_token_group_first (targ); arg != NULL; arg = anjuta_token_group_next (arg))
 	{
 		AnjutaToken *src;
 		gchar *target;
@@ -164,12 +164,12 @@ mkp_project_add_rule (MkpProject *project, AnjutaToken *token)
 		gboolean no_token = TRUE;
 		MkpRule *rule;
 
-		switch (anjuta_token_get_type (arg))
+		switch (anjuta_token_get_type (anjuta_token_group_get_token(arg)))
 		{
 		case MK_TOKEN__PHONY:
-			for (src = anjuta_token_list_first (dep); src != NULL; src = anjuta_token_list_next (src))
+			for (src = anjuta_token_group_first (dep); src != NULL; src = anjuta_token_group_next (src))
 			{
-				if (anjuta_token_get_type (src) != MK_TOKEN_ORDER)
+				if (anjuta_token_get_type (anjuta_token_group_get_token(src)) != MK_TOKEN_ORDER)
 				{
 					target = mkp_project_token_evaluate (project, src);
 					
@@ -187,9 +187,9 @@ mkp_project_add_rule (MkpProject *project, AnjutaToken *token)
 			}
 			break;
 		case MK_TOKEN__SUFFIXES:
-			for (src = anjuta_token_list_first (dep); src != NULL; src = anjuta_token_list_next (src))
+			for (src = anjuta_token_group_first (dep); src != NULL; src = anjuta_token_group_next (src))
 			{
-				if (anjuta_token_get_type (src) != MK_TOKEN_ORDER)
+				if (anjuta_token_get_type (anjuta_token_group_get_token(src)) != MK_TOKEN_ORDER)
 				{
 					gchar *suffix;
 
@@ -224,26 +224,26 @@ mkp_project_add_rule (MkpProject *project, AnjutaToken *token)
 			target = g_strstrip (mkp_project_token_evaluate (project, arg));
 			if (*target == '\0') break;	
 			g_message ("add rule =%s=", target);
-
+				
 			rule = g_hash_table_lookup (project->rules, target);
 			if (rule == NULL)
 			{
-				rule = mkp_rule_new (target, token);
+				rule = mkp_rule_new (target, group);
 				g_hash_table_insert (project->rules, rule->name, rule);
 			}
 			else
 			{
-				rule->rule = arg;
+				rule->rule = group;
 			}
 				
-			for (src = anjuta_token_list_first (dep); src != NULL; src = anjuta_token_list_next (src))
+			for (src = anjuta_token_group_first (dep); src != NULL; src = anjuta_token_group_next (src))
 			{
 				gchar *src_name = mkp_project_token_evaluate (project, src);
 
 				if (src_name != NULL)
 				{
 					g_message ("    with source %s", src_name);
-					if (anjuta_token_get_type (src) == MK_TOKEN_ORDER)
+					if (anjuta_token_get_type (anjuta_token_group_get_token(src)) == MK_TOKEN_ORDER)
 					{
 						order = TRUE;
 					}
@@ -322,19 +322,13 @@ mkp_project_enumerate_targets (MkpProject *project, AnjutaProjectGroup *parent)
 		mkp_target_add_token (target, rule->rule);
 		anjuta_project_node_append (parent, target);
 
-		/* Search for prerequisite */
-		prerequisite = NULL;
-		for (arg = anjuta_token_list_first (rule->rule); arg != NULL; arg = anjuta_token_list_next (arg))
-		{
-			if (anjuta_token_get_type (arg) == MK_TOKEN_PREREQUISITE)
-			{
-				prerequisite = arg;
-				break;
-			}
-		}
+		/* Get prerequisite */
+		prerequisite = anjuta_token_group_first (rule->rule);
+		if (prerequisite != NULL) prerequisite = anjuta_token_group_next (prerequisite);
+		if (prerequisite != NULL) prerequisite = anjuta_token_group_next (prerequisite);
 		
 		/* Add prerequisite */
-		for (arg = anjuta_token_list_first (prerequisite); arg != NULL; arg = anjuta_token_list_next (arg))
+		for (arg = anjuta_token_group_first (prerequisite); arg != NULL; arg = anjuta_token_group_next (arg))
 		{
 			MkpSource *source;
 			GFile *src_file;

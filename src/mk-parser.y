@@ -90,7 +90,7 @@
 //mkp_yydebug = 1;
 
 static void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s);
-static gint mkp_special_target (AnjutaToken *list);
+static void mkp_special_target (AnjutaToken *list);
 static gint mkp_special_prerequisite (AnjutaToken *token);
 
 %}
@@ -108,33 +108,32 @@ statement:
     | space end_of_line
     | definition end_of_line
     | rule  command_list {
-        if ($2 != NULL) $$ = anjuta_token_group ($1, $2);
+        anjuta_token_group_append_children ($1, $2);
         mkp_scanner_add_rule (scanner, $$);
     }
 	;
 
 definition:
-    head_list equal_token value_list {
-		$$ = anjuta_token_merge (
-			anjuta_token_insert_before ($1,
-					anjuta_token_new_static (ANJUTA_TOKEN_DEFINITION, NULL)),
-			$3 != NULL ? $3 : $2);
+    head_list equal_token value {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_DEFINITION, NULL);
+        anjuta_token_group_append_children ($$, $1);
+        anjuta_token_group_append ($$, $2);
+        anjuta_token_group_append ($$, $3);
         mkp_scanner_update_variable (scanner, $$);
     }        
     ;    
 
 rule:
-    depend_list  end_of_line {
-        $$ = anjuta_token_group ($1, $2);
-    }
+    depend_list  end_of_line
     | depend_list  SEMI_COLON  command_line  EOL {
-        $$ = anjuta_token_group ($1, $4);
+        anjuta_token_group_append ($1, $3);
     }
     ;
 
 depend_list:
     head_list  rule_token  prerequisite_list {
-        $$ = anjuta_token_group_new (MK_TOKEN_RULE, $1);
+        $$ = anjuta_token_group_new (MK_TOKEN_RULE, NULL);
+        anjuta_token_group_append ($$, $1);
         anjuta_token_set_type ($1, MK_TOKEN_TARGET);
         mkp_special_target ($1);
         switch (anjuta_token_get_type ($2))
@@ -148,7 +147,8 @@ depend_list:
         default:
             break;
         }
-        anjuta_token_group ($$, $3 != NULL ? $3 : $2);
+        anjuta_token_group_append_token ($$, $2);
+        anjuta_token_group_append ($$, $3);
     }
     ;
 
@@ -157,7 +157,8 @@ command_list:
         $$ = NULL;
     }
 	| command_list TAB command_line EOL {
-        $$ = $4;
+        if ($$ == NULL) $$ = anjuta_token_group_new (MK_TOKEN_COMMANDS, NULL);
+        anjuta_token_group_append ($$, $3);
     }
 	;
 
@@ -171,10 +172,7 @@ end_of_line:
     ;
 
 comment:
-    HASH not_eol_list EOL {
-        anjuta_token_set_type ($1, ANJUTA_TOKEN_COMMENT);
-        anjuta_token_group ($1, $3);
-    }
+    HASH not_eol_list EOL
     ;
 
 not_eol_list:
@@ -184,67 +182,68 @@ not_eol_list:
 
 value_list:
     /* empty */ {
-        $$ = NULL;
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, NULL);
     }
-    | space {
-        $$ = $1;
-    }
+    | space
     | optional_space value_list_body optional_space {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1 != NULL ? $1 : $2);
-        if ($1) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
-        if ($3) anjuta_token_set_type ($1, ANJUTA_TOKEN_LAST);
-        anjuta_token_group ($$, $3 != NULL ? $3 : $2);
+        $$ = $2;
     }
     ;
 
 value_list_body:
-    value
+    value {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, NULL);
+        anjuta_token_group_append ($$, $1);
+    }
     | value_list_body  space  value {
-        anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
-        $$ = $3;
+        anjuta_token_group_append ($1, $2);
+        anjuta_token_group_append ($1, $3);
     }
     ;
 
 prerequisite_list:
     /* empty */ {
-        $$ = NULL;
+        $$ = anjuta_token_group_new (MK_TOKEN_PREREQUISITE, NULL);
     }
     | optional_space  prerequisite_list_body  optional_space {
-        $$ = anjuta_token_group_new (MK_TOKEN_PREREQUISITE, $1 != NULL ? $1 : $2);
-        if ($1) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
-        if ($3) anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
-        anjuta_token_group ($$, $3 != NULL ? $3 : $2);
+        $$ = $2;
     }
     ;
 
 prerequisite_list_body:
-	prerequisite
+	prerequisite {
+        $$ = anjuta_token_group_new (MK_TOKEN_PREREQUISITE, NULL);
+        anjuta_token_group_append ($$, $1);
+    }
 	| prerequisite_list_body  space  prerequisite {
-        anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
-        $$ = $3;
+        anjuta_token_group_append ($1, $3);
 	}
 	;
 
 head_list:
     optional_space head_list_body optional_space {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_NAME, $1 != NULL ? $1 : $2);
-        if ($1) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
-        if ($3) anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
-        anjuta_token_group ($$, $3 != NULL ? $3 : $2);
+        $$ = $2;
     }
     ;
 
 head_list_body:
-    head
+    head {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_NAME, NULL);
+        anjuta_token_group_append ($$, $1);
+    }
     | head_list_body  space  head {
-        anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
-        $$ = $3;
+        anjuta_token_group_append ($1, $2);
+        anjuta_token_group_append ($1, $3);
     }
     ;
 
 command_line:
-    /* empty */
-    | command_line command_token
+    /* empty */ {
+        $$ = anjuta_token_group_new (MK_TOKEN_COMMAND, NULL);
+    }
+    | command_line command_token {
+        anjuta_token_group_append_token ($1, $2);
+    }
     ;
 
 /* Items
@@ -258,9 +257,11 @@ optional_space:
 	;
 
 space:
-	space_token
+	space_token {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_SPACE, $1);
+    }
 	| space space_token	{
-		anjuta_token_merge ($1, $2);
+        anjuta_token_group_append_token ($1, $2);
 	}
 	;
 
@@ -269,7 +270,7 @@ head:
         $$ = anjuta_token_group_new (ANJUTA_TOKEN_NAME, $1);    
     }
     | head head_token {
-        anjuta_token_group ($$, $2);
+        anjuta_token_group_append_token ($1, $2);
     }
     ;
 
@@ -277,8 +278,14 @@ value:
     value_token {
         $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1);
     }
+    | space_token {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1);
+    }
     | value value_token {
-        anjuta_token_group ($$, $2);
+        anjuta_token_group_append_token ($$, $2);
+    }
+    | value space_token {
+        anjuta_token_group_append_token ($$, $2);
     }
     ;     
 
@@ -295,18 +302,19 @@ name_prerequisite:
         $$ = anjuta_token_group_new (mkp_special_prerequisite ($1), $1);
     }
     | name_prerequisite prerequisite_token {
-        $$ = anjuta_token_group ($1, $2);
-        anjuta_token_set_type ($$, ANJUTA_TOKEN_VALUE);
+        anjuta_token_group_append_token ($1, $2);
     }
     | name_prerequisite variable_token {
-        anjuta_token_set_type ($$, ANJUTA_TOKEN_VALUE);
+        anjuta_token_group_append_token ($1, $2);
     }
     ;     
 
 var_prerequisite:
-    variable_token
+    variable_token {
+        $$ = anjuta_token_group_new (MK_TOKEN_PREREQUISITE, $1);
+    }
     | var_prerequisite variable_token {
-        $$ = $2;
+        anjuta_token_group_append_token ($1, $2);
     }
     ;
 
@@ -420,16 +428,16 @@ space_token:
 
 equal_token:
 	EQUAL {
-        anjuta_token_set_type ($$, MK_TOKEN_EQUAL);
+        $$ = anjuta_token_group_new (MK_TOKEN_EQUAL, $1);
     }
 	| IMMEDIATE_EQUAL {
-        anjuta_token_set_type ($$, MK_TOKEN_IMMEDIATE_EQUAL);
+        $$ = anjuta_token_group_new (MK_TOKEN_IMMEDIATE_EQUAL, $1);
     }
 	| CONDITIONAL_EQUAL {
-        anjuta_token_set_type ($$, MK_TOKEN_CONDITIONAL_EQUAL);
+        $$ = anjuta_token_group_new (MK_TOKEN_CONDITIONAL_EQUAL, $1);
     }
 	| APPEND {
-        anjuta_token_set_type ($$, MK_TOKEN_APPEND);
+        $$ = anjuta_token_group_new (MK_TOKEN_APPEND, $1);
     }
 	;
 		
@@ -438,7 +446,7 @@ equal_token:
 static void
 mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s)
 {
-    gchar *filename;
+    const gchar *filename;
 
 	g_message ("scanner %p", scanner);
     filename = mkp_scanner_get_filename ((MkpScanner *)scanner);
@@ -458,20 +466,21 @@ mkp_special_prerequisite (AnjutaToken *token)
     }
 }
 
-static gint
+static void
 mkp_special_target (AnjutaToken *list)
 {
     AnjutaToken *arg;
 
-    for (arg = anjuta_token_list_first (list); arg != NULL; arg = anjuta_token_list_next (arg))
+    for (arg = anjuta_token_group_first (list); arg != NULL; arg = anjuta_token_group_next (arg))
     {
-        AnjutaToken *child = anjuta_token_next_child (arg);
+        AnjutaToken *target = anjuta_token_group_first (arg);
 
-        if ((child != NULL) && (anjuta_token_next_sibling (child) == NULL))
+        if ((target != NULL) && (anjuta_token_group_next (target) == NULL))
         {
+            AnjutaToken *token = anjuta_token_group_get_token (target);
             gint mk_token = 0;
 
-            switch (anjuta_token_get_type (child))
+            switch (anjuta_token_get_type (token))
             {
             case _PHONY:
                 mk_token = MK_TOKEN__PHONY;
@@ -521,7 +530,7 @@ mkp_special_target (AnjutaToken *list)
         
             if (mk_token)
             {
-                anjuta_token_set_type (arg, mk_token);
+                anjuta_token_set_type (anjuta_token_group_get_token (arg), mk_token);
             }
         }
     }

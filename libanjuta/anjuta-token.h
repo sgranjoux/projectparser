@@ -85,6 +85,7 @@ typedef enum
 
 //typedef GNode AnjutaToken;
 typedef struct _AnjutaToken AnjutaToken;
+typedef struct _AnjutaTokenGroup AnjutaTokenGroup;
 
 typedef struct _AnjutaTokenRange
 {
@@ -110,11 +111,10 @@ void anjuta_token_free (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end);
-AnjutaToken *anjuta_token_copy (const AnjutaToken *token);
+AnjutaToken *anjuta_token_copy (AnjutaToken *token);
 AnjutaToken *anjuta_token_clear (AnjutaToken *token);
 AnjutaToken *anjuta_token_delete (AnjutaToken *token);
 
-AnjutaToken *anjuta_token_group_new (AnjutaTokenType type, AnjutaToken *first);
 AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *last);
 AnjutaToken *anjuta_token_ungroup (AnjutaToken *parent);
 
@@ -163,6 +163,16 @@ gchar *anjuta_token_get_value (AnjutaToken *token);
 gchar *anjuta_token_get_value_range (AnjutaToken *token, AnjutaToken *end);
 const gchar *anjuta_token_get_string (AnjutaToken *token);
 guint anjuta_token_get_length (AnjutaToken *token);
+
+AnjutaToken *anjuta_token_group_get_token (AnjutaToken *group);
+AnjutaToken *anjuta_token_group_first (AnjutaToken *list);
+AnjutaToken *anjuta_token_group_next (AnjutaToken *item);
+AnjutaToken *anjuta_token_group_append (AnjutaToken *parent, AnjutaToken *group);
+AnjutaToken *anjuta_token_group_append_token (AnjutaToken *parent, AnjutaToken *token);
+AnjutaToken *anjuta_token_group_append_children (AnjutaToken *parent, AnjutaToken *children);
+AnjutaToken *anjuta_token_group_new (AnjutaTokenType type, AnjutaToken* first);
+void anjuta_token_group_free (AnjutaToken *group);
+
 
 G_END_DECLS
 
