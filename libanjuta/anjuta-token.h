@@ -122,6 +122,8 @@ AnjutaToken *anjuta_token_new_group (AnjutaTokenType type, AnjutaToken* first);
 
 AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size);
 
+AnjutaToken *anjuta_token_cut (AnjutaToken *token, guint pos, guint size);
+
 AnjutaToken * anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *child);
 AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
 AnjutaToken *anjuta_token_insert_before (AnjutaToken *token, AnjutaToken *sibling);
@@ -145,6 +147,10 @@ void anjuta_token_clear_flags (AnjutaToken *token, gint flags);
 gchar *anjuta_token_evaluate_range (AnjutaToken *start, AnjutaToken *end);
 gchar *anjuta_token_evaluate (AnjutaToken *token);
 gchar *anjuta_token_value (AnjutaToken *token);
+
+AnjutaToken *anjuta_token_lex (AnjutaToken *token);
+
+void anjuta_token_dump (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_next (AnjutaToken *token);
 AnjutaToken *anjuta_token_next_after_children (AnjutaToken *token);

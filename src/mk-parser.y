@@ -58,7 +58,8 @@
 %token  _SILENT
 %token  _EXPORT_ALL_VARIABLES
 %token  _NOTPARALLEL
-
+%token FIRST_PASS
+%token SECOND_PASS
 
 %defines
 
@@ -73,6 +74,7 @@
 /*%glr-parser*/
 
 %parse-param {void* scanner}
+%parse-param {AnjutaToken** last}
 %lex-param   {void* scanner}
 
 %name-prefix="mkp_yy"
@@ -89,7 +91,7 @@
 
 //mkp_yydebug = 1;
 
-static void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s);
+static void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, AnjutaToken **last, char const *s);
 static void mkp_special_target (AnjutaToken *list);
 static gint mkp_special_prerequisite (AnjutaToken *token);
 
@@ -99,8 +101,23 @@ static gint mkp_special_prerequisite (AnjutaToken *token);
 %%
 
 file:
+    FIRST_PASS first_pass
+    | SECOND_PASS second_pass
+    ;
+
+first_pass:
+    not_eol_token
+    | EOL
+    | first_pass not_eol_token
+    | first_pass EOL {
+        g_message ("EOL %p", $2);
+        *last = $2;
+    }
+    ;    
+
+second_pass:
     statement
-    | file statement
+    | second_pass statement
     ;
 
 statement:
@@ -178,27 +195,6 @@ comment:
 not_eol_list:
     /* empty */
     | not_eol_list not_eol_token
-    ;
-
-value_list:
-    /* empty */ {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, NULL);
-    }
-    | space
-    | optional_space value_list_body optional_space {
-        $$ = $2;
-    }
-    ;
-
-value_list_body:
-    value {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, NULL);
-        anjuta_token_group_append ($$, $1);
-    }
-    | value_list_body  space  value {
-        anjuta_token_group_append ($1, $2);
-        anjuta_token_group_append ($1, $3);
-    }
     ;
 
 prerequisite_list:
@@ -444,7 +440,7 @@ equal_token:
 %%
 
 static void
-mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s)
+mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, AnjutaToken **last, char const *s)
 {
     const gchar *filename;
 
