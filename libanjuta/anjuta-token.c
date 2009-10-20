@@ -251,16 +251,20 @@ anjuta_token_lex (AnjutaToken *token)
 		
 		switch (type)
 		{
+		case ANJUTA_TOKEN_VARIABLE:
 		case ANJUTA_TOKEN_COMMENT:
 			token = anjuta_token_next_sibling (token);
 			break;
-		default:
-			if (type < ANJUTA_TOKEN_FIRST)
-			{
-				return token;
-			}
+		case ANJUTA_TOKEN_FILE:
 			token = anjuta_token_next (token);
 			break;
+		default:
+			/*if (type < ANJUTA_TOKEN_FIRST)
+			{*/
+				return token;
+			/*}
+			token = anjuta_token_next (token);
+			break;*/
 		}
 	}
 

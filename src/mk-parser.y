@@ -106,11 +106,10 @@ file:
     ;
 
 first_pass:
-    not_eol_token
+    all_token
     | EOL
-    | first_pass not_eol_token
+    | first_pass all_token
     | first_pass EOL {
-        g_message ("EOL %p", $2);
         *last = $2;
     }
     ;    
@@ -322,6 +321,16 @@ not_eol_token:
     | space_token
     ;
 
+all_token:
+    name_token
+    | space_token
+    | variable_token
+    | equal_token
+    | rule_token
+    | depend_token
+    | HASH
+    ;    
+
 prerequisite_token:
     name_token
     | equal_token
@@ -354,8 +363,7 @@ head_token:
 variable_token:
 	VARIABLE {
         anjuta_token_set_type ($$, MK_TOKEN_VARIABLE);
-        /*g_message ("variable is %s", anjuta_token_evaluate ($$));
-        mkp_scanner_parse_variable (scanner, $$);*/
+        //mkp_scanner_parse_variable (scanner, $$);
     }
     ;
 
