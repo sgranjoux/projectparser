@@ -170,9 +170,11 @@ depend_list:
 
 command_list:
     /* empty */ {
+        g_message ("NULL command list");
         $$ = NULL;
     }
 	| command_list TAB command_line EOL {
+        g_message ("add command list");
         if ($$ == NULL) $$ = anjuta_token_group_new (MK_TOKEN_COMMANDS, NULL);
         anjuta_token_group_append ($$, $3);
     }
@@ -198,6 +200,9 @@ not_eol_list:
 
 prerequisite_list:
     /* empty */ {
+        $$ = anjuta_token_group_new (MK_TOKEN_PREREQUISITE, NULL);
+    }
+    | space {
         $$ = anjuta_token_group_new (MK_TOKEN_PREREQUISITE, NULL);
     }
     | optional_space  prerequisite_list_body  optional_space {
@@ -324,7 +329,7 @@ not_eol_token:
 all_token:
     name_token
     | space_token
-    | variable_token
+    | VARIABLE
     | equal_token
     | rule_token
     | depend_token

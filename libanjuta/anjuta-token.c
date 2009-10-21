@@ -243,28 +243,30 @@ anjuta_token_parent (AnjutaToken *token)
 }
 
 AnjutaToken*
-anjuta_token_lex (AnjutaToken *token)
+anjuta_token_next_lex (AnjutaToken *token)
 {
-	for (; token != NULL;)
+	AnjutaToken* next = token;
+	
+	for (; next != NULL;)
 	{
-		AnjutaTokenType type = anjuta_token_get_type (token);
+		AnjutaTokenType type = anjuta_token_get_type (next);
 		
 		switch (type)
 		{
 		case ANJUTA_TOKEN_VARIABLE:
 		case ANJUTA_TOKEN_COMMENT:
-			token = anjuta_token_next_sibling (token);
+			next = anjuta_token_next_sibling (next);
 			break;
 		case ANJUTA_TOKEN_FILE:
-			token = anjuta_token_next (token);
+			next = anjuta_token_next (next);
 			break;
 		default:
-			/*if (type < ANJUTA_TOKEN_FIRST)
-			{*/
-				return token;
-			/*}
-			token = anjuta_token_next (token);
-			break;*/
+			if ((type < ANJUTA_TOKEN_FIRST) && (next != token))
+			{
+				return next;
+			}
+			next = anjuta_token_next (next);
+			break;
 		}
 	}
 

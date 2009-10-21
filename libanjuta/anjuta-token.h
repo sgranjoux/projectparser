@@ -149,7 +149,7 @@ gchar *anjuta_token_evaluate_range (AnjutaToken *start, AnjutaToken *end);
 gchar *anjuta_token_evaluate (AnjutaToken *token);
 gchar *anjuta_token_value (AnjutaToken *token);
 
-AnjutaToken *anjuta_token_lex (AnjutaToken *token);
+AnjutaToken *anjuta_token_next_lex (AnjutaToken *token);
 
 void anjuta_token_dump (AnjutaToken *token);
 

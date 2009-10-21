@@ -552,26 +552,44 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
             gint yychar = mkp_mk_yylex (&yylval_param, &yylloc_param, scanner->scanner);
             AnjutaToken *last = NULL;
 
+            printf ("parse1\n");
             status = mkp_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner, &last);
+            printf ("end parse1\n");
  
             if ((status != YYPUSH_MORE) || (last != NULL))
             {
-                while (yytok != last)
+                printf ("\n: ");
+                for (;;)
                 {
                     gint status;
                     YYSTYPE yylval_param;
                     YYLTYPE yylloc_param;
                     gint yychar;
+                    AnjutaToken *next;
 
-                    yytok = anjuta_token_lex (yytok);
-                    yychar = anjuta_token_get_type (yytok);
+                    yytok = anjuta_token_next_lex (yytok);
+                    if (yytok != NULL)
+                    {
+                        yychar = anjuta_token_get_type (yytok);
+                    }
+                    else
+                    {
+                        yychar = 0;
+                    }
 
                     yylval_param = yytok;
+                    printf ("%d (%.*s)", yychar, yytok == NULL ? 0 : anjuta_token_get_length (yytok), yytok == NULL ? "" : anjuta_token_get_string (yytok));
+                    printf ("parse2\n");
                     status = mkp_yypush_parse (ps2, yychar, &yylval_param, &yylloc_param, scanner, NULL);
-                    if (status != YYPUSH_MORE) break;
-                    yytok = anjuta_token_next (yytok);
+                    printf ("end parse2\n");
+                    if (status != YYPUSH_MORE)
+                    {
+                        g_message ("error %d yychar %d", status, yychar);
+                        break;
+                    }
+                    if (yytok == last) break;
                 }
-                if (last == NULL) mkp_yypush_parse (ps2, 0, &yylval_param, &yylloc_param, scanner, NULL);
+                printf ("\n");
         
                 last = NULL;
             }
