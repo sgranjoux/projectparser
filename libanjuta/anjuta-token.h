@@ -112,6 +112,7 @@ void anjuta_token_free (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end);
+AnjutaToken *anjuta_token_copy_token (AnjutaToken *token);
 AnjutaToken *anjuta_token_copy (AnjutaToken *token);
 AnjutaToken *anjuta_token_clear (AnjutaToken *token);
 AnjutaToken *anjuta_token_delete (AnjutaToken *token);
@@ -173,6 +174,8 @@ gchar *anjuta_token_get_value_range (AnjutaToken *token, AnjutaToken *end);
 const gchar *anjuta_token_get_string (AnjutaToken *token);
 guint anjuta_token_get_length (AnjutaToken *token);
 
+void anjuta_token_group_dump (AnjutaToken *token);
+AnjutaToken *anjuta_token_group_into_token (AnjutaToken *group);
 AnjutaToken *anjuta_token_group_get_token (AnjutaToken *group);
 AnjutaToken *anjuta_token_group_first (AnjutaToken *list);
 AnjutaToken *anjuta_token_group_next (AnjutaToken *item);

@@ -170,11 +170,9 @@ depend_list:
 
 command_list:
     /* empty */ {
-        g_message ("NULL command list");
         $$ = NULL;
     }
 	| command_list TAB command_line EOL {
-        g_message ("add command list");
         if ($$ == NULL) $$ = anjuta_token_group_new (MK_TOKEN_COMMANDS, NULL);
         anjuta_token_group_append ($$, $3);
     }
@@ -282,10 +280,10 @@ value:
         $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1);
     }
     | value value_token {
-        anjuta_token_group_append_token ($$, $2);
+        anjuta_token_group_append_token ($1, $2);
     }
     | value space_token {
-        anjuta_token_group_append_token ($$, $2);
+        anjuta_token_group_append_token ($1, $2);
     }
     ;     
 
@@ -329,7 +327,7 @@ not_eol_token:
 all_token:
     name_token
     | space_token
-    | VARIABLE
+    | variable_token
     | equal_token
     | rule_token
     | depend_token
@@ -367,8 +365,7 @@ head_token:
 
 variable_token:
 	VARIABLE {
-        anjuta_token_set_type ($$, MK_TOKEN_VARIABLE);
-        //mkp_scanner_parse_variable (scanner, $$);
+        mkp_scanner_parse_variable (scanner, $$);
     }
     ;
 

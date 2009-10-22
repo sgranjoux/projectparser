@@ -294,17 +294,26 @@ mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable)
 void
 mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable)
 {
-    AnjutaToken *token;
+    AnjutaToken *group;
     AnjutaToken *content;
 
     anjuta_token_set_type (variable, ANJUTA_TOKEN_VARIABLE);
     content = anjuta_token_new_static (ANJUTA_TOKEN_CONTENT, NULL);
     mkp_scanner_append_token (scanner, content);
 
-    token = mkp_project_get_variable_token (scanner->project, variable);
-    if (token != NULL)
+    group = mkp_project_get_variable_token (scanner->project, variable);
+    if (group != NULL)
     {
+        AnjutaToken *token;
+
+        anjuta_token_group_dump (group);
+        token = anjuta_token_group_into_token (group);
+        anjuta_token_set_type (token, ANJUTA_TOKEN_CONTENT);
+        anjuta_token_dump (token);
+        fprintf (stdout,"variable %s\n", anjuta_token_get_string (variable));
+        anjuta_token_dump (token);
         mkp_scanner_parse_token (scanner, token, NULL);
+        //anjuta_token_free (token);
     }
 }
 
@@ -520,6 +529,8 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
         buffer->parent = scanner->buffer;
         scanner->buffer = buffer;
 
+        anjuta_token_dump (token);
+
         buffer->first = buffer->parent->last;
         buffer->last = NULL;
 
@@ -552,9 +563,7 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
             gint yychar = mkp_mk_yylex (&yylval_param, &yylloc_param, scanner->scanner);
             AnjutaToken *last = NULL;
 
-            printf ("parse1\n");
             status = mkp_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner, &last);
-            printf ("end parse1\n");
  
             if ((status != YYPUSH_MORE) || (last != NULL))
             {
@@ -578,10 +587,8 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
                     }
 
                     yylval_param = yytok;
-                    printf ("%d (%.*s)", yychar, yytok == NULL ? 0 : anjuta_token_get_length (yytok), yytok == NULL ? "" : anjuta_token_get_string (yytok));
-                    printf ("parse2\n");
+                    printf ("%d (%.*s)  ", yychar, yytok == NULL ? 0 : anjuta_token_get_length (yytok), yytok == NULL ? "" : anjuta_token_get_string (yytok));
                     status = mkp_yypush_parse (ps2, yychar, &yylval_param, &yylloc_param, scanner, NULL);
-                    printf ("end parse2\n");
                     if (status != YYPUSH_MORE)
                     {
                         g_message ("error %d yychar %d", status, yychar);
