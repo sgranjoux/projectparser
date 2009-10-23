@@ -455,8 +455,7 @@ mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, AnjutaToken **last, char const *
     const gchar *filename;
 
 	g_message ("scanner %p", scanner);
-    filename = mkp_scanner_get_filename ((MkpScanner *)scanner);
-    if (filename == NULL) filename = "?";
+    filename = "?";
     g_message ("%s (%d:%d-%d:%d) %s\n", filename, loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
 }
 

@@ -179,9 +179,6 @@ struct _MkpScanner
 {
     yyscan_t scanner;
 
-    AnjutaTokenFile *file;
-    gchar *filename;
-
     MkpBuffer *buffer;
 
     MkpProject *project;
@@ -208,81 +205,63 @@ static AnjutaToken*
 mkp_scanner_append_lex_token (MkpScanner *scanner, gint token)
 {
     AnjutaToken *frag;
+    gsize length = yyget_leng (scanner->scanner);
+    AnjutaToken *end;
 
-    if (scanner->file != NULL)
+    frag = anjuta_token_new_fragment (token, NULL, 0);
+
+    for (end = scanner->buffer->start; end != NULL;)
     {
-        const gchar *start = anjuta_token_file_get_content (scanner->file, NULL);
-            
-        frag = anjuta_token_new_fragment (token, start + scanner->buffer->begin, yyget_leng (scanner->scanner));
-        anjuta_token_file_append (scanner->file, frag);
-        scanner->buffer->begin += yyget_leng (scanner->scanner);
-    }
-    else if (scanner->buffer->token != NULL)
-    {
-        gsize length = yyget_leng (scanner->scanner);
-        AnjutaToken *end;
-
-        frag = anjuta_token_new_fragment (token, NULL, 0);
-
-        for (end = scanner->buffer->start; end != NULL;)
+        if (anjuta_token_get_type (end) < ANJUTA_TOKEN_PARSED)
         {
-            if (anjuta_token_get_type (end) < ANJUTA_TOKEN_PARSED)
-            {
-                gint toklen = anjuta_token_get_length (end);
-                AnjutaToken *copy = anjuta_token_cut (end, scanner->buffer->begin, length);
+            gint toklen = anjuta_token_get_length (end);
+            AnjutaToken *copy = anjuta_token_cut (end, scanner->buffer->begin, length);
     
-                if (toklen >= (length + scanner->buffer->begin))
+            if (toklen >= (length + scanner->buffer->begin))
+            {
+
+                if (end == scanner->buffer->start)
                 {
-
-                    if (end == scanner->buffer->start)
-                    {
-                        /* Get whole token */
-                        anjuta_token_free (frag);
-                        anjuta_token_set_type (copy, token);
-                        frag = copy;
-                    }
-                    else
-                    {
-                        /* Get several token */
-                        anjuta_token_insert_child (frag, copy);
-                    }
-
-                    if (toklen == length)
-                    {
-                        scanner->buffer->start = anjuta_token_next (end);
-                        scanner->buffer->begin = 0;
-                    }
-                    else
-                    {
-                        scanner->buffer->begin += length;
-                    }
-                    break;
+                    /* Get whole token */
+                    anjuta_token_free (frag);
+                    anjuta_token_set_type (copy, token);
+                    frag = copy;
                 }
                 else
                 {
+                    /* Get several token */
                     anjuta_token_insert_child (frag, copy);
-                    length -= toklen;
-                    end = anjuta_token_next (end);
+                }
+
+                if (toklen == length)
+                {
+                    scanner->buffer->start = anjuta_token_next (end);
                     scanner->buffer->begin = 0;
                 }
+                else
+                {
+                    scanner->buffer->begin += length;
+                }
+                break;
             }
             else
             {
-                end = anjuta_token_next_sibling (end);
+                anjuta_token_insert_child (frag, copy);
+                length -= toklen;
+                end = anjuta_token_next (end);
                 scanner->buffer->begin = 0;
             }
+        }
+        else
+        {
+            end = anjuta_token_next_sibling (end);
+            scanner->buffer->begin = 0;
         }
     }
     
     mkp_scanner_append_token (scanner, frag);
 
     return frag;
-}
-
-static void
-mkp_scanner_update_line_width (MkpScanner *scanner, YYLTYPE *loc)
-{
-	anjuta_token_file_update_line_width (scanner->file, loc->last_column);
 }
 
 void
@@ -350,66 +329,48 @@ mkp_scanner_input (MkpScanner *scanner, gchar *buffer, gsize max_size)
 {
     gint result = YY_NULL;
 
-    if (scanner->file != NULL)
+    if (scanner->buffer->next)
     {
-        gsize length = anjuta_token_file_get_length (scanner->file, NULL);
+        gsize length = anjuta_token_get_length (scanner->buffer->next);
+
+        if ((anjuta_token_get_type (scanner->buffer->next) >= ANJUTA_TOKEN_PARSED) || (scanner->buffer->pos >= length))
+        {
+            for (;;)
+            {
+                if (anjuta_token_get_type (scanner->buffer->next) >= ANJUTA_TOKEN_PARSED)
+                {
+                    scanner->buffer->next = anjuta_token_next_sibling (scanner->buffer->next);
+                }
+                else
+                {
+                    scanner->buffer->next = anjuta_token_next (scanner->buffer->next);
+                }
+
+                if ((scanner->buffer->next == NULL) || (anjuta_token_get_type (scanner->buffer->next) == ANJUTA_TOKEN_EOV))
+                {
+                    /* Last token */
+                    return 0;
+                }
+                else if ((anjuta_token_get_length (scanner->buffer->next) != 0) && (anjuta_token_get_type (scanner->buffer->next) < ANJUTA_TOKEN_PARSED))
+                {
+                    /* Find some data */
+                    scanner->buffer->pos = 0;
+                    length = anjuta_token_get_length (scanner->buffer->next);
+                    break;  
+                }
+            }
+        }
+
         if (scanner->buffer->pos < length)
         {
-            const gchar *start = anjuta_token_file_get_content (scanner->file, NULL);
+            const gchar *start = anjuta_token_get_string (scanner->buffer->next);
 
             length -= scanner->buffer->pos;
-
+            
             if (length > max_size) length = max_size;
             memcpy (buffer, start + scanner->buffer->pos, length);
             scanner->buffer->pos += length;
             result = length;
-        }
-    }
-    else if (scanner->buffer->token != NULL)
-    {
-        if (scanner->buffer->next)
-        {
-            gsize length = anjuta_token_get_length (scanner->buffer->next);
-
-            if ((anjuta_token_get_type (scanner->buffer->next) >= ANJUTA_TOKEN_PARSED) || (scanner->buffer->pos >= length))
-            {
-                for (;;)
-                {
-                    if (anjuta_token_get_type (scanner->buffer->next) >= ANJUTA_TOKEN_PARSED)
-                    {
-                        scanner->buffer->next = anjuta_token_next_sibling (scanner->buffer->next);
-                    }
-                    else
-                    {
-                        scanner->buffer->next = anjuta_token_next (scanner->buffer->next);
-                    }
-
-                    if ((scanner->buffer->next == NULL) || (anjuta_token_get_type (scanner->buffer->next) == ANJUTA_TOKEN_EOV))
-                    {
-                        /* Last token */
-                        return 0;
-                     }
-                    else if ((anjuta_token_get_length (scanner->buffer->next) != 0) && (anjuta_token_get_type (scanner->buffer->next) < ANJUTA_TOKEN_PARSED))
-                    {
-                        /* Find some data */
-                        scanner->buffer->pos = 0;
-                        length = anjuta_token_get_length (scanner->buffer->next);
-                        break;  
-                    }
-                }
-            }
-
-            if (scanner->buffer->pos < length)
-            {
-                const gchar *start = anjuta_token_get_string (scanner->buffer->next);
-
-                length -= scanner->buffer->pos;
-            
-                if (length > max_size) length = max_size;
-                memcpy (buffer, start + scanner->buffer->pos, length);
-                scanner->buffer->pos += length;
-                result = length;
-            }
         }
     }
 
@@ -447,38 +408,6 @@ mkp_yylex (YYSTYPE * yylval_param,YYLTYPE * yylloc_param ,MkpScanner *scanner)
 
 
 gboolean
-mkp_scanner_parse (MkpScanner *scanner, AnjutaTokenFile *file, GError **error)
-{
-    gboolean ok;
-    gint status;
-    mkp_yypstate *ps;
-    YYSTYPE yylval_param;
-    YYLTYPE yylloc_param;
-
-    g_return_val_if_fail (file != NULL, FALSE);
-
-    scanner->buffer = g_new (MkpBuffer, 1);
-
-	scanner->file = file;
-    scanner->buffer->pos = 0;
-    scanner->buffer->begin = 0;
-    scanner->buffer->token = NULL;
-	
-    ps = mkp_yypstate_new ();
-    do
-    {
-        status = mkp_yypush_parse (ps, mkp_yylex (&yylval_param, &yylloc_param, scanner), &yylval_param, &yylloc_param, scanner, NULL);
-    } while (status == YYPUSH_MORE);
-    mkp_yypstate_delete (ps);
-	//ok = mkp_yyparse (scanner) == 0;
-
-    g_free (scanner->buffer);
-    scanner->buffer = NULL;
-
-    return ok;
-}
-
-gboolean
 mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error)
 {
     AnjutaToken *child;
@@ -491,7 +420,6 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
     buffer->pos = 0;
     buffer->begin = 0;
     buffer->parent = NULL;
-    scanner->file = NULL;
 
 #if 0
     /* Add a level for this operation if it is not already done */
@@ -609,23 +537,6 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
     }
 }
 
-guint
-mkp_scanner_get_line_width (MkpScanner *scanner)
-{
-	return scanner->line_width;
-}
-
-const gchar*
-mkp_scanner_get_filename (MkpScanner *scanner)
-{
-	g_free (scanner->filename);
-    scanner->filename = NULL;
-    if (scanner->file) scanner->filename = g_file_get_path (anjuta_token_file_get_file (scanner->file));
-	
-	return scanner->filename;
-}
-
-
 /* Constructor & Destructor
  *---------------------------------------------------------------------------*/
 
@@ -651,9 +562,6 @@ mkp_scanner_free (MkpScanner *scanner)
 
     //if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
     yylex_destroy(scanner->scanner);
-
-	g_free (scanner->filename);
-	scanner->filename = NULL;
 
 	g_free (scanner);
 }

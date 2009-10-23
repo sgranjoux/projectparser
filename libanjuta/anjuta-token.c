@@ -743,6 +743,32 @@ AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const gchar *value)
 	return token;
 }
 
+AnjutaToken*
+anjuta_token_new_with_string (AnjutaTokenType type, gchar *value, gsize length)
+{
+	AnjutaToken *token;
+	
+	if (value == NULL)
+	{
+		token = anjuta_token_new_static (type, NULL);
+	}
+	else
+	{
+		AnjutaTokenData *data;
+
+		data = g_slice_new0 (AnjutaTokenData);
+		data->data = data;
+		data->type = type  & ANJUTA_TOKEN_TYPE;
+		data->flags = type & ANJUTA_TOKEN_FLAGS;
+		data->pos = value;
+		data->length = length;
+
+		token = (AnjutaToken *)g_node_new (data);
+	}
+
+	return token;
+}
+
 AnjutaToken *
 anjuta_token_new_fragment (gint type, const gchar *pos, gsize length)
 {
@@ -779,6 +805,7 @@ anjuta_token_free (AnjutaToken *token)
 	if (token == NULL) return;
 
 	g_node_children_foreach ((GNode *)token, G_TRAVERSE_ALL, free_token_data, NULL);
+	free_token_data ((GNode *)token, (GNode *)token->data);
 	g_node_destroy ((GNode *)token);
 }
 

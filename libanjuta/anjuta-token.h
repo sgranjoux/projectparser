@@ -105,6 +105,7 @@ enum AnjutaTokenSearchFlag
 typedef gboolean (*AnjutaTokenFunc) (AnjutaToken* token, gpointer data);
 
 AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const gchar *value);
+AnjutaToken *anjuta_token_new_with_string (AnjutaTokenType type, gchar *value, gsize length);
 AnjutaToken *anjuta_token_new_static (AnjutaTokenType type, const gchar *value);
 AnjutaToken *anjuta_token_new_fragment (gint type, const gchar *pos, gsize length);
 
