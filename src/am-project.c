@@ -1853,7 +1853,7 @@ amp_project_add_group (AmpProject  *project,
 		AnjutaToken *list;
 
 		/* Skip comment and one space at the beginning */
-		for (prev_token = anjuta_token_next_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile)); prev_token != NULL; prev_token = anjuta_token_next_sibling (prev_token))
+		for (prev_token = anjuta_token_next_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile)); prev_token != NULL; prev_token = anjuta_token_next_sibling (prev_token))
 		{
 			switch (anjuta_token_get_type (prev_token))
 			{
@@ -1875,17 +1875,17 @@ amp_project_add_group (AmpProject  *project,
 
 		if (prev_token == NULL)
 		{
-			prev_token = anjuta_token_next_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile));
-			if (prev_token)
+			prev_token = anjuta_token_next_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile));
+			/*if (prev_token)
 			{
 				prev_token = anjuta_token_file_last (AMP_GROUP_DATA (parent)->tfile);
-			}
+			}*/
 		}
 
 		token = anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT | ANJUTA_TOKEN_ADDED, NULL);
 		if (prev_token == NULL)
 		{
-			prev_token = anjuta_token_insert_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile), token);
+			prev_token = anjuta_token_insert_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile), token);
 		}
 		else
 		{
@@ -2038,7 +2038,7 @@ amp_project_add_target (AmpProject  *project,
 
 	if (last == NULL)
 	{
-		prev_token = anjuta_token_next_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile));
+		prev_token = anjuta_token_next_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile));
 		if (prev_token != NULL)
 		{
 			/* Add at the end of the file */
@@ -2051,7 +2051,7 @@ amp_project_add_target (AmpProject  *project,
 		list = anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, "\n");
 		if (prev_token == NULL)
 		{
-			prev_token = anjuta_token_insert_child (anjuta_token_file_first (AMP_GROUP_DATA (parent)->tfile), list);
+			prev_token = anjuta_token_insert_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile), list);
 		}
 		else
 		{
