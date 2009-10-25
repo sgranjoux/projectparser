@@ -1514,13 +1514,14 @@ project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *par
 	g_hash_table_insert (project->files, makefile, tfile);
 	g_object_add_toggle_ref (G_OBJECT (tfile), remove_config_file, project);
 	scanner = amp_am_scanner_new ();
-	amp_am_scanner_parse (scanner, tfile, NULL);
+	arg = anjuta_token_file_load (tfile, NULL);
+	arg = amp_am_scanner_parse_token (scanner, anjuta_token_next_child (arg), NULL);
 	amp_am_scanner_free (scanner);
 
 	/* Find significant token */
 	significant_tok = anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT, NULL);
 	
-	arg = anjuta_token_file_first (AMP_GROUP_DATA (group)->tfile);
+	//arg = anjuta_token_file_first (AMP_GROUP_DATA (group)->tfile);
 	//anjuta_token_old_dump_range (arg, NULL);
 
 	/* Create hash table for sources list */

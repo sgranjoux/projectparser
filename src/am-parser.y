@@ -19,6 +19,7 @@
 %{
 
 #include <am-scanner.h>
+#include "am-parser.h"
 
 #include <stdlib.h>
 
@@ -28,43 +29,53 @@
 
 /* Defining an union allow to use 2 protocol blocks (enclosed by %{ %}) which
  * is useful when redefining YYSTYPE. */
-%union {
+/*%union {
 	AnjutaToken *token;
 	AnjutaTokenRange range;
-}
+}*/
 
-%token	<token> EOL	'\n'
-%token	<token> SPACE
-%token	<token> TAB '\t'
-%token	<token> MACRO
-%token	<token> VARIABLE
-%token	<token> COLON ':'
-%token	<token> DOUBLE_COLON "::"
-%token	<token> ORDER '|'
-%token	<token> SEMI_COLON ';'
-%token	<token> EQUAL '='
-%token	<token> IMMEDIATE_EQUAL ":="
-%token	<token> CONDITIONAL_EQUAL "?="
-%token	<token> APPEND "+="
-%token	<token> CHARACTER
-%token	<token> NAME
-%token	<token> AM_VARIABLE
+%token	EOL	'\n'
+%token	SPACE
+%token	TAB '\t'
+%token	MACRO
+%token	VARIABLE
+%token	COLON ':'
+%token	DOUBLE_COLON "::"
+%token	ORDER '|'
+%token	SEMI_COLON ';'
+%token	EQUAL '='
+%token	IMMEDIATE_EQUAL ":="
+%token	CONDITIONAL_EQUAL "?="
+%token	APPEND "+="
+%token	CHARACTER
+%token	NAME
+%token	AM_VARIABLE
 
-%type <token> head_token target_token value_token name_token space_token rule_token equal_token token automake_token prerequisite_token
-%type <token> am_variable
-%type <token> value head space prerequisite target depend rule variable commands head_with_space
-%type <token> value_list strip_value_list prerequisite_list target_list token_list target_list2
-%type <token> optional_space space_list_value
+%token  SUBDIRS
+%token  DIST_SUBDIRS
+%token  _DATA
+%token  _HEADERS
+%token  _LIBRARIES
+%token  _LISP
+%token  _LTLIBRARIES
+%token  _MANS
+%token  _PROGRAMS
+%token  _PYTHON
+%token  _JAVA
+%token  _SCRIPTS
+%token  _SOURCES
+%token  _TEXINFOS
 
 %defines
 
-%pure_parser
+%define api.pure
+%define api.push_pull "push"
 
 /* Necessary because autotools wrapper always looks for a file named "y.tab.c",
  * not "amp-scanner.c"
 %output="y.tab.c"*/
 
-%glr-parser
+/*%glr-parser*/
 
 %parse-param {void* scanner}
 %lex-param   {void* scanner}
@@ -125,13 +136,13 @@ commands:
 	;
 		
 am_variable:
-	AM_VARIABLE space_list_value {
+	automake_token space_list_value {
 		$$ = anjuta_token_merge (
 			anjuta_token_insert_before ($1,
 					anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT, NULL)),
 			$2);
 	}
-	| AM_VARIABLE optional_space equal_token optional_space
+	| automake_token optional_space equal_token optional_space
 	;
 				
 space_list_value: optional_space  equal_token   value_list  {
@@ -226,7 +237,7 @@ prerequisite:
 	;
 		
 space:
-	space_token
+	space_token {anjuta_token_set_type ($1, ANJUTA_TOKEN_SPACE);}
 	| space space_token	{
 		anjuta_token_merge ($1, $2);
 	}
@@ -293,8 +304,22 @@ name_token:
 	;
 		
 automake_token:
-	AM_VARIABLE
-	;
+    SUBDIRS {anjuta_token_set_type ($1, AM_TOKEN_SUBDIRS);}
+    | DIST_SUBDIRS {anjuta_token_set_type ($1, AM_TOKEN_DIST_SUBDIRS);}
+    | _DATA {anjuta_token_set_type ($1, AM_TOKEN__DATA);}
+    | _HEADERS {anjuta_token_set_type ($1, AM_TOKEN__HEADERS);}
+    | _LIBRARIES {anjuta_token_set_type ($1, AM_TOKEN__LIBRARIES);}
+    | _LISP {anjuta_token_set_type ($1, AM_TOKEN__LISP);}
+    | _LTLIBRARIES {anjuta_token_set_type ($1, AM_TOKEN__LTLIBRARIES);}
+    | _MANS {anjuta_token_set_type ($1, AM_TOKEN__MANS);}
+    | _PROGRAMS {anjuta_token_set_type ($1, AM_TOKEN__PROGRAMS);}
+    | _PYTHON {anjuta_token_set_type ($1, AM_TOKEN__PYTHON);}
+    | _JAVA {anjuta_token_set_type ($1, AM_TOKEN__JAVA);}
+    | _SCRIPTS {anjuta_token_set_type ($1, AM_TOKEN__SCRIPTS);}
+    | _SOURCES {anjuta_token_set_type ($1, AM_TOKEN__SOURCES);}
+    | _TEXINFOS {anjuta_token_set_type ($1, AM_TOKEN__TEXINFOS);}
+    ;
+    
 		
 %%
 
@@ -304,8 +329,8 @@ amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s)
     gchar *filename;
 
 	g_message ("scanner %p", scanner);
-    filename = amp_am_scanner_get_filename ((AmpAmScanner *)scanner);
-    if (filename == NULL) filename = "?";
+    //filename = amp_am_scanner_get_filename ((AmpAmScanner *)scanner);
+    filename = "?";
     g_message ("%s (%d:%d-%d:%d) %s\n", filename, loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
 }
      

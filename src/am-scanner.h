@@ -28,6 +28,8 @@
 
 G_BEGIN_DECLS
 
+#define YYSTYPE AnjutaToken*
+
 typedef struct _AmpAmScanner AmpAmScanner;
 
 AmpAmScanner *amp_am_scanner_new (void);
