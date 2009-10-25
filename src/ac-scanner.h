@@ -37,7 +37,7 @@ AmpAcScanner *amp_ac_scanner_new (void);
 void amp_ac_scanner_free (AmpAcScanner *scanner);
 
 gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error);
-gboolean amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint start, GError **error);
+AnjutaToken* amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint start, GError **error);
 
 
 const gchar* amp_ac_scanner_get_filename (AmpAcScanner *scanner);

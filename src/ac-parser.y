@@ -95,7 +95,8 @@
 
 %defines
 
-%pure_parser
+%define api.pure
+%define api.push_pull "push"
 
 %parse-param {AmpAcScanner* scanner}
 %lex-param   {AmpAcScanner* scanner}
@@ -247,6 +248,7 @@ ac_output:
 
 obsolete_ac_output:
     OBSOLETE_AC_OUTPUT  arg_list {
+        g_message ("get AC_OUTPUT");
         anjuta_token_set_type ($1, AC_TOKEN_OBSOLETE_AC_OUTPUT);
         $$ = anjuta_token_group ($1, $2);
     }
@@ -518,8 +520,7 @@ amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s)
     gchar *filename;
 
 	g_message ("scanner %p", scanner);
-    filename = amp_ac_scanner_get_filename ((AmpAcScanner *)scanner);
-    if (filename == NULL) filename = "?";
+    filename = "?";
     g_message ("%s (%d:%d-%d:%d) %s\n", filename, loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
 }
 

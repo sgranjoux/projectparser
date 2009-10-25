@@ -44,7 +44,8 @@ struct _AmpProject {
 
 	/* project data */
 	AnjutaTokenFile		*configure_file;		/* configure.in file */
-
+	AnjutaToken			*configure_token;
+	
 	AmpProperty			*property;
 	
 	AmpGroup              *root_node;         	/* tree containing project data;

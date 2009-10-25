@@ -37,6 +37,7 @@ typedef enum
 	ANJUTA_TOKEN_FILE,
 	ANJUTA_TOKEN_MACRO,
 	ANJUTA_TOKEN_CONTENT,
+	ANJUTA_TOKEN_ARGUMENT,
 	ANJUTA_TOKEN_EOV,
 	ANJUTA_TOKEN_PARSED,
 	ANJUTA_TOKEN_KEYWORD,
@@ -57,7 +58,6 @@ typedef enum
 	ANJUTA_TOKEN_START,
 	ANJUTA_TOKEN_NEXT,
 	ANJUTA_TOKEN_LAST,
-	ANJUTA_TOKEN_ARGUMENT,
 	ANJUTA_TOKEN_ITEM,
 	ANJUTA_TOKEN_STRING,
 	ANJUTA_TOKEN_ERROR,
@@ -127,6 +127,7 @@ AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size);
 
 AnjutaToken *anjuta_token_cut (AnjutaToken *token, guint pos, guint size);
 
+AnjutaToken * anjuta_token_append_child (AnjutaToken *parent, AnjutaToken *child);
 AnjutaToken * anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *child);
 AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
 AnjutaToken *anjuta_token_insert_before (AnjutaToken *token, AnjutaToken *sibling);

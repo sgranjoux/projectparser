@@ -259,6 +259,7 @@ anjuta_token_next_lex (AnjutaToken *token)
 			break;
 		case ANJUTA_TOKEN_FILE:
 		case ANJUTA_TOKEN_CONTENT:
+		case ANJUTA_TOKEN_ARGUMENT:
 			next = anjuta_token_next (next);
 			break;
 		default:
@@ -542,6 +543,12 @@ anjuta_token_delete (AnjutaToken *token)
 }
 
 AnjutaToken *
+anjuta_token_append_child (AnjutaToken *parent, AnjutaToken *child)
+{
+	return (AnjutaToken *)g_node_append ((GNode *)parent, (GNode *)child);
+}
+
+AnjutaToken *
 anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *child)
 {
 	return (AnjutaToken *)g_node_insert_after ((GNode *)parent, (GNode *)NULL, (GNode *)child);
@@ -643,7 +650,7 @@ AnjutaToken *anjuta_token_cut (AnjutaToken *token, guint pos, guint size)
 {
 	AnjutaToken *copy;
 
-	copy = anjuta_token_copy (token);
+	copy = anjuta_token_copy_token (token);
 
 	if (pos >= ANJUTA_TOKEN_DATA (token)->length)
 	{

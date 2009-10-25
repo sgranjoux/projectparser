@@ -997,7 +997,7 @@ project_reload_property (AmpProject *project)
 
 	ac_init_tok = anjuta_token_new_static (AC_TOKEN_AC_INIT, NULL);
 	                                       
-	sequence = anjuta_token_file_first (project->configure_file);
+	sequence = anjuta_token_next_child (project->configure_token);
 	if (anjuta_token_match (ac_init_tok, ANJUTA_SEARCH_INTO, sequence, &init))
 	{
 		g_message ("find ac_init");
@@ -1017,7 +1017,7 @@ project_reload_packages   (AmpProject *project)
 	
 	pkg_check_tok = anjuta_token_new_static (AC_TOKEN_PKG_CHECK_MODULES, "PKG_CHECK_MODULES(");
 	
-    sequence = anjuta_token_file_first (project->configure_file);
+    sequence = anjuta_token_next_child (project->configure_token);
 	for (;;)
 	{
 		AnjutaToken *module;
@@ -1026,7 +1026,7 @@ project_reload_packages   (AmpProject *project)
 		AmpModule *mod;
 		AmpPackage *pack;
 		gchar *compare;
-		
+
 		if (!anjuta_token_match (pkg_check_tok, ANJUTA_SEARCH_INTO, sequence, &module)) break;
 
 		arg = anjuta_token_next_child (module);	/* Name */
@@ -1039,8 +1039,11 @@ project_reload_packages   (AmpProject *project)
 		arg = anjuta_token_next_sibling (arg);	/* Separator */
 
 		arg = anjuta_token_next_sibling (arg);	/* Package list */
-		if (scanner == NULL) scanner = amp_ac_scanner_new ();
-		amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
+		scanner = amp_ac_scanner_new ();
+		fprintf (stdout, "\nParse list\n");
+		anjuta_token_dump (arg);
+		arg = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
+		if (scanner) amp_ac_scanner_free (scanner);
 		
 		pack = NULL;
 		compare = NULL;
@@ -1085,7 +1088,6 @@ project_reload_packages   (AmpProject *project)
 		sequence = anjuta_token_next_sibling (module);
 	}
 	anjuta_token_free (pkg_check_tok);
-	if (scanner) amp_ac_scanner_free (scanner);
 }
 
 /* Add a GFile in the list for each makefile in the token list */
@@ -1130,7 +1132,7 @@ project_list_config_files (AmpProject *project)
 	/* Search the new AC_CONFIG_FILES macro */
 	config_files_tok = anjuta_token_new_static (AC_TOKEN_AC_CONFIG_FILES, NULL);
 
-    sequence = anjuta_token_file_first (project->configure_file);
+    sequence = anjuta_token_next_child (project->configure_token);
 	while (sequence != NULL)
 	{
 		AnjutaToken *arg;
@@ -1138,7 +1140,7 @@ project_list_config_files (AmpProject *project)
 		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_INTO, sequence, &sequence)) break;
 		arg = anjuta_token_next_child (sequence);	/* List */
 		if (scanner == NULL) scanner = amp_ac_scanner_new ();
-		amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
+		arg = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		amp_project_add_config_files (project, arg);
 		sequence = anjuta_token_next_sibling (sequence);
 	}
@@ -1147,7 +1149,7 @@ project_list_config_files (AmpProject *project)
     anjuta_token_free(config_files_tok);
     config_files_tok = anjuta_token_new_static (AC_TOKEN_OBSOLETE_AC_OUTPUT, NULL);
 		
-    sequence = anjuta_token_file_first (project->configure_file);
+    sequence = anjuta_token_next_child (project->configure_token);
 	while (sequence != NULL)
 	{
 		AnjutaToken *arg;
@@ -1155,7 +1157,7 @@ project_list_config_files (AmpProject *project)
 		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_INTO, sequence, &sequence)) break;
 		arg = anjuta_token_next_child (sequence);	/* List */
 		if (scanner == NULL) scanner = amp_ac_scanner_new ();
-		amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
+		arg = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		amp_project_add_config_files (project, arg);
 		sequence = anjuta_token_next_sibling (sequence);
 	}
@@ -1568,9 +1570,10 @@ gboolean
 amp_project_reload (AmpProject *project, GError **error) 
 {
 	AmpAcScanner *scanner;
+	AnjutaToken *arg;
 	GFile *root_file;
 	GFile *configure_file;
-	gboolean ok;
+	gboolean ok = TRUE;
 	GError *err = NULL;
 
 	/* Unload current project */
@@ -1610,10 +1613,11 @@ amp_project_reload (AmpProject *project, GError **error)
 	project->configure_file = anjuta_token_file_new (configure_file);
 	g_hash_table_insert (project->files, configure_file, project->configure_file);
 	g_object_add_toggle_ref (G_OBJECT (project->configure_file), remove_config_file, project);
+	arg = anjuta_token_file_load (project->configure_file, NULL);
 	scanner = amp_ac_scanner_new ();
-	ok = amp_ac_scanner_parse (scanner, project->configure_file, &err);
+	project->configure_token = amp_ac_scanner_parse_token (scanner, anjuta_token_next_child (arg), 0, &err);
 	amp_ac_scanner_free (scanner);
-	if (!ok)
+	if (project->configure_token == NULL)
 	{
 		g_set_error (error, IANJUTA_PROJECT_ERROR, 
 		             	IANJUTA_PROJECT_ERROR_PROJECT_MALFORMED,
@@ -1672,6 +1676,7 @@ amp_project_unload (AmpProject *project)
 
 	if (project->configure_file)	g_object_unref (G_OBJECT (project->configure_file));
 	project->configure_file = NULL;
+	if (project->configure_token) anjuta_token_free (project->configure_token);
 
 	if (project->root_file) g_object_unref (project->root_file);
 	project->root_file = NULL;
@@ -2712,6 +2717,7 @@ amp_project_instance_init (AmpProject *project)
 	/* project data */
 	project->root_file = NULL;
 	project->configure_file = NULL;
+	project->configure_token = NULL;
 	project->root_node = NULL;
 	project->property = NULL;
 
