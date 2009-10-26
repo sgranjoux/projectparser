@@ -864,6 +864,25 @@ mkp_project_get_target_types (MkpProject *project, GError **error)
 	return types;
 }
 
+gboolean
+mkp_project_get_token_location (MkpProject *project, AnjutaTokenFileLocation *location, AnjutaToken *token)
+{
+	GHashTableIter iter;
+	gpointer key;
+	gpointer value;
+
+	g_hash_table_iter_init (&iter, project->files);
+	while (g_hash_table_iter_next (&iter, &key, &value))
+	{
+		if (anjuta_token_file_get_token_location ((AnjutaTokenFile *)value, location, token))
+		{
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
 /* Group access functions
  *---------------------------------------------------------------------------*/
 

@@ -88,6 +88,7 @@ gboolean mkp_project_save (MkpProject *project, GError **error);
 
 gchar * mkp_project_get_uri (MkpProject *project);
 GFile* mkp_project_get_file (MkpProject *project);
+gboolean mkp_project_get_token_location (MkpProject *project, AnjutaTokenFileLocation *location, AnjutaToken *token);
 
 MkpGroup* mkp_project_add_group (MkpProject  *project, MkpGroup *parent,	const gchar *name, GError **error);
 void mkp_project_remove_group (MkpProject  *project, MkpGroup *group, GError **error);
@@ -113,6 +114,7 @@ GFile *mkp_source_get_file (MkpSource *source);
 
 gchar *mkp_variable_evaluate (MkpVariable *variable, MkpProject *project);
 const gchar* mkp_variable_get_name (MkpVariable *variable);
+
 
 G_END_DECLS
 

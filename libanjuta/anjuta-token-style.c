@@ -46,7 +46,6 @@ struct _AnjutaTokenStyle
 
 void free_separator (AnjutaTokenStyleSeparator *sep, gpointer user_data)
 {
-	DEBUG_PRINT ("free sep %p count %d", sep, sep->count);
 	g_free (sep->value);
 	g_slice_free (AnjutaTokenStyleSeparator, sep);
 }
@@ -129,7 +128,6 @@ anjuta_token_style_insert_separator (AnjutaTokenStyle *style, guint key, const g
 		sep->count = 1;
 		sep->value = g_strdup (value);
 		sep->eol = value == NULL ? FALSE : strchr (value, '\n') != NULL;
-		DEBUG_PRINT ("alloc sep %p count %d", sep, sep->count);
 		list = g_list_insert_before (list, last, sep);
 		g_hash_table_replace (style->separator, GINT_TO_POINTER (key), list);
 

@@ -43,7 +43,6 @@
 static AnjutaToken* mkp_scanner_append_lex_token (MkpScanner *scanner, gint token);
 static gint mkp_scanner_last_token (MkpScanner *scanner);
 static gint mkp_scanner_last_flags (MkpScanner *scanner);
-static void mkp_scanner_update_line_width (MkpScanner *scanner, YYLTYPE *loc);
 static void mkp_update_location (YYLTYPE *loc, const gchar *text, gint length);
 static int mkp_parse (yyscan_t scanner);
 static gint mkp_scanner_input (MkpScanner *scanner, gchar *buffer, gsize max_size);
@@ -182,8 +181,6 @@ struct _MkpScanner
     MkpBuffer *buffer;
 
     MkpProject *project;
-
-	guint line_width;
 };
 
 /* Private functions
@@ -271,6 +268,23 @@ mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable)
 }
 
 void
+mkp_scanner_yyerror (YYLTYPE *loc, MkpScanner *scanner, AnjutaToken **last, char const *s)
+{
+    AnjutaTokenFileLocation location;
+    gboolean found;
+
+    if (mkp_project_get_token_location (scanner->project, &location, *loc))
+    {
+        g_message ("%s:%d.%d %s\n", location.filename, location.line, location.column, s);
+        g_free (location.filename);
+    }
+    else
+    {
+        g_message ("%s \n", s);
+    }
+}
+
+void
 mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable)
 {
     AnjutaToken *group;
@@ -288,8 +302,8 @@ mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable)
         anjuta_token_group_dump (group);
         token = anjuta_token_group_into_token (group);
         anjuta_token_set_type (token, ANJUTA_TOKEN_CONTENT);
-        anjuta_token_dump (token);
-        fprintf (stdout,"variable %s\n", anjuta_token_get_string (variable));
+        //anjuta_token_dump (token);
+        //fprintf (stdout,"variable %s\n", anjuta_token_get_string (variable));
         anjuta_token_dump (token);
         mkp_scanner_parse_token (scanner, token, NULL);
         //anjuta_token_free (token);
@@ -308,7 +322,7 @@ mkp_update_location (YYLTYPE *loc, const gchar *text, gint length)
 	const gchar *ptr;
 	const gchar *end = text + length;
 
-    loc->first_line = loc->last_line;
+    /*loc->first_line = loc->last_line;
     loc->first_column = loc->last_column + 1;
 
 	for (ptr = text; ptr != end; ptr++)
@@ -321,7 +335,7 @@ mkp_update_location (YYLTYPE *loc, const gchar *text, gint length)
 		}
 	}
 
-	loc->last_column += length;
+	loc->last_column += length;*/
 }
 
 static gint
@@ -457,7 +471,7 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
         buffer->parent = scanner->buffer;
         scanner->buffer = buffer;
 
-        anjuta_token_dump (token);
+        //anjuta_token_dump (token);
 
         buffer->first = buffer->parent->last;
         buffer->last = NULL;
@@ -490,15 +504,15 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
         {
             gint yychar = mkp_mk_yylex (&yylval_param, &yylloc_param, scanner->scanner);
             AnjutaToken *last = NULL;
-
+        
+            yylloc_param = yylval_param;
             status = mkp_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner, &last);
  
-            if ((status != YYPUSH_MORE) || (last != NULL))
+            if ((status == 0) || (last != NULL))
             {
-                printf ("\n: ");
+                //printf ("\n: ");
                 for (;;)
                 {
-                    gint status;
                     YYSTYPE yylval_param;
                     YYLTYPE yylloc_param;
                     gint yychar;
@@ -515,16 +529,13 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
                     }
 
                     yylval_param = yytok;
-                    printf ("%d (%.*s)  ", yychar, yytok == NULL ? 0 : anjuta_token_get_length (yytok), yytok == NULL ? "" : anjuta_token_get_string (yytok));
+                    //printf ("2:%d (%.*s)  ", yychar, yytok == NULL ? 0 : anjuta_token_get_length (yytok), yytok == NULL ? "" : anjuta_token_evaluate (yytok));
+                    yylloc_param = yylval_param;
                     status = mkp_yypush_parse (ps2, yychar, &yylval_param, &yylloc_param, scanner, NULL);
-                    if (status != YYPUSH_MORE)
-                    {
-                        g_message ("error %d yychar %d", status, yychar);
-                        break;
-                    }
+                    if (status != YYPUSH_MORE) break;
                     if (yytok == last) break;
                 }
-                printf ("\n");
+                //printf ("\n");
         
                 last = NULL;
             }

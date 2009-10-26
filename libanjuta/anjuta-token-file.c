@@ -153,12 +153,9 @@ anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file)
 }
 
 gboolean
-anjuta_token_file_get_token_location (AnjutaTokenFile *file, gchar **filename, guint *line, guint *column, AnjutaToken *token)
+anjuta_token_file_get_token_location (AnjutaTokenFile *file, AnjutaTokenFileLocation *location, AnjutaToken *token)
 {
-	struct {
-		guint line;
-		guint column;
-	} loc = {1,1};
+	AnjutaTokenFileLocation loc = {NULL, 1, 1};
 	AnjutaToken *pos;
 	const gchar *target = anjuta_token_get_string (token);
 	
@@ -166,13 +163,13 @@ anjuta_token_file_get_token_location (AnjutaTokenFile *file, gchar **filename, g
 	{
 		if (!(anjuta_token_get_flags (pos) & ANJUTA_TOKEN_REMOVED) && (anjuta_token_get_length (pos)))
 		{
-			gchar *ptr;
-			gchar *end;
+			const gchar *ptr;
+			const gchar *end;
 
 			ptr = anjuta_token_get_string (pos);
 			end = ptr + anjuta_token_get_length (pos);
 			
-			for (ptr; ptr != end; ptr++)
+			for (; ptr != end; ptr++)
 			{
 				if (*ptr == '\n')
 				{
@@ -187,12 +184,12 @@ anjuta_token_file_get_token_location (AnjutaTokenFile *file, gchar **filename, g
 					
 				if (ptr == target)
 				{
-					if (filename != NULL)
+					if (location != NULL)
 					{
-						*filename = file->file == NULL ? NULL : g_file_get_parse_name (file->file);
+						location->filename = file->file == NULL ? NULL : g_file_get_parse_name (file->file);
+						location->line = loc.line;
+						location->column = loc.column;
 					}
-					if (line != NULL) *line = loc.line;
-					if (column != NULL) *column = loc.column;
 
 					return TRUE;
 				}

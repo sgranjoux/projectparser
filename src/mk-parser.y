@@ -25,6 +25,10 @@
 
 #define YYDEBUG 1
 
+/* Token location is found directly from token value, there is no need to
+ * maintain a separate location variable */
+#define YYLLOC_DEFAULT(Current, Rhs, N)	((Current) = YYRHSLOC(Rhs, (N) ? 1 : 0))
+
 %}
 
 %token	EOL	'\n'
@@ -452,16 +456,7 @@ equal_token:
 static void
 mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, AnjutaToken **last, char const *s)
 {
-    gchar *filename;
-    guint line;
-    guint column;
-    gboolean found;
-
-
-	g_message ("scanner %p", scanner);
-    filename = "?";
-
-    g_message ("%s (%d:%d-%d:%d) %s\n", filename, loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
+    mkp_scanner_yyerror (loc, scanner, last, s);
 }
 
 static gint

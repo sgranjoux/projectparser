@@ -37,6 +37,13 @@ G_BEGIN_DECLS
 typedef struct _AnjutaTokenFile AnjutaTokenFile;
 typedef struct _AnjutaTokenFileClass AnjutaTokenFileClass;
 
+typedef struct
+{
+	gchar *filename;
+	guint line;
+	guint column;
+} AnjutaTokenFileLocation;
+
 GType anjuta_token_file_get_type (void);
 
 AnjutaTokenFile *anjuta_token_file_new (GFile *file);
@@ -47,7 +54,7 @@ gboolean anjuta_token_file_unload (AnjutaTokenFile *file);
 gboolean anjuta_token_file_save (AnjutaTokenFile *file, GError **error);
 void anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file);
 
-gboolean anjuta_token_file_get_token_location (AnjutaTokenFile *file, gchar **filename, guint *line, guint *column, AnjutaToken *token);
+gboolean anjuta_token_file_get_token_location (AnjutaTokenFile *file, AnjutaTokenFileLocation *location, AnjutaToken *token);
 
 AnjutaToken* anjuta_token_file_get_content (AnjutaTokenFile *file);
 GFile *anjuta_token_file_get_file (AnjutaTokenFile *file);

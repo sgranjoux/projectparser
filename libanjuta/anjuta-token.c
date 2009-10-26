@@ -467,7 +467,7 @@ anjuta_token_copy_token (AnjutaToken *token)
 
 		data = g_slice_new0 (AnjutaTokenData);
 		data->type =org->type;
-		data->flags = org->type;
+		data->flags = org->flags;
 		if ((data->flags & ANJUTA_TOKEN_STATIC) || (org->pos == NULL))
 		{
 			data->pos = org->pos;
