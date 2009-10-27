@@ -195,6 +195,10 @@ mkp_scanner_append_token (MkpScanner *scanner, AnjutaToken *token)
     }
     else
     {
+        while (anjuta_token_parent (scanner->buffer->last) != scanner->buffer->first)
+        {
+            scanner->buffer->last = anjuta_token_parent (scanner->buffer->last);
+        }
         scanner->buffer->last = anjuta_token_insert_after (scanner->buffer->last, token);
     }
 }
@@ -227,23 +231,24 @@ mkp_scanner_append_lex_token (MkpScanner *scanner, gint token)
                 else
                 {
                     /* Get several token */
-                    anjuta_token_insert_child (frag, copy);
+                    anjuta_token_append_child (frag, copy);
                 }
 
-                if (toklen == length)
+                if (toklen == (length + scanner->buffer->begin))
                 {
                     scanner->buffer->start = anjuta_token_next (end);
                     scanner->buffer->begin = 0;
                 }
                 else
                 {
+                    scanner->buffer->start = end;
                     scanner->buffer->begin += length;
                 }
                 break;
             }
             else
             {
-                anjuta_token_insert_child (frag, copy);
+                anjuta_token_append_child (frag, copy);
                 length -= toklen;
                 end = anjuta_token_next (end);
                 scanner->buffer->begin = 0;

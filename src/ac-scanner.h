@@ -30,10 +30,15 @@
 G_BEGIN_DECLS
 
 #define YYSTYPE AnjutaToken*
+#define YYLTYPE AnjutaToken*
+
+#ifndef _AM_PROJECT_H_
+typedef struct _AmpProject        AmpProject;
+#endif
 
 typedef struct _AmpAcScanner AmpAcScanner;
 
-AmpAcScanner *amp_ac_scanner_new (void);
+AmpAcScanner *amp_ac_scanner_new (AmpProject *project);
 void amp_ac_scanner_free (AmpAcScanner *scanner);
 
 gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error);

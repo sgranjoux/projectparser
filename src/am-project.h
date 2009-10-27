@@ -75,7 +75,7 @@ AmpGroup *amp_project_get_root (AmpProject *project);
 AmpGroup *amp_project_get_group (AmpProject *project, const gchar *id);
 AmpTarget *amp_project_get_target (AmpProject *project, const gchar *id);
 AmpSource *amp_project_get_source (AmpProject *project, const gchar *id);
-
+gboolean amp_project_get_token_location (AmpProject *project, AnjutaTokenFileLocation *location, AnjutaToken *token);
 
 gboolean amp_project_move (AmpProject *project, const gchar *path);
 gboolean amp_project_save (AmpProject *project, GError **error);

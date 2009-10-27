@@ -176,16 +176,16 @@ gchar *anjuta_token_get_value_range (AnjutaToken *token, AnjutaToken *end);
 const gchar *anjuta_token_get_string (AnjutaToken *token);
 guint anjuta_token_get_length (AnjutaToken *token);
 
-void anjuta_token_group_dump (AnjutaToken *token);
-AnjutaToken *anjuta_token_group_into_token (AnjutaToken *group);
-AnjutaToken *anjuta_token_group_get_token (AnjutaToken *group);
-AnjutaToken *anjuta_token_group_first (AnjutaToken *list);
-AnjutaToken *anjuta_token_group_next (AnjutaToken *item);
-AnjutaToken *anjuta_token_group_append (AnjutaToken *parent, AnjutaToken *group);
-AnjutaToken *anjuta_token_group_append_token (AnjutaToken *parent, AnjutaToken *token);
-AnjutaToken *anjuta_token_group_append_children (AnjutaToken *parent, AnjutaToken *children);
-AnjutaToken *anjuta_token_group_new (AnjutaTokenType type, AnjutaToken* first);
-void anjuta_token_group_free (AnjutaToken *group);
+void anjuta_token_group_dump (AnjutaTokenGroup *group);
+AnjutaToken *anjuta_token_group_into_token (AnjutaTokenGroup *group);
+AnjutaToken *anjuta_token_group_get_token (AnjutaTokenGroup *group);
+AnjutaTokenGroup *anjuta_token_group_first (AnjutaTokenGroup *list);
+AnjutaTokenGroup *anjuta_token_group_next (AnjutaTokenGroup *item);
+AnjutaTokenGroup *anjuta_token_group_append (AnjutaTokenGroup *parent, AnjutaTokenGroup *group);
+AnjutaTokenGroup *anjuta_token_group_append_token (AnjutaTokenGroup *parent, AnjutaToken *token);
+AnjutaTokenGroup *anjuta_token_group_append_children (AnjutaTokenGroup *parent, AnjutaTokenGroup *children);
+AnjutaTokenGroup *anjuta_token_group_new (AnjutaTokenType type, AnjutaTokenGroup* first);
+void anjuta_token_group_free (AnjutaTokenGroup *group);
 
 
 G_END_DECLS

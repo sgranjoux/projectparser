@@ -32,8 +32,6 @@
 
 #define YY_INPUT(buf, result, max_size) result = amp_ac_scanner_input (yyextra, buf, max_size)
 
-#define YY_USER_ACTION amp_update_location(yylloc, yytext, yyleng);
-
 #define YY_EXTRA_TYPE  AmpAcScanner*
 
 #define YY_DECL static int ac_yylex (YYSTYPE * yylval_param,YYLTYPE * yylloc_param ,yyscan_t yyscanner)
@@ -43,6 +41,7 @@
 static AnjutaToken* amp_ac_scanner_append_lex_token (AmpAcScanner *scanner, gint token);
 static void amp_update_location (YYLTYPE *loc, const gchar *text, gint length);
 static gint amp_ac_scanner_input (AmpAcScanner *scanner, gchar *buffer, gsize max_size);
+static gint amp_scanner_parse_end (AmpAcScanner *scanner);
 
 gboolean amp_ac_yyparse (AmpAcScanner *scanner);
 
@@ -50,34 +49,6 @@ gboolean amp_ac_yyparse (AmpAcScanner *scanner);
 #define RETURN(tok) *yylval = amp_ac_scanner_append_lex_token (yyextra, tok); \
                     return tok
              
-typedef struct _AmpAcBuffer AmpAcBuffer;
-       
-struct _AmpAcBuffer
-{
-    AnjutaToken *token;
-
-    /* Beginning of current token */
-    AnjutaToken *start;
-    gsize begin;
-
-    /* Next data read buffer */
-    AnjutaToken *next;
-    gsize pos;
-
-    /* Place to put new token */
-    AnjutaToken *first;
-    AnjutaToken *last;
-
-    AmpAcBuffer *parent;    
-};
-     
-struct _AmpAcScanner
-{
-    yyscan_t scanner;
-
-    AmpAcBuffer *buffer;
-};
-
 %}
 
 %option reentrant stack noyywrap yylineno
@@ -172,6 +143,37 @@ AC_CONFIG_FILES\(       { RETURN (AC_CONFIG_FILES); }
 
 %%
 
+typedef struct _AmpAcBuffer AmpAcBuffer;
+       
+struct _AmpAcBuffer
+{
+    AnjutaToken *token;
+
+    /* Beginning of current token */
+    AnjutaToken *start;
+    gsize begin;
+
+    /* Next data read buffer */
+    AnjutaToken *next;
+    gsize pos;
+
+    /* Place to put new token */
+    AnjutaToken *first;
+    AnjutaToken *last;
+
+    AmpAcBuffer *parent;    
+};
+     
+struct _AmpAcScanner
+{
+    yyscan_t scanner;
+
+    AmpAcBuffer *buffer;
+
+    AmpProject *project;
+};
+
+
 /* Private functions
  *---------------------------------------------------------------------------*/
 
@@ -255,26 +257,21 @@ amp_ac_scanner_append_lex_token (AmpAcScanner *scanner, gint token)
     return frag;
 }
 
-static void
-amp_update_location (YYLTYPE *loc, const gchar *text, gint length)
+void
+amp_ac_scanner_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s)
 {
-	const gchar *ptr;
-	const gchar *end = text + length;
+    AnjutaTokenFileLocation location;
+    gboolean found;
 
-    loc->first_line = loc->last_line;
-    loc->first_column = loc->last_column + 1;
-
-	for (ptr = text; ptr != end; ptr++)
-	{
-		if (*ptr == '\n')
-		{
-			loc->last_column = 0;
-			loc->last_line++;
-			length -= (ptr + 1 - text);
-		}
-	}
-
-	loc->last_column += length;
+    if (amp_project_get_token_location (scanner->project, &location, *loc))
+    {
+        g_message ("%s:%d.%d %s\n", location.filename, location.line, location.column, s);
+        g_free (location.filename);
+    }
+    else
+    {
+        g_message ("%s \n", s);
+    }
 }
 
 static gint
@@ -369,22 +366,6 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
     buffer->begin = 0;
     buffer->parent = NULL;
 
-    /* Move all know data in a list */
-    /*anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_EOV, NULL));
-    for (child = token;anjuta_token_get_type (child) != ANJUTA_TOKEN_EOV;)
-    {
-        child = anjuta_token_ungroup (child);
-        if (anjuta_token_get_length (child) == 0)
-        {
-            child = anjuta_token_delete (child);
-        }
-        else
-        {
-            if (first == NULL) first = child;
-            child = anjuta_token_next_sibling (child);
-        }
-    }*/
-
     buffer->next = token;
     buffer->start = buffer->next;
 
@@ -406,6 +387,7 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
     else
     {
         amp_ac_yypstate *ps1;
+        amp_ac_yypstate *ps2;
         gint status;
         YYSTYPE yylval_param;
         YYLTYPE yylloc_param;
@@ -419,12 +401,18 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
         scanner->buffer = buffer;
 
         ps1 = amp_ac_yypstate_new ();
+        ps2 = amp_ac_yypstate_new ();
+        yylval_param = NULL;
+        yylloc_param = NULL;
+        amp_ac_yypush_parse (ps1, FIRST_PASS, &yylval_param, &yylloc_param, scanner, NULL);
         switch (start)
         {
         case AC_SPACE_LIST_STATE:
-            amp_ac_yypush_parse (ps1, START_SPACE_LIST, &yylval_param, &yylloc_param, scanner);
+            amp_ac_yypush_parse (ps2, START_SPACE_LIST, &yylval_param, &yylloc_param, scanner, NULL);
             yy_push_state (SPACE_LIST, scanner->scanner);
+            break;
         default:
+	        amp_ac_yypush_parse (ps2, SECOND_PASS, &yylval_param, &yylloc_param, scanner, NULL);
             break;
         }
         
@@ -433,11 +421,45 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
         do
         {
             gint yychar = ac_yylex (&yylval_param, &yylloc_param, scanner->scanner);
-
-            status = amp_ac_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner);
+            AnjutaToken *last = NULL;
+        
+            yylloc_param = yylval_param;
+            status = amp_ac_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner, &last);
  
+            if ((status == 0) || (last != NULL))
+            {
+                //printf ("\n: ");
+                for (;;)
+                {
+                    YYSTYPE yylval_param;
+                    YYLTYPE yylloc_param;
+                    gint yychar;
+                    AnjutaToken *next;
+
+                    yytok = anjuta_token_next_lex (yytok);
+                    if (yytok != NULL)
+                    {
+                        yychar = anjuta_token_get_type (yytok);
+                    }
+                    else
+                    {
+                        yychar = 0;
+                    }
+
+                    yylval_param = yytok;
+                    //printf ("2:%d (%.*s)  ", yychar, yytok == NULL ? 0 : anjuta_token_get_length (yytok), yytok == NULL ? "" : anjuta_token_evaluate (yytok));
+                    yylloc_param = yylval_param;
+                    status = amp_ac_yypush_parse (ps2, yychar, &yylval_param, &yylloc_param, scanner, NULL);
+                    if (status != YYPUSH_MORE) break;
+                    if (yytok == last) break;
+                }
+                //printf ("\n");
+        
+                last = NULL;
+            }
         } while (status == YYPUSH_MORE);
         amp_ac_yypstate_delete (ps1);
+        amp_ac_yypstate_delete (ps2);
 
         return buffer->first;
     }
@@ -447,15 +469,16 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
  *---------------------------------------------------------------------------*/
 
 AmpAcScanner *
-amp_ac_scanner_new (void)
+amp_ac_scanner_new (AmpProject *project)
 {
 	AmpAcScanner *scanner;
 
 	scanner = g_new0 (AmpAcScanner, 1);
 
     yylex_init(&scanner->scanner);
-
     yyset_extra (scanner, scanner->scanner);
+
+    scanner->project = project;
 
 	return scanner;
 };

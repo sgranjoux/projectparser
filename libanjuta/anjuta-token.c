@@ -30,7 +30,7 @@ typedef struct _AnjutaTokenData AnjutaTokenData;
 
 struct _AnjutaTokenData
 {
-	AnjutaToken *data;
+	AnjutaTokenData *data;
 	AnjutaTokenType type;	
 	gint flags;
 	gchar *pos;
@@ -54,7 +54,7 @@ struct _AnjutaToken
 
 struct _AnjutaTokenGroup
 {
-	AnjutaToken *data;
+	AnjutaToken *token;
 	AnjutaTokenGroup	*next;
 	AnjutaTokenGroup	*prev;
 	AnjutaTokenGroup	*parent;
@@ -466,6 +466,7 @@ anjuta_token_copy_token (AnjutaToken *token)
 		AnjutaTokenData *data = NULL;
 
 		data = g_slice_new0 (AnjutaTokenData);
+		data->data = data;
 		data->type =org->type;
 		data->flags = org->flags;
 		if ((data->flags & ANJUTA_TOKEN_STATIC) || (org->pos == NULL))
@@ -479,7 +480,6 @@ anjuta_token_copy_token (AnjutaToken *token)
 		data->length = org->length;
 
 		copy = (AnjutaToken *)g_node_new (data);
-		data->data = data;
 	}
 
 	return copy;
@@ -819,45 +819,45 @@ anjuta_token_free (AnjutaToken *token)
 /* AnjutaTokenGroup 
  *---------------------------------------------------------------------------*/
 
-AnjutaToken *anjuta_token_group_get_token (AnjutaToken *group)
+AnjutaToken *anjuta_token_group_get_token (AnjutaTokenGroup *group)
 {
 	return group->token;
 }
 
-AnjutaToken *anjuta_token_group_first (AnjutaToken *list)
+AnjutaTokenGroup *anjuta_token_group_first (AnjutaTokenGroup *list)
 {
-	return (AnjutaToken *)g_node_first_child ((GNode *)list);
+	return (AnjutaTokenGroup *)g_node_first_child ((GNode *)list);
 }
 
-AnjutaToken *anjuta_token_group_next (AnjutaToken *item)
+AnjutaTokenGroup *anjuta_token_group_next (AnjutaTokenGroup *item)
 {
-	return (AnjutaToken *)g_node_next_sibling ((GNode *)item);
+	return (AnjutaTokenGroup *)g_node_next_sibling ((GNode *)item);
 }
 
-AnjutaToken *anjuta_token_group_append (AnjutaToken *parent, AnjutaToken *group)
+AnjutaTokenGroup *anjuta_token_group_append (AnjutaTokenGroup *parent, AnjutaTokenGroup *group)
 {
 	if (group != NULL) g_node_append ((GNode *)parent, (GNode *)group);
 
 	return parent;
 }
 
-AnjutaToken *anjuta_token_group_append_token (AnjutaToken *parent, AnjutaToken *token)
+AnjutaTokenGroup *anjuta_token_group_append_token (AnjutaTokenGroup *parent, AnjutaToken *token)
 {
-	AnjutaToken *group;
+	AnjutaTokenGroup *group;
 	
-	group = (AnjutaToken *)g_node_new (token);
+	group = (AnjutaTokenGroup *)g_node_new (token);
 	return anjuta_token_group_append (parent, group);
 }
 
-AnjutaToken *anjuta_token_group_append_children (AnjutaToken *parent, AnjutaToken *children)
+AnjutaTokenGroup *anjuta_token_group_append_children (AnjutaTokenGroup *parent, AnjutaTokenGroup *children)
 {
 	if (children != NULL)
 	{
-		AnjutaToken *child;
+		AnjutaTokenGroup *child;
 		
-		for (child = (AnjutaToken *)g_node_first_child ((GNode *)children); child != NULL;)
+		for (child = anjuta_token_group_first (children); child != NULL;)
 		{
-			AnjutaToken *next = (AnjutaToken *)g_node_next_sibling (child);
+			AnjutaTokenGroup *next = anjuta_token_group_next (child);
 
 			g_node_unlink ((GNode *)child);
 			g_node_append ((GNode *)parent, (GNode *)child);
@@ -869,13 +869,13 @@ AnjutaToken *anjuta_token_group_append_children (AnjutaToken *parent, AnjutaToke
 	return parent;
 }
 
-AnjutaToken *anjuta_token_group_into_token (AnjutaToken *group)
+AnjutaToken *anjuta_token_group_into_token (AnjutaTokenGroup *group)
 {
 	AnjutaToken *copy = NULL;
 
 	if (group != NULL)
 	{
-		AnjutaToken *child;
+		AnjutaTokenGroup *child;
 		AnjutaToken *last;
 
 		copy = anjuta_token_copy_token (anjuta_token_group_get_token (group));
@@ -892,7 +892,7 @@ AnjutaToken *anjuta_token_group_into_token (AnjutaToken *group)
 }
 
 static void
-anjuta_token_group_dump_child (AnjutaToken *group, gint indent)
+anjuta_token_group_dump_child (AnjutaTokenGroup *group, gint indent)
 {
 	AnjutaToken *token = group->token;
 	
@@ -906,24 +906,24 @@ anjuta_token_group_dump_child (AnjutaToken *group, gint indent)
 }
 
 void
-anjuta_token_group_dump (AnjutaToken *token)
+anjuta_token_group_dump (AnjutaTokenGroup *token)
 {
 	anjuta_token_group_dump_child (token, 0);
 }
 
-AnjutaToken *anjuta_token_group_new (AnjutaTokenType type, AnjutaToken* first)
+AnjutaTokenGroup *anjuta_token_group_new (AnjutaTokenType type, AnjutaTokenGroup* first)
 {
 	AnjutaToken *token;
-	AnjutaToken *group;
+	AnjutaTokenGroup *group;
 
 	token = anjuta_token_new_static (type, NULL);
 
-	group = (AnjutaToken *)g_node_new (token);
+	group = (AnjutaTokenGroup *)g_node_new (token);
 	if (first != NULL)
 	{
-		AnjutaToken *child;
+		AnjutaTokenGroup *child;
 
-		child = (AnjutaToken *)g_node_new (first);
+		child = (AnjutaTokenGroup *)g_node_new (first);
 		g_node_insert_before ((GNode *)group, NULL, (GNode *)child);
 	}
 
@@ -931,7 +931,7 @@ AnjutaToken *anjuta_token_group_new (AnjutaTokenType type, AnjutaToken* first)
 }
 
 void
-anjuta_token_group_free (AnjutaToken *token)
+anjuta_token_group_free (AnjutaTokenGroup *token)
 {
 	if (token == NULL) return;
 

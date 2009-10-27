@@ -1039,7 +1039,7 @@ project_reload_packages   (AmpProject *project)
 		arg = anjuta_token_next_sibling (arg);	/* Separator */
 
 		arg = anjuta_token_next_sibling (arg);	/* Package list */
-		scanner = amp_ac_scanner_new ();
+		scanner = amp_ac_scanner_new (project);
 		fprintf (stdout, "\nParse list\n");
 		anjuta_token_dump (arg);
 		arg = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
@@ -1139,7 +1139,7 @@ project_list_config_files (AmpProject *project)
 
 		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_INTO, sequence, &sequence)) break;
 		arg = anjuta_token_next_child (sequence);	/* List */
-		if (scanner == NULL) scanner = amp_ac_scanner_new ();
+		if (scanner == NULL) scanner = amp_ac_scanner_new (project);
 		arg = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		amp_project_add_config_files (project, arg);
 		sequence = anjuta_token_next_sibling (sequence);
@@ -1156,7 +1156,7 @@ project_list_config_files (AmpProject *project)
 
 		if (!anjuta_token_match (config_files_tok, ANJUTA_SEARCH_INTO, sequence, &sequence)) break;
 		arg = anjuta_token_next_child (sequence);	/* List */
-		if (scanner == NULL) scanner = amp_ac_scanner_new ();
+		if (scanner == NULL) scanner = amp_ac_scanner_new (project);
 		arg = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		amp_project_add_config_files (project, arg);
 		sequence = anjuta_token_next_sibling (sequence);
@@ -1615,7 +1615,7 @@ amp_project_reload (AmpProject *project, GError **error)
 	g_hash_table_insert (project->files, configure_file, project->configure_file);
 	g_object_add_toggle_ref (G_OBJECT (project->configure_file), remove_config_file, project);
 	arg = anjuta_token_file_load (project->configure_file, NULL);
-	scanner = amp_ac_scanner_new ();
+	scanner = amp_ac_scanner_new (project);
 	project->configure_token = amp_ac_scanner_parse_token (scanner, anjuta_token_next_child (arg), 0, &err);
 	amp_ac_scanner_free (scanner);
 	if (project->configure_token == NULL)
@@ -1740,6 +1740,26 @@ amp_project_probe (GFile *file,
 
 	return probe ? IANJUTA_PROJECT_PROBE_PROJECT_FILES : 0;
 }
+
+gboolean
+amp_project_get_token_location (AmpProject *project, AnjutaTokenFileLocation *location, AnjutaToken *token)
+{
+	GHashTableIter iter;
+	gpointer key;
+	gpointer value;
+
+	g_hash_table_iter_init (&iter, project->files);
+	while (g_hash_table_iter_next (&iter, &key, &value))
+	{
+		if (anjuta_token_file_get_token_location ((AnjutaTokenFile *)value, location, token))
+		{
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
 
 AmpGroup* 
 amp_project_add_group (AmpProject  *project,

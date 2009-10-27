@@ -26,15 +26,11 @@
 
 #include "libanjuta/anjuta-debug.h"
 
-//static void amp_ac_yyerror (YYLTYPE *loc, void *scanner, char const *s);
-
-//amp_ac_yydebug = 1;
-
+/* Token location is found directly from token value, there is no need to
+ * maintain a separate location variable */
+#define YYLLOC_DEFAULT(Current, Rhs, N)	((Current) = YYRHSLOC(Rhs, (N) ? 1 : 0))
 %}
 
-/*%union {
-	AnjutaToken *token;
-}*/
 
 %token  EOL '\n'
 
@@ -60,6 +56,8 @@
 %token  JUNK
 
 %token  START_SPACE_LIST
+%token FIRST_PASS
+%token SECOND_PASS
 
 %left   ARG
 %left   EMPTY
@@ -99,6 +97,7 @@
 %define api.push_pull "push"
 
 %parse-param {AmpAcScanner* scanner}
+%parse-param {AnjutaToken** last}
 %lex-param   {AmpAcScanner* scanner}
 
 %name-prefix="amp_ac_yy"
@@ -111,7 +110,7 @@
 
 
 %{
-static void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s);
+static void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, AnjutaToken **last, char const *s);
 
 %}
 
@@ -119,13 +118,23 @@ static void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s);
 %%
 
 input:
-    START_SPACE_LIST space_list
-    | file
+    FIRST_PASS first_pass
+    | SECOND_PASS second_pass
+    | START_SPACE_LIST space_list
     ;
 
-file:
+first_pass:
+    all_token
+    | EOL
+    | first_pass all_token
+    | first_pass EOL {
+        *last = $2;
+    }
+    ;    
+
+second_pass:
     /* empty */
-	| file statement
+	| second_pass statement
 	;
    
 statement:
@@ -163,15 +172,15 @@ macro:
 space_list:
     /* empty */
     | space_list_body
-    | space_list_body spaces
+    | space_list_body old_spaces
     ;
 
 space_list_body:
     item
-    | spaces item {
+    | old_spaces item {
         anjuta_token_set_type ($1, ANJUTA_TOKEN_NEXT);
     }
-    | space_list_body spaces item {
+    | space_list_body old_spaces item {
         anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
     }
     ;
@@ -213,7 +222,7 @@ dnl:
     
 
 pkg_check_modules:
-    PKG_CHECK_MODULES arg_list {
+    PKG_CHECK_MODULES old_arg_list {
         anjuta_token_set_type ($1, AC_TOKEN_PKG_CHECK_MODULES);
         $$ = anjuta_token_group ($1, $2);
     }
@@ -235,7 +244,7 @@ ac_macro_with_arg:
 	;
 
 ac_init:
-    AC_INIT arg_list {
+    AC_INIT old_arg_list {
         anjuta_token_set_type ($1, AC_TOKEN_AC_INIT);
         $$ = anjuta_token_group ($1, $2);
     }
@@ -247,7 +256,7 @@ ac_output:
 	;
 
 obsolete_ac_output:
-    OBSOLETE_AC_OUTPUT  arg_list {
+    OBSOLETE_AC_OUTPUT  old_arg_list {
         g_message ("get AC_OUTPUT");
         anjuta_token_set_type ($1, AC_TOKEN_OBSOLETE_AC_OUTPUT);
         $$ = anjuta_token_group ($1, $2);
@@ -255,7 +264,7 @@ obsolete_ac_output:
 	;
 	
 ac_config_files:
-    AC_CONFIG_FILES  arg_list {
+    AC_CONFIG_FILES  old_arg_list {
         anjuta_token_set_type ($1, AC_TOKEN_AC_CONFIG_FILES);
         $$ = anjuta_token_group ($1, $2);
     }
@@ -279,6 +288,23 @@ arg_list:
 arg_list_body:
     arg
     | arg_list_body  separator  arg
+    ;
+
+old_arg_list:
+    old_arg_list_body  RIGHT_PAREN {
+        anjuta_token_set_type ($2, ANJUTA_TOKEN_LAST);
+        $$ = $2;
+    }
+    | old_spaces  old_arg_list_body  RIGHT_PAREN {
+        anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
+        anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
+        $$ = $3;
+    }
+    ;
+
+old_arg_list_body:
+    old_arg
+    | old_arg_list_body  old_separator  old_arg
     ;
     
 comment:
@@ -388,11 +414,58 @@ arg_part:
     | WORD
     ;
 
+old_arg:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | old_arg_part old_arg_body {
+        $$ = anjuta_token_new_group (ANJUTA_TOKEN_ARGUMENT, $1);
+        if ($2 != NULL) anjuta_token_group ($$, $2);
+    }        
+    ;
+
+old_arg_body:
+    /* empty */ {
+        $$ = NULL;
+    }
+    | old_arg_body old_arg_part_or_space {
+        $$ = $2;
+    }
+    ;
+
+old_arg_part_or_space:
+    space_token
+    | old_arg_part
+    ;
+
+old_arg_part:
+    arg_string
+    | expression
+    | macro
+    | HASH
+    | EQUAL
+    | LOWER
+    | GREATER
+    | NAME
+    | VARIABLE
+    | WORD
+    ;
+
 separator:
     COMMA {
         $$ = anjuta_token_new_group (ANJUTA_TOKEN_NEXT, $1);
     }
     | COMMA spaces {
+        $$ = anjuta_token_new_group (ANJUTA_TOKEN_NEXT, $1);
+        anjuta_token_group ($$, $2);
+    }
+    ;
+
+old_separator:
+    COMMA {
+        $$ = anjuta_token_new_group (ANJUTA_TOKEN_NEXT, $1);
+    }
+    | COMMA old_spaces {
         $$ = anjuta_token_new_group (ANJUTA_TOKEN_NEXT, $1);
         anjuta_token_group ($$, $2);
     }
@@ -433,12 +506,27 @@ spaces:
 	}
 	;
 
+old_spaces:
+	space_token
+	| old_spaces space_token {
+        anjuta_token_group ($$, $2);
+	}
+	| old_spaces JUNK {
+        anjuta_token_group ($$, $2);
+	}
+	;
+
 /* Tokens
  *----------------------------------------------------------------------------*/
 
 not_eol_token:
     SPACE
     | word_token    
+    ;
+
+all_token:
+    SPACE
+    | word_token
     ;
 
 not_brace_token:
@@ -510,18 +598,15 @@ any_macro:
     | DNL
     | OBSOLETE_AC_OUTPUT
     | PKG_CHECK_MODULES
+    | AC_INIT
     ;
 
 %%
     
 static void
-amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s)
+amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, AnjutaToken **last, char const *s)
 {
-    gchar *filename;
-
-	g_message ("scanner %p", scanner);
-    filename = "?";
-    g_message ("%s (%d:%d-%d:%d) %s\n", filename, loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
+    amp_ac_scanner_yyerror (loc, scanner, s);
 }
 
 /* Public functions
