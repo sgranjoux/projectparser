@@ -1008,6 +1008,135 @@ project_reload_property (AmpProject *project)
 	return TRUE;                                       
 }
 
+void
+amp_project_load_module (AmpProject *project, AnjutaTokenGroup *module)
+{
+	AmpAcScanner *scanner = NULL;
+
+	if (module != NULL)
+	{
+		AnjutaTokenGroup *arg;
+		AnjutaToken *list;
+		AnjutaToken *item;
+		gchar *value;
+		AmpModule *mod;
+		AmpPackage *pack;
+		gchar *compare;
+
+
+		/* Module name */
+		arg = anjuta_token_group_first (module);
+		value = anjuta_token_group_evaluate (arg);
+		mod = amp_module_new (arg);
+		mod->packages = NULL;
+		g_hash_table_insert (project->modules, value, mod);
+
+		/* Package list */
+		arg = anjuta_token_group_next (arg);
+		scanner = amp_ac_scanner_new (project);
+		fprintf (stdout, "\nParse list\n");
+		
+        list = anjuta_token_group_into_token (arg);
+        anjuta_token_set_type (list, ANJUTA_TOKEN_CONTENT);
+		anjuta_token_dump (list);
+		list = amp_ac_scanner_parse_token (scanner, list, AC_SPACE_LIST_STATE, NULL);
+		amp_ac_scanner_free (scanner);
+		
+		pack = NULL;
+		compare = NULL;
+		for (item = anjuta_token_next_child (list); item != NULL; item = anjuta_token_next_sibling (item))
+		{
+			switch (anjuta_token_get_type (item))
+			{
+				case ANJUTA_TOKEN_START:
+				case ANJUTA_TOKEN_NEXT:
+				case ANJUTA_TOKEN_LAST:
+				case ANJUTA_TOKEN_JUNK:
+					continue;
+				default:
+					break;
+			}
+			
+			value = anjuta_token_evaluate (item);
+			if (value == NULL) continue;		/* Empty value, a comment of a quote by example */
+
+			if ((pack != NULL) && (compare != NULL))
+			{
+				amp_package_set_version (pack, compare, value);
+				g_free (value);
+				g_free (compare);
+				pack = NULL;
+				compare = NULL;
+			}
+			else if ((pack != NULL) && (anjuta_token_get_type (item) == ANJUTA_TOKEN_OPERATOR))
+			{
+				compare = value;
+			}
+			else
+			{
+				pack = amp_package_new (value);
+				mod->packages = g_list_prepend (mod->packages, pack);
+				g_free (value);
+				compare = NULL;
+			}
+		}
+		mod->packages = g_list_reverse (mod->packages);
+	}
+}
+
+void
+amp_project_load_config (AmpProject *project, AnjutaTokenGroup *arg_list)
+{
+	AmpAcScanner *scanner = NULL;
+
+	if (arg_list != NULL)
+	{
+		AnjutaTokenGroup *arg;
+		AnjutaToken *list;
+		AnjutaToken *item;
+		gchar *value;
+		AmpModule *mod;
+		AmpPackage *pack;
+		gchar *compare;
+
+		/* File list */
+		scanner = amp_ac_scanner_new (project);
+		fprintf (stdout, "\nParse list\n");
+		
+		arg = anjuta_token_group_first (arg_list);
+        list = anjuta_token_group_into_token (arg);
+        anjuta_token_set_type (list, ANJUTA_TOKEN_CONTENT);
+		anjuta_token_dump (list);
+		list = amp_ac_scanner_parse_token (scanner, list, AC_SPACE_LIST_STATE, NULL);
+		amp_ac_scanner_free (scanner);
+		
+		for (item = anjuta_token_next_child (list); item != NULL; item = anjuta_token_next_sibling (item))
+		{
+			gchar *value;
+			AmpConfigFile *cfg;
+	
+			switch (anjuta_token_get_type (item))
+			{
+				case ANJUTA_TOKEN_START:
+				case ANJUTA_TOKEN_NEXT:
+				case ANJUTA_TOKEN_LAST:
+				case ANJUTA_TOKEN_JUNK:
+					continue;
+				default:
+					break;
+			}
+			
+			value = anjuta_token_evaluate (item);
+			if (value == NULL) continue;
+		
+			cfg = amp_config_file_new (value, project->root_file, item);
+			g_hash_table_insert (project->configs, cfg->file, cfg);
+			g_free (value);
+		}
+	}
+}
+
+
 static void
 project_reload_packages   (AmpProject *project)
 {
@@ -1587,6 +1716,7 @@ amp_project_reload (AmpProject *project, GError **error)
 	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
 	project->configs = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, amp_config_file_free);
+	amp_project_new_module_hash (project);
 
 	/* Initialize list styles */
 	project->space_list = anjuta_token_style_new (NULL, " ", "\\n", NULL, 0);
@@ -1631,12 +1761,10 @@ amp_project_reload (AmpProject *project, GError **error)
 	monitors_setup (project);
 
 	project_reload_property (project);
-	
-	amp_project_new_module_hash (project);
-	project_reload_packages (project);
+	//project_reload_packages (project);
+	//project_list_config_files (project);
 	
 	/* Load all makefiles recursively */
-	project_list_config_files (project);
 	if (project_load_makefile (project, project->root_file, NULL, FALSE) == NULL)
 	{
 		g_set_error (error, IANJUTA_PROJECT_ERROR, 

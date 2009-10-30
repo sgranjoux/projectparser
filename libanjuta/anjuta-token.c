@@ -891,6 +891,30 @@ AnjutaToken *anjuta_token_group_into_token (AnjutaTokenGroup *group)
 	return copy;
 }
 
+gchar *
+anjuta_token_group_evaluate (AnjutaTokenGroup *group)
+{
+	GString *value = g_string_new (NULL);
+	gchar *str;
+	gboolean raw = TRUE;
+
+	if (group != NULL)
+	{
+		AnjutaTokenGroup *child;
+		
+		for (child = anjuta_token_group_first (group); child != NULL; child = anjuta_token_group_next (child))
+		{
+			AnjutaToken *token = anjuta_token_group_get_token (child);
+			
+			anjuta_token_evaluate_token (token, value, raw);
+			if (token->children) anjuta_token_evaluate_child (token->children, value, raw);
+		}
+	}
+
+	str = g_string_free (value, FALSE);
+	return *str == '\0' ? NULL : str; 	
+}
+
 static void
 anjuta_token_group_dump_child (AnjutaTokenGroup *group, gint indent)
 {

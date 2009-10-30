@@ -352,6 +352,18 @@ amp_ac_scanner_parse_end (AmpAcScanner *scanner)
 /* Public functions
  *---------------------------------------------------------------------------*/
 
+void
+amp_ac_scanner_load_module (AmpAcScanner *scanner, AnjutaTokenGroup *module)
+{
+    amp_project_load_module (scanner->project, module);
+}
+
+void
+amp_ac_scanner_load_config (AmpAcScanner *scanner, AnjutaTokenGroup *list)
+{
+    amp_project_load_config (scanner->project, list);
+}
+
 AnjutaToken *
 amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint start, GError **error)
 {
@@ -387,7 +399,7 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
     else
     {
         amp_ac_yypstate *ps1;
-        amp_ac_yypstate *ps2;
+        //amp_ac_yypstate *ps2;
         gint status;
         YYSTYPE yylval_param;
         YYLTYPE yylloc_param;
@@ -401,18 +413,17 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
         scanner->buffer = buffer;
 
         ps1 = amp_ac_yypstate_new ();
-        ps2 = amp_ac_yypstate_new ();
+        //ps2 = amp_ac_yypstate_new ();
         yylval_param = NULL;
         yylloc_param = NULL;
-        amp_ac_yypush_parse (ps1, FIRST_PASS, &yylval_param, &yylloc_param, scanner, NULL);
+        //amp_ac_yypush_parse (ps1, FIRST_PASS, &yylval_param, &yylloc_param, scanner, NULL);
         switch (start)
         {
         case AC_SPACE_LIST_STATE:
-            amp_ac_yypush_parse (ps2, START_SPACE_LIST, &yylval_param, &yylloc_param, scanner, NULL);
+            amp_ac_yypush_parse (ps1, START_SPACE_LIST, &yylval_param, &yylloc_param, scanner, NULL);
             yy_push_state (SPACE_LIST, scanner->scanner);
             break;
         default:
-	        amp_ac_yypush_parse (ps2, SECOND_PASS, &yylval_param, &yylloc_param, scanner, NULL);
             break;
         }
         
@@ -425,7 +436,8 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
         
             yylloc_param = yylval_param;
             status = amp_ac_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner, &last);
- 
+
+            #if 0 
             if ((status == 0) || (last != NULL))
             {
                 //printf ("\n: ");
@@ -457,9 +469,10 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
         
                 last = NULL;
             }
+            #endif
         } while (status == YYPUSH_MORE);
         amp_ac_yypstate_delete (ps1);
-        amp_ac_yypstate_delete (ps2);
+        //amp_ac_yypstate_delete (ps2);
 
         return buffer->first;
     }

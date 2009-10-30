@@ -185,6 +185,7 @@ AnjutaTokenGroup *anjuta_token_group_append (AnjutaTokenGroup *parent, AnjutaTok
 AnjutaTokenGroup *anjuta_token_group_append_token (AnjutaTokenGroup *parent, AnjutaToken *token);
 AnjutaTokenGroup *anjuta_token_group_append_children (AnjutaTokenGroup *parent, AnjutaTokenGroup *children);
 AnjutaTokenGroup *anjuta_token_group_new (AnjutaTokenType type, AnjutaTokenGroup* first);
+gchar *anjuta_token_group_evaluate (AnjutaTokenGroup *group);
 void anjuta_token_group_free (AnjutaTokenGroup *group);
 
 
