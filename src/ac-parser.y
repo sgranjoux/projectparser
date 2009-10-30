@@ -234,9 +234,8 @@ ac_macro_with_arg:
 	;
 
 ac_init:
-    AC_INIT old_arg_list {
-        anjuta_token_set_type ($1, AC_TOKEN_AC_INIT);
-        $$ = anjuta_token_group ($1, $2);
+    AC_INIT arg_list {
+        amp_ac_scanner_load_properties (scanner, $2);
     }
 
 ac_output:

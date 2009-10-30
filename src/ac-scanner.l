@@ -364,6 +364,12 @@ amp_ac_scanner_load_config (AmpAcScanner *scanner, AnjutaTokenGroup *list)
     amp_project_load_config (scanner->project, list);
 }
 
+void
+amp_ac_scanner_load_properties (AmpAcScanner *scanner, AnjutaTokenGroup *list)
+{
+    amp_project_load_properties (scanner->project, list);
+}
+
 AnjutaToken *
 amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint start, GError **error)
 {
