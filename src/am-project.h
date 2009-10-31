@@ -119,6 +119,7 @@ const gchar *amp_target_get_name (AmpTarget *target);
 AnjutaProjectTargetType amp_target_get_type (AmpTarget *target);
 gchar *amp_target_get_id (AmpTarget *target);
 
+void amp_source_free (AmpSource *node);
 gchar *amp_source_get_id (AmpSource *source);
 GFile *amp_source_get_file (AmpSource *source);
 

@@ -32,7 +32,7 @@
 
 #define YY_INPUT(buf, result, max_size) result = amp_am_scanner_input (yyextra, buf, max_size)
 
-#define YY_USER_ACTION amp_update_location(yylloc, yytext, yyleng);
+//#define YY_USER_ACTION amp_update_location(yylloc, yytext, yyleng);
     
 #define YY_EXTRA_TYPE  AmpAmScanner*
 
@@ -174,6 +174,10 @@ struct _AmpAmScanner
     yyscan_t scanner;
 
 	AmpAmBuffer *buffer;
+
+    AmpProject *project;
+    AmpGroup *group;
+	GHashTable *orphan_sources;
 };
 
 /* Private functions
@@ -259,26 +263,21 @@ amp_am_scanner_append_lex_token (AmpAmScanner *scanner, gint token)
     return frag;
 }
 
-static void
-amp_update_location (YYLTYPE *loc, const gchar *text, gint length)
+void
+amp_am_scanner_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s)
 {
-	const gchar *ptr;
-	const gchar *end = text + length;
+    AnjutaTokenFileLocation location;
+    gboolean found;
 
-    loc->first_line = loc->last_line;
-    loc->first_column = loc->last_column + 1;
-
-	for (ptr = text; ptr != end; ptr++)
-	{
-		if (*ptr == '\n')
-		{
-			loc->last_column = 0;
-			loc->last_line++;
-			length -= (ptr + 1 - text);
-		}
-	}
-
-	loc->last_column += length;
+    if (amp_project_get_token_location (scanner->project, &location, *loc))
+    {
+        g_message ("%s:%d.%d %s\n", location.filename, location.line, location.column, s);
+        g_free (location.filename);
+    }
+    else
+    {
+        g_message ("%s \n", s);
+    }
 }
 
 static gint
@@ -359,6 +358,13 @@ amp_am_scanner_parse_end (AmpAmScanner *scanner)
 /* Public functions
  *---------------------------------------------------------------------------*/
 
+void
+amp_am_scanner_set_am_variable (AmpAmScanner *scanner, AnjutaTokenType variable, AnjutaToken *name, AnjutaTokenGroup *list)
+{
+    amp_project_set_am_variable (scanner->project, scanner->group, variable, name, list, scanner->orphan_sources);
+}
+
+
 AnjutaToken *
 amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **error)
 {
@@ -421,16 +427,28 @@ amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **
     }
 }
 
-
 /* Constructor & Destructor
  *---------------------------------------------------------------------------*/
 
+static void
+free_source_list (GList *source_list)
+{
+	g_list_foreach (source_list, (GFunc)amp_source_free, NULL);
+	g_list_free (source_list);
+}
+
 AmpAmScanner *
-amp_am_scanner_new (void)
+amp_am_scanner_new (AmpProject *project, AmpGroup *group)
 {
 	AmpAmScanner *scanner;
 
 	scanner = g_new0 (AmpAmScanner, 1);
+
+    scanner->project = project;
+    scanner->group = group;
+
+	/* Create hash table for sources list */
+	scanner->orphan_sources = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify)g_free, (GDestroyNotify)free_source_list);
 
     yylex_init(&scanner->scanner);
     yyset_extra (scanner, scanner->scanner);
@@ -445,6 +463,9 @@ amp_am_scanner_free (AmpAmScanner *scanner)
 
     //if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
     yylex_destroy(scanner->scanner);
+
+	/* Free unused sources files */
+	g_hash_table_destroy (scanner->orphan_sources);
 
 	g_free (scanner);
 }

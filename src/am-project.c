@@ -808,7 +808,7 @@ amp_source_new (GFile *file)
     return g_node_new (source);
 }
 
-static void
+void
 amp_source_free (AmpSource *node)
 {
     AmpSourceData *source = AMP_SOURCE_DATA (node);
@@ -1161,19 +1161,19 @@ find_canonical_target (AnjutaProjectTarget *node, gpointer data)
 }
 
 static AnjutaToken*
-project_load_target (AmpProject *project, AnjutaToken *start, AnjutaProjectGroup *parent, GHashTable *orphan_sources)
+project_load_target (AmpProject *project, AnjutaToken *name, AnjutaTokenGroup *list, AnjutaProjectGroup *parent, GHashTable *orphan_sources)
 {
-	AnjutaToken *arg;
+	AnjutaTokenGroup *arg;
 	AnjutaProjectTargetType type = NULL;
 	gchar *install;
-	gchar *name;
+	gchar *value;
 	gint flags;
 	AmpTargetInformation *targets = AmpTargetTypes; 
 
 	type = (AnjutaProjectTargetType)targets;
 	while (targets->base.name != NULL)
 	{
-		if (anjuta_token_get_type (start) == targets->token)
+		if (anjuta_token_get_type (name) == targets->token)
 		{
 			type = (AnjutaProjectTargetType)targets;
 			break;
@@ -1181,20 +1181,13 @@ project_load_target (AmpProject *project, AnjutaToken *start, AnjutaProjectGroup
 		targets++;
 	}
 
-	name = anjuta_token_get_value (start);
-	split_automake_variable (name, &flags, &install, NULL);
-	g_free (name);
+	value = anjuta_token_evaluate (name);
+	split_automake_variable (value, &flags, &install, NULL);
+	g_free (value);
 
-	amp_group_add_token (parent, start, AM_GROUP_TARGET);
+	amp_group_add_token (parent, name, AM_GROUP_TARGET);
 	
-	arg = anjuta_token_next_sibling (start);		/* Get variable data */
-	if (arg == NULL) return NULL;
-	if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) arg = anjuta_token_next_sibling (arg); /* Skip space */
-	if (arg == NULL) return NULL;
-	arg = anjuta_token_next_sibling (arg);			/* Skip equal */
-	if (arg == NULL) return NULL;
-
-	for (arg = anjuta_token_next_child (arg); arg != NULL; arg = anjuta_token_next_sibling (arg))
+	for (arg = anjuta_token_group_first (list); arg != NULL; arg = anjuta_token_group_next (arg))
 	{
 		gchar *value;
 		gchar *canon_id;
@@ -1203,9 +1196,7 @@ project_load_target (AmpProject *project, AnjutaToken *start, AnjutaProjectGroup
 		gchar *orig_key;
 		gpointer find;
 
-		if ((anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) || (anjuta_token_get_type (arg) == ANJUTA_TOKEN_COMMENT)) continue;
-			
-		value = anjuta_token_evaluate (arg);
+		value = anjuta_token_group_evaluate (arg);
 		canon_id = canonicalize_automake_variable (value);		
 		
 		/* Check if target already exists */
@@ -1248,15 +1239,15 @@ project_load_target (AmpProject *project, AnjutaToken *start, AnjutaProjectGroup
 }
 
 static AnjutaToken*
-project_load_sources (AmpProject *project, AnjutaToken *start, AnjutaProjectGroup *parent, GHashTable *orphan_sources)
+project_load_sources (AmpProject *project, AnjutaToken *name, AnjutaTokenGroup *list, AnjutaProjectGroup *parent, GHashTable *orphan_sources)
 {
-	AnjutaToken *arg;
+	AnjutaTokenGroup *arg;
 	AmpGroupData *group = AMP_GROUP_DATA (parent);
 	GFile *parent_file = g_object_ref (group->base.directory);
 	gchar *target_id = NULL;
 	GList *orphan = NULL;
 
-	target_id = anjuta_token_get_value (start);
+	target_id = anjuta_token_evaluate (name);
 	if (target_id)
 	{
 		gchar *end = strrchr (target_id, '_');
@@ -1275,22 +1266,13 @@ project_load_sources (AmpProject *project, AnjutaToken *start, AnjutaProjectGrou
 		anjuta_project_node_children_foreach (parent, find_canonical_target, &find);
 		parent = (gchar *)find != target_id ? (AnjutaProjectTarget *)find : NULL;
 
-		arg = anjuta_token_next_sibling (start);		/* Get variable data */
-		if (arg == NULL) return NULL;
-		if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) arg = anjuta_token_next_sibling (arg); /* Skip space */
-		if (arg == NULL) return NULL;
-		arg = anjuta_token_next_sibling (arg);			/* Skip equal */
-		if (arg == NULL) return NULL;
-
-		for (arg = anjuta_token_next_child (arg); arg != NULL; arg = anjuta_token_next_sibling (arg))
+		for (arg = anjuta_token_group_first (list); arg != NULL; arg = anjuta_token_group_next (arg))
 		{
 			gchar *value;
 			AmpSource *source;
 			GFile *src_file;
 		
-			if ((anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) || (anjuta_token_get_type (arg) == ANJUTA_TOKEN_COMMENT)) continue;
-			
-			value = anjuta_token_evaluate (arg);
+			value = anjuta_token_group_evaluate (arg);
 
 			/* Create source */
 			src_file = g_file_get_child (parent_file, value);
@@ -1340,24 +1322,15 @@ project_load_sources (AmpProject *project, AnjutaToken *start, AnjutaProjectGrou
 static AmpGroup* project_load_makefile (AmpProject *project, GFile *file, AmpGroup *parent, gboolean dist_only);
 
 static void
-project_load_subdirs (AmpProject *project, AnjutaToken *start, AmpGroup *parent, gboolean dist_only)
+project_load_subdirs (AmpProject *project, AnjutaTokenGroup *list, AmpGroup *parent, gboolean dist_only)
 {
-	AnjutaToken *arg;
+	AnjutaTokenGroup *arg;
 
-	arg = anjuta_token_next_sibling (start);		/* Get variable data */
-	if (arg == NULL) return;
-	if (anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) arg = anjuta_token_next_sibling (arg); /* Skip space */
-	if (arg == NULL) return;
-	arg = anjuta_token_next_sibling (arg);			/* Skip equal */
-	if (arg == NULL) return;
-
-	for (arg = anjuta_token_next_child (arg); arg != NULL; arg = anjuta_token_next_sibling (arg))
+	for (arg = anjuta_token_group_first (list); arg != NULL; arg = anjuta_token_group_next (arg))
 	{
 		gchar *value;
 		
-		if ((anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) || (anjuta_token_get_type (arg) == ANJUTA_TOKEN_COMMENT)) continue;
-			
-		value = anjuta_token_evaluate (arg);
+		value = anjuta_token_group_evaluate (arg);
 		
 		/* Skip ., it is a special case, used to defined build order */
 		if (strcmp (value, ".") != 0)
@@ -1391,13 +1364,6 @@ project_load_subdirs (AmpProject *project, AnjutaToken *start, AmpGroup *parent,
 }
 
 static void
-free_source_list (GList *source_list)
-{
-	g_list_foreach (source_list, (GFunc)amp_source_free, NULL);
-	g_list_free (source_list);
-}
-
-static void
 remove_config_file (gpointer data, GObject *object, gboolean is_last_ref)
 {
 	if (is_last_ref)
@@ -1410,11 +1376,11 @@ remove_config_file (gpointer data, GObject *object, gboolean is_last_ref)
 static AmpGroup*
 project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *parent, gboolean dist_only)
 {
-	GHashTable *orphan_sources = NULL;
+	//GHashTable *orphan_sources = NULL;
 	const gchar **filename;
 	AmpAmScanner *scanner;
 	AmpGroup *group;
-	AnjutaToken *significant_tok;
+	//AnjutaToken *significant_tok;
 	AnjutaToken *arg;
 	AnjutaTokenFile *tfile;
 	GFile *makefile = NULL;
@@ -1471,17 +1437,18 @@ project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *par
 	tfile = amp_group_set_makefile (group, makefile);
 	g_hash_table_insert (project->files, makefile, tfile);
 	g_object_add_toggle_ref (G_OBJECT (tfile), remove_config_file, project);
-	scanner = amp_am_scanner_new ();
+	scanner = amp_am_scanner_new (project, group);
 	arg = anjuta_token_file_load (tfile, NULL);
 	arg = amp_am_scanner_parse_token (scanner, anjuta_token_next_child (arg), NULL);
 	amp_am_scanner_free (scanner);
 
 	/* Find significant token */
-	significant_tok = anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT, NULL);
+	//significant_tok = anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT, NULL);
 	
 	//arg = anjuta_token_file_first (AMP_GROUP_DATA (group)->tfile);
 	//anjuta_token_old_dump_range (arg, NULL);
 
+#if 0
 	/* Create hash table for sources list */
 	orphan_sources = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify)g_free, (GDestroyNotify)free_source_list);
 	
@@ -1518,8 +1485,42 @@ project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *par
 
 	/* Free unused sources files */
 	g_hash_table_destroy (orphan_sources);
-
+#endif
+	
 	return group;
+}
+
+void
+amp_project_set_am_variable (AmpProject* project, AmpGroup* group, AnjutaTokenType variable, AnjutaToken *name, AnjutaTokenGroup *list, GHashTable *orphan_sources)
+{
+	
+	switch (variable)
+	{
+	case AM_TOKEN_SUBDIRS:
+		project_load_subdirs (project, list, group, FALSE);
+		break;
+	case AM_TOKEN_DIST_SUBDIRS:
+		project_load_subdirs (project, list, group, TRUE);
+		break;
+	case AM_TOKEN__DATA:
+	case AM_TOKEN__HEADERS:
+	case AM_TOKEN__LIBRARIES:
+	case AM_TOKEN__LISP:
+	case AM_TOKEN__LTLIBRARIES:
+	case AM_TOKEN__MANS:
+	case AM_TOKEN__PROGRAMS:
+	case AM_TOKEN__PYTHON:
+	case AM_TOKEN__JAVA:
+	case AM_TOKEN__SCRIPTS:
+	case AM_TOKEN__TEXINFOS:
+		project_load_target (project, name, list, group, orphan_sources);
+		break;
+	case AM_TOKEN__SOURCES:
+		project_load_sources (project, name, list, group, orphan_sources);
+		break;
+	default:
+		break;
+	}
 }
 
 /* Public functions

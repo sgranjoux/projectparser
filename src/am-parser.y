@@ -18,13 +18,16 @@
  */
 %{
 
-#include <am-scanner.h>
+#include "am-scanner.h"
 #include "am-parser.h"
 
 #include <stdlib.h>
 
 #define YYDEBUG 1
 
+/* Token location is found directly from token value, there is no need to
+ * maintain a separate location variable */
+#define YYLLOC_DEFAULT(Current, Rhs, N)	((Current) = YYRHSLOC(Rhs, (N) ? 1 : 0))
 %}
 
 /* Defining an union allow to use 2 protocol blocks (enclosed by %{ %}) which
@@ -93,6 +96,7 @@
 //amp_am_yydebug = 1;
 
 static void amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s);
+static gint amp_am_automake_variable (AnjutaToken *token);
 
 %}
 
@@ -137,10 +141,7 @@ commands:
 		
 am_variable:
 	automake_token space_list_value {
-		$$ = anjuta_token_merge (
-			anjuta_token_insert_before ($1,
-					anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT, NULL)),
-			$2);
+		amp_am_scanner_set_am_variable (scanner, amp_am_automake_variable ($1), $1, $2);
 	}
 	| automake_token optional_space equal_token optional_space
 	;
@@ -152,20 +153,16 @@ space_list_value: optional_space  equal_token   value_list  {
 
 value_list:
 	optional_space strip_value_list optional_space {
-		if ($1) anjuta_token_merge_previous ($2, $1);
-		if ($3) anjuta_token_merge ($2, $3);
 		$$ = $2;
 	}
 		
 strip_value_list:
 	value {
-		$$ = anjuta_token_merge (
-			anjuta_token_insert_before ($1,
-					anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL)),
-			$1);
+		$$ = anjuta_token_group_new (ANJUTA_TOKEN_LIST, NULL);
+		anjuta_token_group_append ($$, $1);
 	}
 	| strip_value_list  space  value {
-		anjuta_token_merge ($1, $3);
+		anjuta_token_group_append ($$, $3);
 	}
 	;
 
@@ -223,9 +220,12 @@ target:
 	;
 		
 value:
-	value_token
+	value_token {
+		$$ = anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL);
+		anjuta_token_group_append_token ($$, $1);
+	}
 	| value value_token {
-		anjuta_token_merge ($1, $2);
+		anjuta_token_group_append_token ($1, $2);
 	}
 	;
 
@@ -304,20 +304,20 @@ name_token:
 	;
 		
 automake_token:
-    SUBDIRS {anjuta_token_set_type ($1, AM_TOKEN_SUBDIRS);}
-    | DIST_SUBDIRS {anjuta_token_set_type ($1, AM_TOKEN_DIST_SUBDIRS);}
-    | _DATA {anjuta_token_set_type ($1, AM_TOKEN__DATA);}
-    | _HEADERS {anjuta_token_set_type ($1, AM_TOKEN__HEADERS);}
-    | _LIBRARIES {anjuta_token_set_type ($1, AM_TOKEN__LIBRARIES);}
-    | _LISP {anjuta_token_set_type ($1, AM_TOKEN__LISP);}
-    | _LTLIBRARIES {anjuta_token_set_type ($1, AM_TOKEN__LTLIBRARIES);}
-    | _MANS {anjuta_token_set_type ($1, AM_TOKEN__MANS);}
-    | _PROGRAMS {anjuta_token_set_type ($1, AM_TOKEN__PROGRAMS);}
-    | _PYTHON {anjuta_token_set_type ($1, AM_TOKEN__PYTHON);}
-    | _JAVA {anjuta_token_set_type ($1, AM_TOKEN__JAVA);}
-    | _SCRIPTS {anjuta_token_set_type ($1, AM_TOKEN__SCRIPTS);}
-    | _SOURCES {anjuta_token_set_type ($1, AM_TOKEN__SOURCES);}
-    | _TEXINFOS {anjuta_token_set_type ($1, AM_TOKEN__TEXINFOS);}
+    SUBDIRS
+    | DIST_SUBDIRS
+    | _DATA
+    | _HEADERS
+    | _LIBRARIES
+    | _LISP
+    | _LTLIBRARIES
+    | _MANS
+    | _PROGRAMS
+    | _PYTHON
+    | _JAVA
+    | _SCRIPTS
+    | _SOURCES
+    | _TEXINFOS
     ;
     
 		
@@ -326,19 +326,32 @@ automake_token:
 static void
 amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s)
 {
-    gchar *filename;
-
-	g_message ("scanner %p", scanner);
-    //filename = amp_am_scanner_get_filename ((AmpAmScanner *)scanner);
-    filename = "?";
-    g_message ("%s (%d:%d-%d:%d) %s\n", filename, loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
+    amp_am_scanner_yyerror (loc, scanner, s);
 }
-     
-/*static void
-amp_am_yyerror (YYLTYPE *loc, void *scanner, char const *s)
+
+static gint
+amp_am_automake_variable (AnjutaToken *token)
 {
-        g_message ("(%d:%d-%d:%d) %s\n", loc->first_line, loc->first_column, loc->last_line, loc->last_column, s);
-}*/
+    switch (anjuta_token_get_type (token))
+    {
+    case SUBDIRS: return AM_TOKEN_SUBDIRS;
+    case DIST_SUBDIRS: return AM_TOKEN_DIST_SUBDIRS;
+    case _DATA: return AM_TOKEN__DATA;
+    case _HEADERS: return AM_TOKEN__HEADERS;
+    case _LIBRARIES: return AM_TOKEN__LIBRARIES;
+    case _LISP: return AM_TOKEN__LISP;
+    case _LTLIBRARIES: return AM_TOKEN__LTLIBRARIES;
+    case _MANS: return AM_TOKEN__MANS;
+    case _PROGRAMS: return AM_TOKEN__PROGRAMS;
+    case _PYTHON: return AM_TOKEN__PYTHON;
+    case _JAVA: return AM_TOKEN__JAVA;
+    case _SCRIPTS: return AM_TOKEN__SCRIPTS;
+    case _SOURCES: return AM_TOKEN__SOURCES;
+    case _TEXINFOS: return AM_TOKEN__TEXINFOS;
+    default: return ANJUTA_TOKEN_NAME;
+    }
+}
+
 
 /* Public functions
  *---------------------------------------------------------------------------*/
