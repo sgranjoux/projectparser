@@ -1,9 +1,10 @@
     VARIABLE: CFLAGS =  -g -Wall
-    VARIABLE: OBJECTS =  foobar.o
+    VARIABLE: OBJECTS =  foo.o bar.o
     VARIABLE: LDFLAGS =  -Wl,-rpath,/usr/local/lib
     VARIABLE: CC =  gcc
     VARIABLE: LIBS =  
     VARIABLE: INCFLAGS =  
     GROUP (0): makefile
         TARGET (0:0): foobar
-            SOURCE (0:0:0): foobar.c
+            SOURCE (0:0:0): foo.c
+            SOURCE (0:0:1): bar.c

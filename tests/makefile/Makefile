@@ -2,7 +2,7 @@
 
 CC = gcc
 CFLAGS = -g -Wall
-OBJECTS = foobar.o
+OBJECTS = foo.o bar.o
 INCFLAGS = 
 LDFLAGS = -Wl,-rpath,/usr/local/lib
 LIBS = 

@@ -97,7 +97,6 @@
 %define api.push_pull "push"
 
 %parse-param {AmpAcScanner* scanner}
-%parse-param {AnjutaToken** last}
 %lex-param   {AmpAcScanner* scanner}
 
 %name-prefix="amp_ac_yy"
@@ -110,7 +109,7 @@
 
 
 %{
-static void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, AnjutaToken **last, char const *s);
+static void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s);
 
 %}
 
@@ -659,7 +658,7 @@ any_macro:
 %%
     
 static void
-amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, AnjutaToken **last, char const *s)
+amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s)
 {
     amp_ac_scanner_yyerror (loc, scanner, s);
 }

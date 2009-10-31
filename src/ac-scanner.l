@@ -422,11 +422,10 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
         //ps2 = amp_ac_yypstate_new ();
         yylval_param = NULL;
         yylloc_param = NULL;
-        //amp_ac_yypush_parse (ps1, FIRST_PASS, &yylval_param, &yylloc_param, scanner, NULL);
         switch (start)
         {
         case AC_SPACE_LIST_STATE:
-            amp_ac_yypush_parse (ps1, START_SPACE_LIST, &yylval_param, &yylloc_param, scanner, NULL);
+            amp_ac_yypush_parse (ps1, START_SPACE_LIST, &yylval_param, &yylloc_param, scanner);
             yy_push_state (SPACE_LIST, scanner->scanner);
             break;
         default:
@@ -438,44 +437,10 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
         do
         {
             gint yychar = ac_yylex (&yylval_param, &yylloc_param, scanner->scanner);
-            AnjutaToken *last = NULL;
         
             yylloc_param = yylval_param;
-            status = amp_ac_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner, &last);
+            status = amp_ac_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner);
 
-            #if 0 
-            if ((status == 0) || (last != NULL))
-            {
-                //printf ("\n: ");
-                for (;;)
-                {
-                    YYSTYPE yylval_param;
-                    YYLTYPE yylloc_param;
-                    gint yychar;
-                    AnjutaToken *next;
-
-                    yytok = anjuta_token_next_lex (yytok);
-                    if (yytok != NULL)
-                    {
-                        yychar = anjuta_token_get_type (yytok);
-                    }
-                    else
-                    {
-                        yychar = 0;
-                    }
-
-                    yylval_param = yytok;
-                    //printf ("2:%d (%.*s)  ", yychar, yytok == NULL ? 0 : anjuta_token_get_length (yytok), yytok == NULL ? "" : anjuta_token_evaluate (yytok));
-                    yylloc_param = yylval_param;
-                    status = amp_ac_yypush_parse (ps2, yychar, &yylval_param, &yylloc_param, scanner, NULL);
-                    if (status != YYPUSH_MORE) break;
-                    if (yytok == last) break;
-                }
-                //printf ("\n");
-        
-                last = NULL;
-            }
-            #endif
         } while (status == YYPUSH_MORE);
         amp_ac_yypstate_delete (ps1);
         //amp_ac_yypstate_delete (ps2);

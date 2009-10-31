@@ -273,7 +273,7 @@ mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable)
 }
 
 void
-mkp_scanner_yyerror (YYLTYPE *loc, MkpScanner *scanner, AnjutaToken **last, char const *s)
+mkp_scanner_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s)
 {
     AnjutaTokenFileLocation location;
     gboolean found;
@@ -488,7 +488,6 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
     else
     {
         mkp_yypstate *ps1;
-        mkp_yypstate *ps2;
         gint status;
         YYSTYPE yylval_param;
         YYLTYPE yylloc_param;
@@ -502,54 +501,16 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
         scanner->buffer = buffer;
 
         ps1 = mkp_yypstate_new ();
-        ps2 = mkp_yypstate_new ();
-        mkp_yypush_parse (ps1, FIRST_PASS, &yylval_param, &yylloc_param, scanner, NULL);
-        mkp_yypush_parse (ps2, SECOND_PASS, &yylval_param, &yylloc_param, scanner, NULL);
         do
         {
             gint yychar = mkp_mk_yylex (&yylval_param, &yylloc_param, scanner->scanner);
-            AnjutaToken *last = NULL;
         
             yylloc_param = yylval_param;
-            status = mkp_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner, &last);
- 
-            if ((status == 0) || (last != NULL))
-            {
-                //printf ("\n: ");
-                for (;;)
-                {
-                    YYSTYPE yylval_param;
-                    YYLTYPE yylloc_param;
-                    gint yychar;
-                    AnjutaToken *next;
-
-                    yytok = anjuta_token_next_lex (yytok);
-                    if (yytok != NULL)
-                    {
-                        yychar = anjuta_token_get_type (yytok);
-                    }
-                    else
-                    {
-                        yychar = 0;
-                    }
-
-                    yylval_param = yytok;
-                    //printf ("2:%d (%.*s)  ", yychar, yytok == NULL ? 0 : anjuta_token_get_length (yytok), yytok == NULL ? "" : anjuta_token_evaluate (yytok));
-                    yylloc_param = yylval_param;
-                    status = mkp_yypush_parse (ps2, yychar, &yylval_param, &yylloc_param, scanner, NULL);
-                    if (status != YYPUSH_MORE) break;
-                    if (yytok == last) break;
-                }
-                //printf ("\n");
-        
-                last = NULL;
-            }
+            status = mkp_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner);
         } while (status == YYPUSH_MORE);
         mkp_yypstate_delete (ps1);
-        mkp_yypstate_delete (ps2);
 
         return TRUE;
-	    //return mkp_yyparse (scanner) == 0;
     }
 }
 

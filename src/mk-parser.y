@@ -62,8 +62,6 @@
 %token  _SILENT
 %token  _EXPORT_ALL_VARIABLES
 %token  _NOTPARALLEL
-%token FIRST_PASS
-%token SECOND_PASS
 
 %defines
 
@@ -78,7 +76,6 @@
 /*%glr-parser*/
 
 %parse-param {void* scanner}
-%parse-param {AnjutaToken** last}
 %lex-param   {void* scanner}
 
 %name-prefix="mkp_yy"
@@ -95,7 +92,7 @@
 
 //mkp_yydebug = 1;
 
-static void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, AnjutaToken **last, char const *s);
+static void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s);
 static void mkp_special_target (AnjutaToken *list);
 static gint mkp_special_prerequisite (AnjutaToken *token);
 
@@ -105,22 +102,8 @@ static gint mkp_special_prerequisite (AnjutaToken *token);
 %%
 
 file:
-    FIRST_PASS first_pass
-    | SECOND_PASS second_pass
-    ;
-
-first_pass:
-    all_token
-    | EOL
-    | first_pass all_token
-    | first_pass EOL {
-        *last = $2;
-    }
-    ;    
-
-second_pass:
     statement
-    | second_pass statement
+    | file statement
     ;
 
 statement:
@@ -454,9 +437,9 @@ equal_token:
 %%
 
 static void
-mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, AnjutaToken **last, char const *s)
+mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s)
 {
-    mkp_scanner_yyerror (loc, scanner, last, s);
+    mkp_scanner_yyerror (loc, scanner, s);
 }
 
 static gint
