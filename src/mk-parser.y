@@ -31,47 +31,59 @@
 
 %}
 
-%token	EOL	'\n'
-%token	SPACE
-%token	TAB '\t'
-%token  HASH '#'
-%token	MACRO
-%token	VARIABLE
-%token  COMMA ','
-%token	COLON ':'
-%token	DOUBLE_COLON "::"
-%token	ORDER '|'
-%token	SEMI_COLON ';'
-%token	EQUAL '='
-%token	IMMEDIATE_EQUAL ":="
-%token	CONDITIONAL_EQUAL "?="
-%token	APPEND "+="
-%token	CHARACTER
-%token	NAME
-%token	MK_VARIABLE
-%token  _PHONY
-%token  _SUFFIXES
-%token  _DEFAULT
-%token  _PRECIOUS
-%token  _INTERMEDIATE
-%token  _SECONDARY
-%token  _SECONDEXPANSION
-%token  _DELETE_ON_ERROR
-%token  _IGNORE
-%token  _LOW_RESOLUTION_TIME
-%token  _SILENT
-%token  _EXPORT_ALL_VARIABLES
-%token  _NOTPARALLEL
+%union {
+	AnjutaToken *token;
+	AnjutaTokenGroup* group;
+}
+
+%token  <token> EOL	'\n'
+%token	<token> SPACE
+%token	<token> TAB '\t'
+%token  <token> HASH '#'
+%token	<token> MACRO
+%token	<token> VARIABLE
+%token  <token> COMMA ','
+%token	<token> COLON ':'
+%token	<token> DOUBLE_COLON "::"
+%token	<token> ORDER '|'
+%token	<token> SEMI_COLON ';'
+%token	<token> EQUAL '='
+%token	<token> IMMEDIATE_EQUAL ":="
+%token	<token> CONDITIONAL_EQUAL "?="
+%token	<token> APPEND "+="
+%token	<token> CHARACTER
+%token	<token> NAME
+%token	<token> MK_VARIABLE
+%token  <token> _PHONY
+%token  <token> _SUFFIXES
+%token  <token> _DEFAULT
+%token  <token> _PRECIOUS
+%token  <token> _INTERMEDIATE
+%token  <token> _SECONDARY
+%token  <token> _SECONDEXPANSION
+%token  <token> _DELETE_ON_ERROR
+%token  <token> _IGNORE
+%token  <token> _LOW_RESOLUTION_TIME
+%token  <token> _SILENT
+%token  <token> _EXPORT_ALL_VARIABLES
+%token  <token> _NOTPARALLEL
+
+%type   <group> definition rule
+%type   <group> depend_list
+%type   <group> command_list command_line
+%type   <group> prerequisite_list prerequisite_list_body prerequisite name_prerequisite var_prerequisite
+%type   <group> head_list head_list_body head
+%type   <group> space value optional_space
+%type   <group> equal_group
+
+%type   <token> variable_token rule_token command_token space_token head_token value_token
+%type   <token> prerequisite_token name_token depend_token equal_token
+
 
 %defines
 
 %define api.pure
 %define api.push_pull "push"
-
-
-/* Necessary because autotools wrapper always looks for a file named "y.tab.c",
- * not "amp-scanner.c"
-%output="y.tab.c"*/
 
 /*%glr-parser*/
 
@@ -92,12 +104,85 @@
 
 //mkp_yydebug = 1;
 
-static void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s);
-static void mkp_special_target (AnjutaToken *list);
-static gint mkp_special_prerequisite (AnjutaToken *token);
+static gint
+mkp_special_prerequisite (AnjutaToken *token)
+{
+    switch (anjuta_token_get_type (token))
+    {
+        case ORDER:
+            return MK_TOKEN_ORDER;
+        default:
+            return ANJUTA_TOKEN_NAME;
+    }
+}
+
+static void
+mkp_special_target (AnjutaTokenGroup *list)
+{
+    AnjutaTokenGroup *arg = anjuta_token_group_first (list);
+    AnjutaTokenGroup *target = arg != NULL ? anjuta_token_group_first (arg) : NULL;
+
+    if ((target != NULL) && (anjuta_token_group_next (target) == NULL))
+    {
+        AnjutaToken *token = anjuta_token_group_get_token (target);
+        gint mk_token = 0;
+
+        switch (anjuta_token_get_type (token))
+        {
+        case _PHONY:
+            mk_token = MK_TOKEN__PHONY;
+            break;
+        case _SUFFIXES:
+            mk_token = MK_TOKEN__SUFFIXES;
+            break;
+        case _DEFAULT:
+            mk_token = MK_TOKEN__DEFAULT;
+            break;
+        case _PRECIOUS:
+            mk_token = MK_TOKEN__PRECIOUS;
+            break;
+        case _INTERMEDIATE:
+            mk_token = MK_TOKEN__INTERMEDIATE;
+            break;
+        case _SECONDARY:
+            mk_token = MK_TOKEN__SECONDARY;
+            break;
+        case _SECONDEXPANSION:
+            mk_token = MK_TOKEN__SECONDEXPANSION;
+            break;
+        case _DELETE_ON_ERROR:
+            mk_token = MK_TOKEN__DELETE_ON_ERROR;
+            break;
+        case _IGNORE:
+            mk_token = MK_TOKEN__IGNORE;
+            break;
+        case _LOW_RESOLUTION_TIME:
+            mk_token = MK_TOKEN__LOW_RESOLUTION_TIME;
+            break;
+        case _SILENT:
+            mk_token = MK_TOKEN__SILENT;
+            break;
+        case _EXPORT_ALL_VARIABLES:
+            mk_token = MK_TOKEN__EXPORT_ALL_VARIABLES;
+            break;
+        case _NOTPARALLEL:
+            mk_token = MK_TOKEN__NOTPARALLEL;
+            break;
+        case ORDER:
+            mk_token = MK_TOKEN_ORDER;
+            break;
+        default:
+            break;
+        }
+        
+        if (mk_token)
+        {
+            anjuta_token_set_type (anjuta_token_group_get_token (arg), mk_token);
+        }
+    }
+}
 
 %}
-
 
 %%
 
@@ -112,12 +197,12 @@ statement:
     | definition end_of_line
     | rule  command_list {
         anjuta_token_group_append_children ($1, $2);
-        mkp_scanner_add_rule (scanner, $$);
+        mkp_scanner_add_rule (scanner, $1);
     }
 	;
 
 definition:
-    head_list equal_token value {
+    head_list equal_group value {
         $$ = anjuta_token_group_new (ANJUTA_TOKEN_DEFINITION, NULL);
         anjuta_token_group_append_children ($$, $1);
         anjuta_token_group_append ($$, $2);
@@ -137,7 +222,6 @@ depend_list:
     head_list  rule_token  prerequisite_list {
         $$ = anjuta_token_group_new (MK_TOKEN_RULE, NULL);
         anjuta_token_group_append ($$, $1);
-        anjuta_token_set_type ($1, MK_TOKEN_TARGET);
         mkp_special_target ($1);
         switch (anjuta_token_get_type ($2))
         {
@@ -243,7 +327,8 @@ optional_space:
 
 space:
 	space_token {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_SPACE, $1);
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_SPACE, NULL);
+        anjuta_token_group_append_token ($$, $1);
     }
 	| space space_token	{
         anjuta_token_group_append_token ($1, $2);
@@ -252,7 +337,8 @@ space:
 
 head:
     head_token {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_NAME, $1);    
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_NAME, NULL);
+        anjuta_token_group_append_token ($$, $1);
     }
     | head head_token {
         anjuta_token_group_append_token ($1, $2);
@@ -261,10 +347,12 @@ head:
 
 value:
     value_token {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1);
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, NULL);
+        anjuta_token_group_append_token ($$, $1);
     }
     | space_token {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, $1);
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_VALUE, NULL);
+        anjuta_token_group_append_token ($$, $1);
     }
     | value value_token {
         anjuta_token_group_append_token ($1, $2);
@@ -284,7 +372,8 @@ prerequisite:
 
 name_prerequisite:
     prerequisite_token {
-        $$ = anjuta_token_group_new (mkp_special_prerequisite ($1), $1);
+        $$ = anjuta_token_group_new (mkp_special_prerequisite ($1), NULL);
+        anjuta_token_group_append_token ($$, $1);
     }
     | name_prerequisite prerequisite_token {
         anjuta_token_group_append_token ($1, $2);
@@ -296,30 +385,41 @@ name_prerequisite:
 
 var_prerequisite:
     variable_token {
-        $$ = anjuta_token_group_new (MK_TOKEN_PREREQUISITE, $1);
+        $$ = anjuta_token_group_new (MK_TOKEN_PREREQUISITE, NULL);
+        anjuta_token_group_append_token ($$, $1);
     }
     | var_prerequisite variable_token {
         anjuta_token_group_append_token ($1, $2);
     }
     ;
 
+equal_group:
+	EQUAL {
+        $$ = anjuta_token_group_new (MK_TOKEN_EQUAL, NULL);
+        anjuta_token_group_append_token ($$, $1);
+    }
+	| IMMEDIATE_EQUAL {
+        $$ = anjuta_token_group_new (MK_TOKEN_IMMEDIATE_EQUAL, NULL);
+        anjuta_token_group_append_token ($$, $1);
+    }
+	| CONDITIONAL_EQUAL {
+        $$ = anjuta_token_group_new (MK_TOKEN_CONDITIONAL_EQUAL, NULL);
+        anjuta_token_group_append_token ($$, $1);
+    }
+	| APPEND {
+        $$ = anjuta_token_group_new (MK_TOKEN_APPEND, NULL);
+        anjuta_token_group_append_token ($$, $1);
+    }
+	;
+
+
 /* Tokens
  *----------------------------------------------------------------------------*/
-		
+	
 not_eol_token:
     word_token
     | space_token
     ;
-
-all_token:
-    name_token
-    | space_token
-    | variable_token
-    | equal_token
-    | rule_token
-    | depend_token
-    | HASH
-    ;    
 
 prerequisite_token:
     name_token
@@ -420,110 +520,10 @@ space_token:
 	;
 
 equal_token:
-	EQUAL {
-        $$ = anjuta_token_group_new (MK_TOKEN_EQUAL, $1);
-    }
-	| IMMEDIATE_EQUAL {
-        $$ = anjuta_token_group_new (MK_TOKEN_IMMEDIATE_EQUAL, $1);
-    }
-	| CONDITIONAL_EQUAL {
-        $$ = anjuta_token_group_new (MK_TOKEN_CONDITIONAL_EQUAL, $1);
-    }
-	| APPEND {
-        $$ = anjuta_token_group_new (MK_TOKEN_APPEND, $1);
-    }
+	EQUAL
+	| IMMEDIATE_EQUAL
+	| CONDITIONAL_EQUAL
+	| APPEND
 	;
 		
 %%
-
-static void
-mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s)
-{
-    mkp_scanner_yyerror (loc, scanner, s);
-}
-
-static gint
-mkp_special_prerequisite (AnjutaToken *token)
-{
-    switch (anjuta_token_get_type (token))
-    {
-        case ORDER:
-            return MK_TOKEN_ORDER;
-        default:
-            return ANJUTA_TOKEN_NAME;
-    }
-}
-
-static void
-mkp_special_target (AnjutaToken *list)
-{
-    AnjutaToken *arg;
-
-    for (arg = anjuta_token_group_first (list); arg != NULL; arg = anjuta_token_group_next (arg))
-    {
-        AnjutaToken *target = anjuta_token_group_first (arg);
-
-        if ((target != NULL) && (anjuta_token_group_next (target) == NULL))
-        {
-            AnjutaToken *token = anjuta_token_group_get_token (target);
-            gint mk_token = 0;
-
-            switch (anjuta_token_get_type (token))
-            {
-            case _PHONY:
-                mk_token = MK_TOKEN__PHONY;
-                break;
-            case _SUFFIXES:
-                mk_token = MK_TOKEN__SUFFIXES;
-                break;
-            case _DEFAULT:
-                mk_token = MK_TOKEN__DEFAULT;
-                break;
-            case _PRECIOUS:
-                mk_token = MK_TOKEN__PRECIOUS;
-                break;
-            case _INTERMEDIATE:
-                mk_token = MK_TOKEN__INTERMEDIATE;
-                break;
-            case _SECONDARY:
-                mk_token = MK_TOKEN__SECONDARY;
-                break;
-            case _SECONDEXPANSION:
-                mk_token = MK_TOKEN__SECONDEXPANSION;
-                break;
-            case _DELETE_ON_ERROR:
-                mk_token = MK_TOKEN__DELETE_ON_ERROR;
-                break;
-            case _IGNORE:
-                mk_token = MK_TOKEN__IGNORE;
-                break;
-            case _LOW_RESOLUTION_TIME:
-                mk_token = MK_TOKEN__LOW_RESOLUTION_TIME;
-                break;
-            case _SILENT:
-                mk_token = MK_TOKEN__SILENT;
-                break;
-            case _EXPORT_ALL_VARIABLES:
-                mk_token = MK_TOKEN__EXPORT_ALL_VARIABLES;
-                break;
-            case _NOTPARALLEL:
-                mk_token = MK_TOKEN__NOTPARALLEL;
-                break;
-            case ORDER:
-                mk_token = MK_TOKEN_ORDER;
-                break;
-            default:
-                break;
-            }
-        
-            if (mk_token)
-            {
-                anjuta_token_set_type (anjuta_token_group_get_token (arg), mk_token);
-            }
-        }
-    }
-}
-     
-/* Public functions
- *---------------------------------------------------------------------------*/
-

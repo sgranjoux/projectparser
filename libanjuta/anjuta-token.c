@@ -567,7 +567,7 @@ anjuta_token_insert_before (AnjutaToken *sibling, AnjutaToken *baby)
 }	
 
 void
-anjuta_token_foreach (AnjutaToken *token, AnjutaTokenFunc func, gpointer data)
+anjuta_token_foreach (AnjutaToken *token, AnjutaTokenTraverseFunc func, gpointer data)
 {
 	g_node_traverse ((GNode *)token, G_PRE_ORDER, G_TRAVERSE_ALL, -1, (GNodeTraverseFunc)func, data);
 }

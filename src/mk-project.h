@@ -31,7 +31,7 @@
 
 G_BEGIN_DECLS
 
-#define YYSTYPE AnjutaToken*
+//#define YYSTYPE AnjutaToken*
 
 #define MKP_TYPE_PROJECT		(mkp_project_get_type ())
 #define MKP_PROJECT(obj)		(G_TYPE_CHECK_INSTANCE_CAST ((obj), MKP_TYPE_PROJECT, MkpProject))
@@ -78,6 +78,10 @@ void mkp_project_unload (MkpProject *project);
 MkpGroup *mkp_project_get_root (MkpProject *project);
 MkpVariable *mkp_project_get_variable (MkpProject *project, const gchar *name);
 GList *mkp_project_list_variable (MkpProject *project);
+AnjutaTokenGroup* mkp_project_get_variable_token (MkpProject *project, AnjutaToken *variable);
+
+void mkp_project_update_variable (MkpProject *project, AnjutaTokenGroup *variable);
+void mkp_project_add_rule (MkpProject *project, AnjutaTokenGroup *rule);
 
 MkpGroup *mkp_project_get_group (MkpProject *project, const gchar *id);
 MkpTarget *mkp_project_get_target (MkpProject *project, const gchar *id);

@@ -83,7 +83,7 @@ typedef GNode AnjutaProjectGroup;
 typedef GNode AnjutaProjectTarget;
 typedef GNode AnjutaProjectSource;
 
-typedef GNodeTraverseFunc AnjutaProjectNodeFunc;
+typedef void (*AnjutaProjectNodeFunc) (AnjutaProjectNode *node, gpointer data);
 
 AnjutaProjectNode *anjuta_project_node_parent (AnjutaProjectNode *node);
 AnjutaProjectNode *anjuta_project_node_first_child (AnjutaProjectNode *node);

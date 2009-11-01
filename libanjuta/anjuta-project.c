@@ -112,12 +112,30 @@ anjuta_project_node_all (AnjutaProjectNode *parent, AnjutaProjectNodeType type)
 	return list;
 }
 
+typedef struct
+{
+	AnjutaProjectNodeFunc func;
+	gpointer data;
+} AnjutaProjectNodePacket;
+
+static gboolean
+anjuta_project_node_traverse_func (GNode *node, gpointer data)
+{
+	AnjutaProjectNodePacket *pack = (AnjutaProjectNodePacket *)data;
+	
+	pack->func ((AnjutaProjectNode *)node, pack->data);
+
+	return FALSE;
+}
+
 void
 anjuta_project_node_all_foreach (AnjutaProjectNode *node, AnjutaProjectNodeFunc func, gpointer data)
 {
+    AnjutaProjectNodePacket pack = {func, data};
+	
 	/* POST_ORDER is important when deleting the node, children has to be
 	 * deleted first */
-	g_node_traverse (node, G_POST_ORDER, G_TRAVERSE_ALL, -1, func, data);
+	g_node_traverse (node, G_POST_ORDER, G_TRAVERSE_ALL, -1, anjuta_project_node_traverse_func, &pack);
 }
 
 void

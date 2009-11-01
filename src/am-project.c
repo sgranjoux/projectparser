@@ -69,18 +69,8 @@ static const gchar *valid_am_makefiles[] = {"GNUmakefile.am", "makefile.am", "Ma
 
 typedef struct _AmpPackage AmpPackage;
 
-struct _AmpPackage {
-    gchar *name;
-    gchar *version;
-};
-
 typedef struct _AmpModule AmpModule;
 	
-struct _AmpModule {
-    GList *packages;
-    AnjutaToken *module;
-};
-
 typedef enum {
 	AM_GROUP_TOKEN_CONFIGURE,
 	AM_GROUP_TOKEN_SUBDIRS,
@@ -124,7 +114,7 @@ typedef struct _AmpSourceData AmpSourceData;
 
 struct _AmpSourceData {
 	AnjutaProjectSourceData base;
-	AnjutaToken* token;
+	AnjutaTokenGroup* token;
 };
 
 typedef struct _AmpConfigFile AmpConfigFile;
@@ -578,7 +568,7 @@ amp_package_free (AmpPackage *package)
  *---------------------------------------------------------------------------*/
 
 static AmpModule*
-amp_module_new (AnjutaToken *token)
+amp_module_new (AnjutaTokenGroup *token)
 {
 	AmpModule *module;
 	
@@ -1084,10 +1074,6 @@ amp_project_load_config (AmpProject *project, AnjutaTokenGroup *arg_list)
 		AnjutaTokenGroup *arg;
 		AnjutaToken *list;
 		AnjutaToken *item;
-		gchar *value;
-		AmpModule *mod;
-		AmpPackage *pack;
-		gchar *compare;
 
 		/* File list */
 		scanner = amp_ac_scanner_new (project);
@@ -1384,7 +1370,6 @@ project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *par
 	AnjutaToken *arg;
 	AnjutaTokenFile *tfile;
 	GFile *makefile = NULL;
-	gboolean found;
 
 	/* Create group */
 	group = amp_group_new (file, dist_only);
@@ -1441,51 +1426,6 @@ project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *par
 	arg = anjuta_token_file_load (tfile, NULL);
 	arg = amp_am_scanner_parse_token (scanner, anjuta_token_next_child (arg), NULL);
 	amp_am_scanner_free (scanner);
-
-	/* Find significant token */
-	//significant_tok = anjuta_token_new_static (ANJUTA_TOKEN_STATEMENT, NULL);
-	
-	//arg = anjuta_token_file_first (AMP_GROUP_DATA (group)->tfile);
-	//anjuta_token_old_dump_range (arg, NULL);
-
-#if 0
-	/* Create hash table for sources list */
-	orphan_sources = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify)g_free, (GDestroyNotify)free_source_list);
-	
-	for (found = anjuta_token_match (significant_tok, ANJUTA_SEARCH_INTO, arg, &arg); found; found = anjuta_token_match (significant_tok, ANJUTA_SEARCH_INTO, anjuta_token_next_sibling (arg), &arg))
-	{
-		AnjutaToken *name = anjuta_token_next_child (arg);
-		
-		switch (anjuta_token_get_type (name))
-		{
-		case AM_TOKEN_SUBDIRS:
-				project_load_subdirs (project, name, group, FALSE);
-				break;
-		case AM_TOKEN_DIST_SUBDIRS:
-				project_load_subdirs (project, name, group, TRUE);
-				break;
-		case AM_TOKEN__DATA:
-		case AM_TOKEN__HEADERS:
-		case AM_TOKEN__LIBRARIES:
-		case AM_TOKEN__LISP:
-		case AM_TOKEN__LTLIBRARIES:
-		case AM_TOKEN__MANS:
-		case AM_TOKEN__PROGRAMS:
-		case AM_TOKEN__PYTHON:
-		case AM_TOKEN__JAVA:
-		case AM_TOKEN__SCRIPTS:
-		case AM_TOKEN__TEXINFOS:
-				project_load_target (project, name, group, orphan_sources);
-				break;
-		case AM_TOKEN__SOURCES:
-				project_load_sources (project, name, group, orphan_sources);
-				break;
-		}
-	}
-
-	/* Free unused sources files */
-	g_hash_table_destroy (orphan_sources);
-#endif
 	
 	return group;
 }
@@ -1545,7 +1485,7 @@ amp_project_reload (AmpProject *project, GError **error)
 	/* shortcut hash tables */
 	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	project->files = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, g_object_unref, g_object_unref);
-	project->configs = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, amp_config_file_free);
+	project->configs = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, (GDestroyNotify)amp_config_file_free);
 	amp_project_new_module_hash (project);
 
 	/* Initialize list styles */
@@ -2300,7 +2240,7 @@ amp_project_move (AmpProject *project, const gchar *path)
 
 	/* Change all configs */
 	old_hash = project->configs;
-	project->configs = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, amp_config_file_free);
+	project->configs = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal, NULL, (GDestroyNotify)amp_config_file_free);
 	g_hash_table_iter_init (&iter, old_hash);
 	while (g_hash_table_iter_next (&iter, &key, (gpointer *)&cfg))
 	{

@@ -26,8 +26,18 @@
 
 G_BEGIN_DECLS
 
+struct _AmpPackage {
+    gchar *name;
+    gchar *version;
+};
+
+struct _AmpModule {
+    GList *packages;
+    AnjutaTokenGroup *module;
+};
+
 struct _AmpProperty {
-	AnjutaToken *ac_init;				/* AC_INIT macro */
+	AnjutaTokenGroup *ac_init;				/* AC_INIT macro */
 	gchar *name;
 	gchar *version;
 	gchar *bug_report;

@@ -20,6 +20,8 @@
 #ifndef _MK_SCANNER_H_
 #define _MK_SCANNER_H_
 
+#include "mk-project.h"
+
 #include "libanjuta/anjuta-token.h"
 #include "libanjuta/anjuta-token-file.h"
 #include "libanjuta/anjuta-token-style.h"
@@ -32,24 +34,19 @@ G_BEGIN_DECLS
 /* Token location is found directly from token value. We don't maintain a 
  * independent position. */
 #define YYLTYPE AnjutaToken*
-#define YYSTYPE AnjutaToken*
-
-#ifndef _MK_PROJECT_H_
-typedef struct _MkpProject        MkpProject;
-#endif
 
 typedef struct _MkpScanner MkpScanner;
 
 MkpScanner *mkp_scanner_new (MkpProject *project);
 void mkp_scanner_free (MkpScanner *scanner);
 
-gboolean mkp_scanner_parse (MkpScanner *scanner, AnjutaTokenFile *file, GError **error);
+gboolean mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error);
 
-void mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable);
+void mkp_scanner_update_variable (MkpScanner *scanner, AnjutaTokenGroup *variable);
 void mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable);
-void mkp_scanner_add_rule (MkpScanner *scanner, AnjutaToken *rule);
+void mkp_scanner_add_rule (MkpScanner *scanner, AnjutaTokenGroup *rule);
 
-const gchar* mkp_scanner_get_filename (MkpScanner *scanner);
+void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s);
 
 typedef enum
 {

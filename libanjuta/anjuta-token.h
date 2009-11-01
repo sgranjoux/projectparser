@@ -102,7 +102,8 @@ enum AnjutaTokenSearchFlag
 	ANJUTA_SEARCH_BACKWARD = 1 << 2
 };
 
-typedef gboolean (*AnjutaTokenFunc) (AnjutaToken* token, gpointer data);
+typedef gboolean (*AnjutaTokenTraverseFunc) (AnjutaToken* token, gpointer data);
+typedef gboolean (*AnjutaTokenForeachFunc) (AnjutaToken* token, gpointer data);
 
 AnjutaToken *anjuta_token_new_string (AnjutaTokenType type, const gchar *value);
 AnjutaToken *anjuta_token_new_with_string (AnjutaTokenType type, gchar *value, gsize length);
@@ -133,7 +134,7 @@ AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling
 AnjutaToken *anjuta_token_insert_before (AnjutaToken *token, AnjutaToken *sibling);
 gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end);
 
-void anjuta_token_foreach (AnjutaToken *token, AnjutaTokenFunc, gpointer data);
+void anjuta_token_foreach (AnjutaToken *token, AnjutaTokenForeachFunc, gpointer data);
 
 
 //AnjutaToken *anjuta_token_copy (AnjutaToken *token);
