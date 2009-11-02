@@ -30,58 +30,57 @@
 #define YYLLOC_DEFAULT(Current, Rhs, N)	((Current) = YYRHSLOC(Rhs, (N) ? 1 : 0))
 %}
 
-/* Defining an union allow to use 2 protocol blocks (enclosed by %{ %}) which
- * is useful when redefining YYSTYPE. */
-/*%union {
+
+%union {
 	AnjutaToken *token;
-	AnjutaTokenRange range;
-}*/
+	AnjutaTokenGroup* group;
+}
 
-%token	EOL	'\n'
-%token	SPACE
-%token	TAB '\t'
-%token	MACRO
-%token	VARIABLE
-%token	COLON ':'
-%token	DOUBLE_COLON "::"
-%token	ORDER '|'
-%token	SEMI_COLON ';'
-%token	EQUAL '='
-%token	IMMEDIATE_EQUAL ":="
-%token	CONDITIONAL_EQUAL "?="
-%token	APPEND "+="
-%token	CHARACTER
-%token	NAME
-%token	AM_VARIABLE
+%token	<token> EOL	'\n'
+%token	<token> SPACE
+%token	<token> TAB '\t'
+%token	<token> MACRO
+%token	<token> VARIABLE
+%token	<token> COLON ':'
+%token	<token> DOUBLE_COLON "::"
+%token	<token> ORDER '|'
+%token	<token> SEMI_COLON ';'
+%token	<token> EQUAL '='
+%token	<token> IMMEDIATE_EQUAL ":="
+%token	<token> CONDITIONAL_EQUAL "?="
+%token	<token> APPEND "+="
+%token	<token> CHARACTER
+%token	<token> NAME
+%token	<token> AM_VARIABLE
 
-%token  SUBDIRS
-%token  DIST_SUBDIRS
-%token  _DATA
-%token  _HEADERS
-%token  _LIBRARIES
-%token  _LISP
-%token  _LTLIBRARIES
-%token  _MANS
-%token  _PROGRAMS
-%token  _PYTHON
-%token  _JAVA
-%token  _SCRIPTS
-%token  _SOURCES
-%token  _TEXINFOS
+%token  <token> SUBDIRS
+%token  <token> DIST_SUBDIRS
+%token  <token> _DATA
+%token  <token> _HEADERS
+%token  <token> _LIBRARIES
+%token  <token> _LISP
+%token  <token> _LTLIBRARIES
+%token  <token> _MANS
+%token  <token> _PROGRAMS
+%token  <token> _PYTHON
+%token  <token> _JAVA
+%token  <token> _SCRIPTS
+%token  <token> _SOURCES
+%token  <token> _TEXINFOS
+
+%type   <token> space_token automake_token value_token target_token equal_token rule_token head_token
+%type   <token> space optional_space
+
+%type   <group> space_list_value value_list strip_value_list value
+
 
 %defines
 
 %define api.pure
 %define api.push_pull "push"
 
-/* Necessary because autotools wrapper always looks for a file named "y.tab.c",
- * not "amp-scanner.c"
-%output="y.tab.c"*/
-
-/*%glr-parser*/
-
-%parse-param {void* scanner}
-%lex-param   {void* scanner}
+%parse-param {AmpAmScanner* scanner}
+%lex-param   {AmpAmScanner* scanner}
 
 %name-prefix="amp_am_yy"
 
@@ -93,10 +92,28 @@
 
 %{
 
-//amp_am_yydebug = 1;
-
-static void amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s);
-static gint amp_am_automake_variable (AnjutaToken *token);
+static gint
+amp_am_automake_variable (AnjutaToken *token)
+{
+    switch (anjuta_token_get_type (token))
+    {
+    case SUBDIRS: return AM_TOKEN_SUBDIRS;
+    case DIST_SUBDIRS: return AM_TOKEN_DIST_SUBDIRS;
+    case _DATA: return AM_TOKEN__DATA;
+    case _HEADERS: return AM_TOKEN__HEADERS;
+    case _LIBRARIES: return AM_TOKEN__LIBRARIES;
+    case _LISP: return AM_TOKEN__LISP;
+    case _LTLIBRARIES: return AM_TOKEN__LTLIBRARIES;
+    case _MANS: return AM_TOKEN__MANS;
+    case _PROGRAMS: return AM_TOKEN__PROGRAMS;
+    case _PYTHON: return AM_TOKEN__PYTHON;
+    case _JAVA: return AM_TOKEN__JAVA;
+    case _SCRIPTS: return AM_TOKEN__SCRIPTS;
+    case _SOURCES: return AM_TOKEN__SOURCES;
+    case _TEXINFOS: return AM_TOKEN__TEXINFOS;
+    default: return ANJUTA_TOKEN_NAME;
+    }
+}
 
 %}
 
@@ -117,26 +134,6 @@ statement:
 line:
 	name_token
 	| line token
-	;
-		
-variable:
-	head_with_space equal_token optional_space value_list optional_space
-	| head equal_token optional_space value_list optional_space
-	;
-
-rule:
-	depend
-	| depend SEMI_COLON commands
-	| depend EOL TAB commands
-	;
-		
-depend:
-	target_list rule_token optional_space prerequisite_list optional_space ORDER optional_space prerequisite_list 
-	;
-
-commands:
-	token_list
-	| commands EOL TAB token_list
 	;
 		
 am_variable:
@@ -166,33 +163,6 @@ strip_value_list:
 	}
 	;
 
-target_list:
-	head
-	| head_with_space
-	| head_with_space target_list2 optional_space
-	;
-
-target_list2:
-	target
-	| target_list2  space  target {
-		anjuta_token_merge ($1, $3);
-	}
-	;
-		
-token_list:
-	token
-	| token_list token
-	;
-		
-prerequisite_list:
-	prerequisite
-	| prerequisite_list space prerequisite {
-		anjuta_token_merge ($1, $3);
-	}
-	;
-
-		
-
 optional_space:
 	/* empty */ {
 		$$ = NULL;
@@ -200,25 +170,6 @@ optional_space:
 	| space
 	;
 
-
-head_with_space:
-	head space
-	;
-		
-head:
-	head_token
-	| head name_token {
-		anjuta_token_merge ($1, $2);
-	}
-	;
-
-target:
-	head_token
-	| target target_token {
-		anjuta_token_merge ($1, $2);
-	}
-	;
-		
 value:
 	value_token {
 		$$ = anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL);
@@ -229,13 +180,6 @@ value:
 	}
 	;
 
-prerequisite:
-	prerequisite_token
-	| prerequisite prerequisite_token {
-		anjuta_token_merge ($1, $2);
-	}
-	;
-		
 space:
 	space_token {anjuta_token_set_type ($1, ANJUTA_TOKEN_SPACE);}
 	| space space_token	{
@@ -255,21 +199,11 @@ value_token:
 	| target_token
 	;
 
-prerequisite_token:
-	equal_token
-	| rule_token
-	| name_token
-	| automake_token
-	| ORDER
-	| SEMI_COLON
-	;
-
 target_token:
 	head_token
 	| automake_token
 	;
-		
-		
+
 space_token:
 	SPACE
 	| TAB
@@ -322,37 +256,3 @@ automake_token:
     
 		
 %%
-
-static void
-amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s)
-{
-    amp_am_scanner_yyerror (loc, scanner, s);
-}
-
-static gint
-amp_am_automake_variable (AnjutaToken *token)
-{
-    switch (anjuta_token_get_type (token))
-    {
-    case SUBDIRS: return AM_TOKEN_SUBDIRS;
-    case DIST_SUBDIRS: return AM_TOKEN_DIST_SUBDIRS;
-    case _DATA: return AM_TOKEN__DATA;
-    case _HEADERS: return AM_TOKEN__HEADERS;
-    case _LIBRARIES: return AM_TOKEN__LIBRARIES;
-    case _LISP: return AM_TOKEN__LISP;
-    case _LTLIBRARIES: return AM_TOKEN__LTLIBRARIES;
-    case _MANS: return AM_TOKEN__MANS;
-    case _PROGRAMS: return AM_TOKEN__PROGRAMS;
-    case _PYTHON: return AM_TOKEN__PYTHON;
-    case _JAVA: return AM_TOKEN__JAVA;
-    case _SCRIPTS: return AM_TOKEN__SCRIPTS;
-    case _SOURCES: return AM_TOKEN__SOURCES;
-    case _TEXINFOS: return AM_TOKEN__TEXINFOS;
-    default: return ANJUTA_TOKEN_NAME;
-    }
-}
-
-
-/* Public functions
- *---------------------------------------------------------------------------*/
-

@@ -19,21 +19,17 @@
  
 %{
 
-#include <stdlib.h>
-#include <string.h>
 #include "am-scanner.h"
 #include "am-parser.h"
 
 #include "libanjuta/anjuta-debug.h"
 
+#include <stdlib.h>
+#include <string.h>
 
-/* Eliminate warning */
-#define YY_NO_UNPUT 1 
 
 #define YY_INPUT(buf, result, max_size) result = amp_am_scanner_input (yyextra, buf, max_size)
 
-//#define YY_USER_ACTION amp_update_location(yylloc, yytext, yyleng);
-    
 #define YY_EXTRA_TYPE  AmpAmScanner*
 
 #define YY_DECL static int am_yylex (YYSTYPE * yylval_param,YYLTYPE * yylloc_param ,yyscan_t yyscanner)
@@ -41,26 +37,20 @@
 //#define YY_USER_INIT {yy_flex_debug = 1;}
 
 static AnjutaToken* amp_am_scanner_append_lex_token (AmpAmScanner *scanner, gint token);
-static void amp_am_scanner_append_token (AmpAmScanner *scanner, AnjutaToken* token);
 static gint amp_am_scanner_input (AmpAmScanner *scanner, gchar *buffer, gsize max_size);
-static gint amp_am_scanner_last_token (AmpAmScanner *scanner);
-static gint amp_am_scanner_last_flags (AmpAmScanner *scanner);
-static void amp_am_scanner_update_line_width (AmpAmScanner *scanner, YYLTYPE *loc);
-static void amp_update_location (YYLTYPE *loc, const gchar *text, gint length);
-static int amp_am_parse (yyscan_t scanner);
+static int amp_am_scanner_parse_end (AmpAmScanner *scanner);
 
-#define RETURN(tok) *yylval = amp_am_scanner_append_lex_token (yyextra, tok); \
+#define RETURN(tok) yylval->token = amp_am_scanner_append_lex_token (yyextra, tok); \
                     return tok
 
 %}
 
-%option reentrant stack noyywrap yylineno
+%option reentrant noyywrap yylineno
+
+/* Remove some warnings */
+%option nounput noinput noyy_pop_state noyy_top_state
 
 %option prefix="amp_am_yy"
-
-/* Necessary because autotools wrapper always looks for a file named "lex.yy.c",
- * not "lex.amp_am_yy.c" 
-%option outfile="lex.yy.c"*/
 
 %option bison-bridge bison-locations
 
@@ -263,23 +253,6 @@ amp_am_scanner_append_lex_token (AmpAmScanner *scanner, gint token)
     return frag;
 }
 
-void
-amp_am_scanner_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s)
-{
-    AnjutaTokenFileLocation location;
-    gboolean found;
-
-    if (amp_project_get_token_location (scanner->project, &location, *loc))
-    {
-        g_message ("%s:%d.%d %s\n", location.filename, location.line, location.column, s);
-        g_free (location.filename);
-    }
-    else
-    {
-        g_message ("%s \n", s);
-    }
-}
-
 static gint
 amp_am_scanner_input (AmpAmScanner *scanner, gchar *buffer, gsize max_size)
 {
@@ -330,8 +303,6 @@ amp_am_scanner_input (AmpAmScanner *scanner, gchar *buffer, gsize max_size)
         }
     }
 
-    //fprintf (stdout, "input \"%.*s\"\n", result, buffer);
-
     return result;
 }
 
@@ -355,8 +326,24 @@ amp_am_scanner_parse_end (AmpAmScanner *scanner)
     }
 }
 
-/* Public functions
+/* Parser functions
  *---------------------------------------------------------------------------*/
+
+void
+amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s)
+{
+    AnjutaTokenFileLocation location;
+
+    if (amp_project_get_token_location (scanner->project, &location, *loc))
+    {
+        g_message ("%s:%d.%d %s\n", location.filename, location.line, location.column, s);
+        g_free (location.filename);
+    }
+    else
+    {
+        g_message ("%s \n", s);
+    }
+}
 
 void
 amp_am_scanner_set_am_variable (AmpAmScanner *scanner, AnjutaTokenType variable, AnjutaToken *name, AnjutaTokenGroup *list)
@@ -364,13 +351,12 @@ amp_am_scanner_set_am_variable (AmpAmScanner *scanner, AnjutaTokenType variable,
     amp_project_set_am_variable (scanner->project, scanner->group, variable, name, list, scanner->orphan_sources);
 }
 
+/* Public functions
+ *---------------------------------------------------------------------------*/
 
 AnjutaToken *
 amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **error)
 {
-    AnjutaToken *child;
-    AnjutaToken *first = NULL;
-    gboolean ok;
     AmpAmBuffer *buffer;
 
     buffer = g_new (AmpAmBuffer, 1);
@@ -388,7 +374,7 @@ amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **
         buffer->parent = scanner->buffer;
         scanner->buffer = buffer;
 
-        anjuta_token_dump (token);
+        //anjuta_token_dump (token);
 
         buffer->first = buffer->parent->last;
         buffer->last = NULL;
@@ -399,7 +385,7 @@ amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **
     }
     else
     {
-        amp_am_yypstate *ps1;
+        amp_am_yypstate *ps;
         gint status;
         YYSTYPE yylval_param;
         YYLTYPE yylloc_param;
@@ -412,16 +398,17 @@ amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **
 
         scanner->buffer = buffer;
 
-        ps1 = amp_am_yypstate_new ();
+        ps = amp_am_yypstate_new ();
 
         do
         {
             gint yychar = am_yylex (&yylval_param, &yylloc_param, scanner->scanner);
 
-            status = amp_am_yypush_parse (ps1, yychar, &yylval_param, &yylloc_param, scanner);
+			yylloc_param = yylval_param.token;
+            status = amp_am_yypush_parse (ps, yychar, &yylval_param, &yylloc_param, scanner);
  
         } while (status == YYPUSH_MORE);
-        amp_am_yypstate_delete (ps1);
+        amp_am_yypstate_delete (ps);
 
         return buffer->first;
     }
@@ -461,7 +448,6 @@ amp_am_scanner_free (AmpAmScanner *scanner)
 {
 	g_return_if_fail (scanner != NULL);
 
-    //if (scanner->buffer != NULL) yy_delete_buffer (scanner->buffer, scanner->scanner);
     yylex_destroy(scanner->scanner);
 
 	/* Free unused sources files */

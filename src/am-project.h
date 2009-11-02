@@ -71,6 +71,11 @@ gboolean amp_project_load (AmpProject *project, GFile *directory, GError **error
 gboolean amp_project_reload (AmpProject *project, GError **error);
 void amp_project_unload (AmpProject *project);
 
+void amp_project_load_config (AmpProject *project, AnjutaTokenGroup *arg_list);
+void amp_project_load_properties (AmpProject *project, AnjutaTokenGroup *list);
+void amp_project_load_module (AmpProject *project, AnjutaTokenGroup *module);
+
+
 AmpGroup *amp_project_get_root (AmpProject *project);
 AmpGroup *amp_project_get_group (AmpProject *project, const gchar *id);
 AmpTarget *amp_project_get_target (AmpProject *project, const gchar *id);

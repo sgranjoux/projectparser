@@ -734,7 +734,7 @@ amp_group_free (AmpGroup *node)
  *---------------------------------------------------------------------------*/
 
 static void
-amp_target_add_token (AmpGroup *node, AnjutaToken *token)
+amp_target_add_token (AmpGroup *node, AnjutaTokenGroup *token)
 {
     AmpTargetData *target;
 	
@@ -941,7 +941,7 @@ amp_dump_node (AnjutaProjectNode *g_node)
 	g_free (name);
 }
 
-static gboolean 
+static void
 foreach_node_destroy (AnjutaProjectNode    *g_node,
 		      gpointer  data)
 {
@@ -961,9 +961,6 @@ foreach_node_destroy (AnjutaProjectNode    *g_node,
 			g_assert_not_reached ();
 			break;
 	}
-	
-
-	return FALSE;
 }
 
 static void

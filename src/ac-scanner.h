@@ -20,21 +20,14 @@
 #ifndef _AC_SCANNER_H_
 #define _AC_SCANNER_H_
 
-#include "libanjuta/anjuta-token.h"
-#include "libanjuta/anjuta-token-file.h"
-
+#include "am-project.h"
 
 #include <glib.h>
 #include <gio/gio.h>
 
 G_BEGIN_DECLS
 
-#define YYSTYPE AnjutaToken*
 #define YYLTYPE AnjutaToken*
-
-#ifndef _AM_PROJECT_H_
-typedef struct _AmpProject        AmpProject;
-#endif
 
 typedef struct _AmpAcScanner AmpAcScanner;
 
@@ -44,8 +37,11 @@ void amp_ac_scanner_free (AmpAcScanner *scanner);
 gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error);
 AnjutaToken* amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint start, GError **error);
 
+void amp_ac_scanner_load_module (AmpAcScanner *scanner, AnjutaTokenGroup *module);
+void amp_ac_scanner_load_config (AmpAcScanner *scanner, AnjutaTokenGroup *list);
+void amp_ac_scanner_load_properties (AmpAcScanner *scanner, AnjutaTokenGroup *list);
 
-const gchar* amp_ac_scanner_get_filename (AmpAcScanner *scanner);
+void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s);
 
 enum 
 {

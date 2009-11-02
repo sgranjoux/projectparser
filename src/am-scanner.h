@@ -30,7 +30,7 @@
 
 G_BEGIN_DECLS
 
-#define YYSTYPE AnjutaToken*
+//#define YYSTYPE AnjutaToken*
 #define YYLTYPE AnjutaToken*
 
 typedef struct _AmpAmScanner AmpAmScanner;
@@ -38,9 +38,11 @@ typedef struct _AmpAmScanner AmpAmScanner;
 AmpAmScanner *amp_am_scanner_new (AmpProject *project, AmpGroup *group);
 void amp_am_scanner_free (AmpAmScanner *scanner);
 
-gboolean amp_am_scanner_parse (AmpAmScanner *scanner, AnjutaTokenFile *file, GError **error);
+AnjutaToken *amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **error);
 
-const gchar* amp_am_scanner_get_filename (AmpAmScanner *scanner);
+void amp_am_scanner_set_am_variable (AmpAmScanner *scanner, AnjutaTokenType variable, AnjutaToken *name, AnjutaTokenGroup *list);
+
+void amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s);
 
 typedef enum
 {

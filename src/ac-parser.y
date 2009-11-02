@@ -18,9 +18,10 @@
  */
 %{
 
-#include <stdlib.h>
 #include "ac-scanner.h"
 #include "ac-parser.h"
+
+#include <stdlib.h>
 
 //#define YYDEBUG 1
 
@@ -31,65 +32,65 @@
 #define YYLLOC_DEFAULT(Current, Rhs, N)	((Current) = YYRHSLOC(Rhs, (N) ? 1 : 0))
 %}
 
+%union {
+	AnjutaToken *token;
+	AnjutaTokenGroup* group;
+}
 
-%token  EOL '\n'
+%token  <token> EOL '\n'
 
-%token  SPACE ' '
+%token  <token> SPACE ' '
 
-%token  HASH '#'
-%token  LEFT_PAREN     '('
-%token  RIGHT_PAREN    ')'
-%token  LEFT_CURLY		'{'
-%token  RIGHT_CURLY    '}'
-%token  LEFT_BRACE     '['
-%token  RIGHT_BRACE    ']'
-%token  EQUAL             '='
-%token  COMMA             ','
-%token  LOWER           '<'
-%token  GREATER         '>'
+%token  <token> HASH '#'
+%token  <token> LEFT_PAREN     '('
+%token  <token> RIGHT_PAREN    ')'
+%token  <token> LEFT_CURLY		'{'
+%token  <token> RIGHT_CURLY    '}'
+%token  <token> LEFT_BRACE     '['
+%token  <token> RIGHT_BRACE    ']'
+%token  <token> EQUAL             '='
+%token  <token> COMMA             ','
+%token  <token> LOWER           '<'
+%token  <token> GREATER         '>'
     
-%token  NAME
-%token  VARIABLE
-%token  MACRO
-%token  OPERATOR
-%token  WORD
-%token  JUNK
+%token  <token> NAME
+%token  <token> VARIABLE
+%token  <token> MACRO
+%token  <token> OPERATOR
+%token  <token> WORD
+%token  <token> JUNK
 
 %token  START_SPACE_LIST
-%token FIRST_PASS
-%token SECOND_PASS
-
-%left   ARG
-%left   EMPTY
 
 /* M4 macros */
 
-%token  DNL
+%token  <token> DNL
 
 
 /* Autoconf macros */
 
-%token	AC_MACRO_WITH_ARG
-%token	AC_MACRO_WITHOUT_ARG
+%token	<token> AC_MACRO_WITH_ARG
+%token	<token> AC_MACRO_WITHOUT_ARG
 
-%token	PKG_CHECK_MODULES
-%token	OBSOLETE_AC_OUTPUT
-%token	AC_OUTPUT
-%token	AC_CONFIG_FILES
-%token	AC_SUBST
-%token  AC_INIT
+%token	<token> PKG_CHECK_MODULES
+%token	<token> OBSOLETE_AC_OUTPUT
+%token	<token> AC_OUTPUT
+%token	<token> AC_CONFIG_FILES
+%token	<token> AC_SUBST
+%token  <token> AC_INIT
 
-/*%type pkg_check_modules obsolete_ac_output ac_output ac_config_files
-%type dnl
-%type ac_macro_with_arg ac_macro_without_arg
-%type spaces
-%type separator
-%type arg_string arg arg_list arg_list_body shell_string_body raw_string_body
+%type   <token> space_list_body item name operator old_spaces
 
-%type expression comment macro
-%type arg_string_body arg_body expression_body
+%type   <token> word_token space_token not_operator_token not_brace_token arg_token args_token
+%type   <token> any_macro
 
-%type any_space*/
+%type   <group> arg_list arg_list_body arg arg_body arg_part_or_space arg_part
+%type   <group> spaces
+%type   <group> expression expression_body
+%type   <group> raw_string raw_string_body
+%type   <group> arg_string arg_string_body
+%type   <group> shell_string shell_string_body
+%type   <group> dnl
 
 %defines
 
@@ -106,13 +107,6 @@
 %start input
 
 %debug
-
-
-%{
-static void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s);
-
-%}
-
 
 %%
 
@@ -192,13 +186,6 @@ name:
     }
     ;
 
-junks:
-    JUNK
-    | junks JUNK {
-        anjuta_token_group ($1, $2);
-    }
-    ;
-
 /* Macros
  *----------------------------------------------------------------------------*/
 
@@ -273,23 +260,6 @@ arg_list_body:
     }
     ;
 
-old_arg_list:
-    old_arg_list_body  RIGHT_PAREN {
-        anjuta_token_set_type ($2, ANJUTA_TOKEN_LAST);
-        $$ = $2;
-    }
-    | old_spaces  old_arg_list_body  RIGHT_PAREN {
-        anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
-        anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
-        $$ = $3;
-    }
-    ;
-
-old_arg_list_body:
-    old_arg
-    | old_arg_list_body  old_separator  old_arg
-    ;
-    
 comment:
     HASH not_eol_list EOL {
         anjuta_token_set_type ($1, ANJUTA_TOKEN_COMMENT);
@@ -451,57 +421,10 @@ arg_token:
     | WORD
     ;
 
-old_arg:
-    /* empty */ {
-        $$ = NULL;
-    }
-    | old_arg_part old_arg_body {
-        $$ = anjuta_token_new_group (ANJUTA_TOKEN_ARGUMENT, $1);
-        if ($2 != NULL) anjuta_token_group ($$, $2);
-    }        
-    ;
-
-old_arg_body:
-    /* empty */ {
-        $$ = NULL;
-    }
-    | old_arg_body old_arg_part_or_space {
-        $$ = $2;
-    }
-    ;
-
-old_arg_part_or_space:
-    space_token
-    | old_arg_part
-    ;
-
-old_arg_part:
-    arg_string
-    | expression
-    | macro
-    | HASH
-    | EQUAL
-    | LOWER
-    | GREATER
-    | NAME
-    | VARIABLE
-    | WORD
-    ;
-
 separator:
     COMMA
     | COMMA spaces {
         anjuta_token_group_free ($2);
-    }
-    ;
-
-old_separator:
-    COMMA {
-        $$ = anjuta_token_new_group (ANJUTA_TOKEN_NEXT, $1);
-    }
-    | COMMA old_spaces {
-        $$ = anjuta_token_new_group (ANJUTA_TOKEN_NEXT, $1);
-        anjuta_token_group ($$, $2);
     }
     ;
 
@@ -561,14 +484,14 @@ spaces:
 	;
 
 old_spaces:
-	space_token
-	| old_spaces space_token {
+    space_token
+    | old_spaces space_token {
         anjuta_token_group ($$, $2);
-	}
-	| old_spaces JUNK {
+    }
+    | old_spaces JUNK {
         anjuta_token_group ($$, $2);
-	}
-	;
+    }
+;
 
 /* Tokens
  *----------------------------------------------------------------------------*/
@@ -576,11 +499,6 @@ old_spaces:
 not_eol_token:
     SPACE
     | word_token    
-    ;
-
-all_token:
-    SPACE
-    | word_token
     ;
 
 not_brace_token:
@@ -606,12 +524,6 @@ args_token:
     LEFT_PAREN
     | RIGHT_PAREN
     | COMMA
-    ;
-
-operator_token:
-    EQUAL
-    | LOWER
-    | GREATER
     ;
 
 not_operator_token:
@@ -656,13 +568,3 @@ any_macro:
     ;
 
 %%
-    
-static void
-amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s)
-{
-    amp_ac_scanner_yyerror (loc, scanner, s);
-}
-
-/* Public functions
- *---------------------------------------------------------------------------*/
-
