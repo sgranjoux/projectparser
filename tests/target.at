@@ -1,0 +1,22 @@
+AT_SETUP([Add target])
+AS_MKDIR_P([empty])
+AT_DATA([empty/configure.ac],
+[[AC_CONFIG_FILES(Makefile)
+]])
+AT_DATA([empty/Makefile.am],
+[[
+]])
+AT_DATA([expect],
+[[    GROUP (0): empty3
+        TARGET (0:0): target1
+]])
+AT_PARSER_CHECK([load empty \
+		 move empty3 \
+		 add target 0 target1 program \
+		 list \
+		 save])
+AT_CHECK([diff output expect])
+AT_PARSER_CHECK([load empty3 \
+		 list])
+AT_CHECK([diff output expect])
+AT_CLEANUP

@@ -1,24 +1,36 @@
 
-dist_check_SCRIPTS = test0.sh \
-		     test1.sh \
-		     test2.sh \
-		     test3.sh \
-		     test4.sh \
-		     test5.sh \
-		     test6.sh
+EXTRA_DIST = testsuite.at $(TESTSUITE_AT) $(srcdir)/package.m4 $(TESTSUITE)
 
-TESTS = $(dist_check_SCRIPTS)
+$(srcdir)/package.m4: $(top_srcdir)/configure.ac
+	rm -f $@ $@.tmp
+	{ \
+	  echo '# Signature of the current package.'; \
+	  echo 'm4_define([AT_PACKAGE_NAME],      [$(PACKAGE_NAME)])'; \
+	  echo 'm4_define([AT_PACKAGE_TARNAME],   [$(PACKAGE_TARNAME)])'; \
+  	  echo 'm4_define([AT_PACKAGE_VERSION],   [$(PACKAGE_VERSION)])'; \
+  	  echo 'm4_define([AT_PACKAGE_STRING],    [$(PACKAGE_STRING)])'; \
+ 	  echo 'm4_define([AT_PACKAGE_BUGREPORT], [$(PACKAGE_BUGREPORT)])'; \
+	} >$@.tmp
+	mv $@.tmp $@
 
-EXTRA_DIST = \
-	empty/configure.ac \
-	empty/Makefile.am \
-	empty.lst \
-	anjuta/configure.ac \
-	anjuta.lst \
-	parser/configure.ac \
-	parser/Makefile.am \
-	parser.lst \
-	makefile/Makefile \
-	makefile.lst
 
--include $(top_srcdir)/git.mk
+TESTSUITE_AT = \
+	$(srcdir)/empty.at \
+	$(srcdir)/anjuta.at \
+	$(srcdir)/group.at \
+	$(srcdir)/target.at \
+	$(srcdir)/parser.at \
+	$(srcdir)/makefile.at
+
+TESTSUITE = $(srcdir)/testsuite
+
+AUTOTEST = $(AUTOM4TE) --language=autotest
+$(TESTSUITE): $(srcdir)/testsuite.at $(srcdir)/package.m4 $(TESTSUITE_AT)
+	$(AUTOTEST) -I $(srcdir) -o $@.tmp $@.at
+	mv $@.tmp $@
+
+clean-local: 
+	test ! -f $(TESTSUITE) || $(SHELL) $(TESTSUITE) --clean
+
+check-local: atconfig $(TESTSUITE)
+	$(SHELL) $(TESTSUITE) $(TESTSUITEFLAGS)

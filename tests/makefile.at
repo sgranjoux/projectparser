@@ -1,0 +1,51 @@
+AT_SETUP([Load makefile project])
+AS_MKDIR_P([makefile])
+AT_DATA([makefile/Makefile],
+[[## Created by Anjuta
+
+CC = gcc
+CFLAGS = -g -Wall
+OBJECTS = foo.o bar.o
+INCFLAGS =
+LDFLAGS = -Wl,-rpath,/usr/local/lib
+LIBS =
+
+all: foobar
+
+foobar: $(OBJECTS)
+	$(CC) -o foobar $(OBJECTS) $(LDFLAGS) $(LIBS)
+
+.SUFFIXES:
+.SUFFIXES:	.c .cc .C .cpp .o
+
+.c.o :
+	$(CC) -o $@ -c $(CFLAGS) $< $(INCFLAGS)
+
+count:
+	wc *.c *.cc *.C *.cpp *.h *.hpp
+
+clean:
+	rm -f *.o
+
+.PHONY: all
+.PHONY: count
+.PHONY: clean
+]])
+AT_DATA([makefile/foo.c])
+AT_DATA([makefile/bar.c])
+AT_DATA([expect],
+[[    VARIABLE: CFLAGS =  -g -Wall
+    VARIABLE: OBJECTS =  foo.o bar.o
+    VARIABLE: LDFLAGS =  -Wl,-rpath,/usr/local/lib
+    VARIABLE: CC =  gcc
+    VARIABLE: LIBS = (null)
+    VARIABLE: INCFLAGS = (null)
+    GROUP (0): makefile
+        TARGET (0:0): foobar
+            SOURCE (0:0:0): foo.c
+            SOURCE (0:0:1): bar.c
+]])
+AT_PARSER_CHECK([load makefile \
+		 list])
+AT_CHECK([diff -b output expect])
+AT_CLEANUP
