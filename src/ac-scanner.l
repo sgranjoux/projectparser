@@ -125,6 +125,7 @@ AC_CONFIG_FILES\(       { RETURN (AC_CONFIG_FILES); }
 
 {OTHER}|\$|\\           { RETURN (WORD); }
 
+<<EOF>>                     { if (amp_ac_scanner_parse_end (yyextra) == YY_NULL) return YY_NULL; }
 
 <SPACE_LIST>{
 
@@ -167,6 +168,8 @@ struct _AmpAcScanner
     AmpAcBuffer *buffer;
 
     AmpProject *project;
+
+    AnjutaToken *parsed;
 };
 
 
@@ -314,6 +317,7 @@ amp_ac_scanner_parse_end (AmpAcScanner *scanner)
     yypop_buffer_state(scanner->scanner);
     buffer = scanner->buffer;
     scanner->buffer = buffer->parent;
+    scanner->parsed = buffer->first;
     g_free (buffer);
 
     if (scanner->buffer == NULL)
@@ -394,7 +398,7 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
 
         yypush_buffer_state(yy_create_buffer(NULL, YY_BUF_SIZE, scanner->scanner), scanner->scanner);
 
-        return buffer->first;    
+        return scanner->parsed;    
     }
     else
     {
@@ -433,7 +437,7 @@ amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint star
         } while (status == YYPUSH_MORE);
         amp_ac_yypstate_delete (ps);
 
-        return buffer->first;
+        return scanner->parsed;
     }
 }
 

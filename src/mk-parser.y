@@ -208,7 +208,13 @@ definition:
         anjuta_token_group_append ($$, $2);
         anjuta_token_group_append ($$, $3);
         mkp_scanner_update_variable (scanner, $$);
-    }        
+    }
+    | head_list equal_group {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_DEFINITION, NULL);
+        anjuta_token_group_append_children ($$, $1);
+        anjuta_token_group_append ($$, $2);
+        mkp_scanner_update_variable (scanner, $$);
+    }
     ;    
 
 rule:

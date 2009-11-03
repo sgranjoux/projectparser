@@ -26,6 +26,7 @@
 
 #include <libanjuta/anjuta-project.h>
 #include <libanjuta/anjuta-token.h>
+#include <libanjuta/anjuta-token-group.h>
 #include <libanjuta/anjuta-token-file.h>
 #include <libanjuta/anjuta-token-style.h>
 

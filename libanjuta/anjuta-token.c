@@ -52,15 +52,6 @@ struct _AnjutaToken
 		
 #define ANJUTA_TOKEN_DATA(node)  ((node) != NULL ? (AnjutaTokenData *)((node)->data) : NULL)
 
-struct _AnjutaTokenGroup
-{
-	AnjutaToken *token;
-	AnjutaTokenGroup	*next;
-	AnjutaTokenGroup	*prev;
-	AnjutaTokenGroup	*parent;
-	AnjutaTokenGroup	*children;
-};
-
 /* Helpers functions
  *---------------------------------------------------------------------------*/
 
@@ -325,7 +316,7 @@ anjuta_token_get_length (AnjutaToken *token)
 	return ANJUTA_TOKEN_DATA (token)->length;
 }
 
-static void
+void
 anjuta_token_evaluate_token (AnjutaToken *token, GString *value, gboolean raw)
 {
 	if ((token != NULL) && (ANJUTA_TOKEN_DATA (token)->length != 0))
@@ -349,25 +340,7 @@ anjuta_token_evaluate_token (AnjutaToken *token, GString *value, gboolean raw)
 	}
 }	
 
-gchar *
-anjuta_token_evaluate_range (AnjutaToken *start, AnjutaToken *end)
-{
-	GString *value = g_string_new (NULL);
-
-	for (;;)
-	{
-		if (start == NULL) break;
-		anjuta_token_evaluate_token (start, value, FALSE);
-		if (start == end) break;
-		
-		start = anjuta_token_next (start);
-	}
-	
-
-	return g_string_free (value, FALSE);
-}
-
-static  void
+void
 anjuta_token_evaluate_child (AnjutaToken *token, GString *value, gboolean raw)
 {
 	anjuta_token_evaluate_token (token, value, raw);
@@ -813,151 +786,5 @@ anjuta_token_free (AnjutaToken *token)
 
 	g_node_children_foreach ((GNode *)token, G_TRAVERSE_ALL, free_token_data, NULL);
 	free_token_data ((GNode *)token, (GNode *)token->data);
-	g_node_destroy ((GNode *)token);
-}
-
-/* AnjutaTokenGroup 
- *---------------------------------------------------------------------------*/
-
-AnjutaToken *anjuta_token_group_get_token (AnjutaTokenGroup *group)
-{
-	return group->token;
-}
-
-AnjutaTokenGroup *anjuta_token_group_first (AnjutaTokenGroup *list)
-{
-	return (AnjutaTokenGroup *)g_node_first_child ((GNode *)list);
-}
-
-AnjutaTokenGroup *anjuta_token_group_next (AnjutaTokenGroup *item)
-{
-	return (AnjutaTokenGroup *)g_node_next_sibling ((GNode *)item);
-}
-
-AnjutaTokenGroup *anjuta_token_group_append (AnjutaTokenGroup *parent, AnjutaTokenGroup *group)
-{
-	if (group != NULL) g_node_append ((GNode *)parent, (GNode *)group);
-
-	return parent;
-}
-
-AnjutaTokenGroup *anjuta_token_group_append_token (AnjutaTokenGroup *parent, AnjutaToken *token)
-{
-	AnjutaTokenGroup *group;
-	
-	group = (AnjutaTokenGroup *)g_node_new (token);
-	return anjuta_token_group_append (parent, group);
-}
-
-AnjutaTokenGroup *anjuta_token_group_append_children (AnjutaTokenGroup *parent, AnjutaTokenGroup *children)
-{
-	if (children != NULL)
-	{
-		AnjutaTokenGroup *child;
-		
-		for (child = anjuta_token_group_first (children); child != NULL;)
-		{
-			AnjutaTokenGroup *next = anjuta_token_group_next (child);
-
-			g_node_unlink ((GNode *)child);
-			g_node_append ((GNode *)parent, (GNode *)child);
-			child = next;
-		}
-		g_node_destroy ((GNode *)children);
-	}
-
-	return parent;
-}
-
-AnjutaToken *anjuta_token_group_into_token (AnjutaTokenGroup *group)
-{
-	AnjutaToken *copy = NULL;
-
-	if (group != NULL)
-	{
-		AnjutaTokenGroup *child;
-		AnjutaToken *last;
-
-		copy = anjuta_token_copy_token (anjuta_token_group_get_token (group));
-
-		last = NULL;
-		for (child = anjuta_token_group_first (group); child != NULL; child = anjuta_token_group_next (child))
-		{
-			AnjutaToken *new_child = anjuta_token_group_into_token (child);
-			last =  last == NULL ? anjuta_token_insert_child (copy, new_child) : anjuta_token_insert_after (last, new_child);
-		}
-	}
-
-	return copy;
-}
-
-gchar *
-anjuta_token_group_evaluate (AnjutaTokenGroup *group)
-{
-	GString *value = g_string_new (NULL);
-	gchar *str;
-	gboolean raw = TRUE;
-
-	if (group != NULL)
-	{
-		AnjutaTokenGroup *child;
-		
-		for (child = anjuta_token_group_first (group); child != NULL; child = anjuta_token_group_next (child))
-		{
-			AnjutaToken *token = anjuta_token_group_get_token (child);
-			
-			anjuta_token_evaluate_token (token, value, raw);
-			if (token->children) anjuta_token_evaluate_child (token->children, value, raw);
-		}
-	}
-
-	str = g_string_free (value, FALSE);
-	return *str == '\0' ? NULL : str; 	
-}
-
-static void
-anjuta_token_group_dump_child (AnjutaTokenGroup *group, gint indent)
-{
-	AnjutaToken *token = group->token;
-	
-	fprintf (stdout, "%*s%p", indent, "", token);
-	fprintf (stdout, ": %d \"%.*s\"\n", anjuta_token_get_type (token), anjuta_token_get_length (token), anjuta_token_get_string (token));
-	
-	for (group = anjuta_token_group_first (group); group != NULL; group = anjuta_token_group_next (group))
-	{
-		anjuta_token_group_dump_child (group, indent + 4);
-	}
-}
-
-void
-anjuta_token_group_dump (AnjutaTokenGroup *token)
-{
-	anjuta_token_group_dump_child (token, 0);
-}
-
-AnjutaTokenGroup *anjuta_token_group_new (AnjutaTokenType type, AnjutaTokenGroup* first)
-{
-	AnjutaToken *token;
-	AnjutaTokenGroup *group;
-
-	token = anjuta_token_new_static (type, NULL);
-
-	group = (AnjutaTokenGroup *)g_node_new (token);
-	if (first != NULL)
-	{
-		AnjutaTokenGroup *child;
-
-		child = (AnjutaTokenGroup *)g_node_new (first);
-		g_node_insert_before ((GNode *)group, NULL, (GNode *)child);
-	}
-
-	return group;
-}
-
-void
-anjuta_token_group_free (AnjutaTokenGroup *token)
-{
-	if (token == NULL) return;
-
 	g_node_destroy ((GNode *)token);
 }
