@@ -67,6 +67,10 @@ static const gchar *valid_am_makefiles[] = {"GNUmakefile.am", "makefile.am", "Ma
 #define AMP_TARGET_DATA(node)  ((node) != NULL ? (AmpTargetData *)((node)->data) : NULL)
 #define AMP_SOURCE_DATA(node)  ((node) != NULL ? (AmpSourceData *)((node)->data) : NULL)
 
+#define STR_REPLACE(target, source) \
+	{ g_free (target); target = source == NULL ? NULL : g_strdup (source);}
+
+
 typedef struct _AmpPackage AmpPackage;
 
 typedef struct _AmpModule AmpModule;
@@ -608,24 +612,28 @@ amp_project_free_module_hash (AmpProject *project)
  *---------------------------------------------------------------------------*/
 
 static AmpProperty*
-amp_property_new (AnjutaTokenGroup *list)
+amp_property_new (AnjutaToken *macro, AnjutaTokenGroup *list)
 {
 	AmpProperty *prop;
 	AnjutaTokenGroup *arg;
 	
 	prop = g_slice_new0(AmpProperty); 
-	prop->ac_init = list;
+	prop->ac_init = macro;
+	prop->args = list;
 
-	arg = anjuta_token_group_first (list);
-	prop->name = anjuta_token_group_evaluate (arg);
-	arg = anjuta_token_group_next (arg);
-	prop->version = anjuta_token_group_evaluate (arg);
-	arg = anjuta_token_group_next (arg);
-	prop->bug_report = anjuta_token_group_evaluate (arg);
-	arg = anjuta_token_group_next (arg);
-	prop->tarname = anjuta_token_group_evaluate (arg);
-	arg = anjuta_token_group_next (arg);
-	prop->url = anjuta_token_group_evaluate (arg);
+	if (list != NULL)
+	{
+		arg = anjuta_token_group_first (list);
+		prop->name = anjuta_token_group_evaluate (arg);
+		arg = anjuta_token_group_next (arg);
+		prop->version = anjuta_token_group_evaluate (arg);
+		arg = anjuta_token_group_next (arg);
+		prop->bug_report = anjuta_token_group_evaluate (arg);
+		arg = anjuta_token_group_next (arg);
+		prop->tarname = anjuta_token_group_evaluate (arg);
+		arg = anjuta_token_group_next (arg);
+		prop->url = anjuta_token_group_evaluate (arg);
+	}
 	
 	return prop;
 }
@@ -980,9 +988,9 @@ project_node_destroy (AmpProject *project, AnjutaProjectNode *g_node)
 }
 
 void
-amp_project_load_properties (AmpProject *project, AnjutaTokenGroup *list)
+amp_project_load_properties (AmpProject *project, AnjutaToken *macro, AnjutaTokenGroup *list)
 {
-	project->property = amp_property_new (list);
+	project->property = amp_property_new (macro, list);
 }
 
 void
@@ -2415,30 +2423,30 @@ amp_project_get_property (AmpProject *project, AmpPropertyType type)
 gboolean
 amp_project_set_property (AmpProject *project, AmpPropertyType type, const gchar *value)
 {
-	if (project->property != NULL)
+	if (project->property == NULL)
 	{
-		switch (type)
-		{
-			case AMP_PROPERTY_NAME:
-				project->property->name = g_strdup (value);
-				break;
-			case AMP_PROPERTY_VERSION:
-				project->property->version = g_strdup (value);
-				break;
-			case AMP_PROPERTY_BUG_REPORT:
-				project->property->bug_report = g_strdup (value);
-				break;
-			case AMP_PROPERTY_TARNAME:
-				project->property->tarname = g_strdup (value);
-				break;
-			case AMP_PROPERTY_URL:
-				project->property->url = g_strdup (value);
-				break;
-		}
-		return amp_project_update_property (project, type);
+		project->property = amp_property_new (NULL, NULL);
+	}
+	switch (type)
+	{
+		case AMP_PROPERTY_NAME:
+			STR_REPLACE (project->property->name, value);
+			break;
+		case AMP_PROPERTY_VERSION:
+			STR_REPLACE (project->property->version, value);
+			break;
+		case AMP_PROPERTY_BUG_REPORT:
+			STR_REPLACE (project->property->bug_report, value);
+			break;
+		case AMP_PROPERTY_TARNAME:
+			STR_REPLACE (project->property->tarname, value);
+			break;
+		case AMP_PROPERTY_URL:
+			STR_REPLACE (project->property->url, value);
+			break;
 	}
 	
-	return TRUE;
+	return amp_project_update_property (project, type);
 }
 
 /* Implement IAnjutaProject

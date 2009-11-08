@@ -536,7 +536,16 @@ anjuta_token_insert_after (AnjutaToken *sibling, AnjutaToken *token)
 AnjutaToken *
 anjuta_token_insert_before (AnjutaToken *sibling, AnjutaToken *baby)
 {
-	return (AnjutaToken *)g_node_insert_before ((GNode *)sibling->parent, (GNode *)sibling, (GNode *)baby);
+	AnjutaToken *next = NULL;
+	AnjutaToken *token;
+
+	for (token = baby; token != NULL; token = next)
+	{
+		next = anjuta_token_next (token);
+		g_node_insert_before ((GNode *)sibling->parent, (GNode *)sibling, (GNode *)token);
+	}
+
+	return baby;
 }	
 
 void

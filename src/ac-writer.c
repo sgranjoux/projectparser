@@ -25,6 +25,8 @@
 #endif
 
 #include "ac-writer.h"
+#include "ac-scanner.h"
+#include "ac-parser.h"
 
 #include "am-project-private.h"
 
@@ -93,6 +95,81 @@ add_list_item (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_sty
 	return TRUE;
 }
 
+static AnjutaToken*
+find_tokens (AnjutaToken *list, AnjutaTokenType* types)
+{
+	AnjutaToken *tok;
+	
+	for (tok = list; tok != NULL; tok = anjuta_token_next (tok))
+	{
+		AnjutaTokenType *type;
+		for (type = types; *type != 0; type++)
+		{
+			if (anjuta_token_get_type (tok) == *type)
+			{
+				return tok;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+static AnjutaToken *
+find_next_eol (AnjutaToken *token)
+{
+	if (token == NULL) return NULL;
+	
+	for (;;)
+	{
+		AnjutaToken *next = anjuta_token_next (token);
+
+		if (next == NULL) return token;
+		token = next;
+		if (anjuta_token_get_type (token) == EOL) return token;
+	}
+}
+
+static AnjutaToken *
+skip_comment (AnjutaToken *token)
+{
+	if (token == NULL) return NULL;
+	
+	for (;;)
+	{
+		for (;;)
+		{
+			AnjutaToken *next = anjuta_token_next (token);
+			AnjutaTokenType type;
+
+			if (next == NULL) return token;
+			
+			type = anjuta_token_get_type (token);
+			if (type == SPACE)
+			{
+				token = next;
+				continue;
+			}
+			if (type == COMMENT)
+			{
+				token = next;
+				break;
+			}
+
+			return token;
+		}
+		
+		for (;;)
+		{
+			AnjutaToken *next = anjuta_token_next (token);
+
+			if (next == NULL) return token;
+			token = next;
+			if (anjuta_token_get_type (token) == EOL) break;
+		}
+	}
+}
+
 /* Public functions
  *---------------------------------------------------------------------------*/
 
@@ -102,16 +179,8 @@ amp_project_update_property (AmpProject *project, AmpPropertyType type)
 	AnjutaToken *token;
 	guint pos;
 	const gchar *value;
-	
-	if (project->property == NULL)
-	{
-		return FALSE;
-	}
-	gchar *name;
-	gchar *version;
-	gchar *bug_report;
-	gchar *tarname;
-	gchar *url;
+
+	g_return_val_if_fail (project->property != NULL, FALSE);
 
 	switch (type)
 	{
@@ -137,9 +206,45 @@ amp_project_update_property (AmpProject *project, AmpPropertyType type)
 			break;
 	}
 	
+	if (project->property->ac_init == NULL)
+	{
+		gint types[] = {AC_TOKEN_AC_PREREQ, 0};
+		AnjutaTokenGroup *group;
+
+		token = find_tokens (project->configure_token, types);
+		if (token == NULL)
+		{
+			token = skip_comment (project->configure_token);
+			if (token == NULL)
+			{
+				token = anjuta_token_append_child (project->configure_token, anjuta_token_new_string (COMMENT | ANJUTA_TOKEN_ADDED, "#"));
+				token = anjuta_token_insert_after (token, anjuta_token_new_string (SPACE | ANJUTA_TOKEN_ADDED, " Created by Anjuta project manager"));
+				token = anjuta_token_insert_after (token, anjuta_token_new_string (EOL | ANJUTA_TOKEN_ADDED, "\n"));
+				token = anjuta_token_insert_after (token, anjuta_token_new_string (EOL | ANJUTA_TOKEN_ADDED, "\n"));
+			}
+		}
+		token = find_next_eol (token);
+		
+		token = anjuta_token_insert_after (token, anjuta_token_new_string (AC_TOKEN_AC_INIT | ANJUTA_TOKEN_ADDED, "AC_INIT("));
+		project->property->ac_init = token;
+		group = anjuta_token_group_new (ANJUTA_TOKEN_LIST, NULL);
+		project->property->args = group;
+		group = anjuta_token_group_append (project->property->args, anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL));
+		group = anjuta_token_group_append (project->property->args, anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL));
+		token = anjuta_token_insert_after (token, anjuta_token_new_string (ANJUTA_TOKEN_START | ANJUTA_TOKEN_ADDED, NULL));
+		token = anjuta_token_insert_after (token, anjuta_token_new_string (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
+		token = anjuta_token_insert_after (token, anjuta_token_new_string (COMMA | ANJUTA_TOKEN_ADDED, ","));
+		token = anjuta_token_insert_after (token, anjuta_token_new_string (SPACE | ANJUTA_TOKEN_ADDED, " "));
+		token = anjuta_token_insert_after (token, anjuta_token_new_string (RIGHT_PAREN | ANJUTA_TOKEN_ADDED, ")"));
+		token = anjuta_token_insert_after (token, anjuta_token_new_string (ANJUTA_TOKEN_LAST | ANJUTA_TOKEN_ADDED, NULL));
+		token = anjuta_token_insert_after (token, anjuta_token_new_string (EOL | ANJUTA_TOKEN_ADDED, "\n"));
+	}
+	anjuta_token_dump (project->property->ac_init);
 	token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, value);
 	anjuta_token_list_replace_nth (project->property->ac_init, pos, token);
+	anjuta_token_dump (project->property->ac_init);
 	anjuta_token_style_format (project->arg_list, project->property->ac_init);
+	anjuta_token_file_update (project->configure_file, token);
 	
 	return TRUE;
 }

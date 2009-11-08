@@ -362,9 +362,9 @@ amp_ac_scanner_load_config (AmpAcScanner *scanner, AnjutaTokenGroup *list)
 }
 
 void
-amp_ac_scanner_load_properties (AmpAcScanner *scanner, AnjutaTokenGroup *list)
+amp_ac_scanner_load_properties (AmpAcScanner *scanner, AnjutaToken *macro, AnjutaTokenGroup *list)
 {
-    amp_project_load_properties (scanner->project, list);
+    amp_project_load_properties (scanner->project, macro, list);
 }
 
 

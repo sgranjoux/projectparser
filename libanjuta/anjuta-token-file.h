@@ -56,6 +56,8 @@ void anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file);
 
 gboolean anjuta_token_file_get_token_location (AnjutaTokenFile *file, AnjutaTokenFileLocation *location, AnjutaToken *token);
 
+gboolean anjuta_token_file_update (AnjutaTokenFile *file, AnjutaToken *token);
+
 AnjutaToken* anjuta_token_file_get_content (AnjutaTokenFile *file);
 GFile *anjuta_token_file_get_file (AnjutaTokenFile *file);
 

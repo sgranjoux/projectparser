@@ -30,6 +30,7 @@
 /* Token location is found directly from token value, there is no need to
  * maintain a separate location variable */
 #define YYLLOC_DEFAULT(Current, Rhs, N)	((Current) = YYRHSLOC(Rhs, (N) ? 1 : 0))
+
 %}
 
 %union {
@@ -52,7 +53,8 @@
 %token  <token> COMMA             ','
 %token  <token> LOWER           '<'
 %token  <token> GREATER         '>'
-    
+
+%token  <token> COMMENT
 %token  <token> NAME
 %token  <token> VARIABLE
 %token  <token> MACRO
@@ -221,7 +223,7 @@ ac_macro_with_arg:
 
 ac_init:
     AC_INIT arg_list {
-        amp_ac_scanner_load_properties (scanner, $2);
+        amp_ac_scanner_load_properties (scanner, $1, $2);
     }
 
 ac_output:

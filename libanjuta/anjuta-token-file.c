@@ -218,6 +218,94 @@ anjuta_token_file_get_file (AnjutaTokenFile *file)
 	return file->file;
 }
 
+/**
+ * anjuta_token_file_update:
+ * @file: a #AnjutaTokenFile derived class object.
+ * @token: Token to update.
+ * 
+ * Update the file with all changed token starting from @token. The function can
+ * return an error if the token is not in the file.
+ * 
+ * Return value: TRUE is the update is done without error.
+ */
+gboolean
+anjuta_token_file_update (AnjutaTokenFile *file, AnjutaToken *token)
+{
+	AnjutaToken *prev;
+	AnjutaToken *start = NULL;
+	AnjutaToken *next;
+	const gchar *pos;
+	const gchar *ptr;
+	const gchar *last;
+	const gchar *end;
+
+	/* Find position a token in the file */
+	for (prev = token; prev != NULL; prev = anjuta_token_previous_sibling (prev))
+	{
+		if (anjuta_token_get_string (prev) != NULL)
+		{
+			gint flags = anjuta_token_get_flags (prev);
+			if (!(flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED))) break;
+			token = prev;    
+		}
+	}	
+	
+	/* Find token position */
+	if (prev != NULL)
+	{
+		pos = anjuta_token_get_string (prev);
+		for (start = file->content; start != NULL; start = anjuta_token_next (start))
+		{
+			guint len = anjuta_token_get_length (start);
+			
+			if (len)
+			{
+				ptr = anjuta_token_get_string (start);
+				end = ptr + len;
+
+				if ((pos >= ptr) && (pos < end)) break;
+			}
+		}
+		if (ptr != pos)
+		{
+			start = anjuta_token_split (start, ptr - pos);
+			start = anjuta_token_next (start);
+		}
+	}
+
+	/* Updated token */
+	last = pos;
+	for (next = token; next != NULL; next = anjuta_token_next_sibling (next))
+	{
+		gint flags = anjuta_token_get_flags (next);
+		
+		if (flags & ANJUTA_TOKEN_REMOVED)
+		{
+			guint len = anjuta_token_get_length (next);
+		}
+		else if (flags & ANJUTA_TOKEN_ADDED)
+		{
+			AnjutaToken* copy = anjuta_token_copy_token (next);
+
+			if (start == NULL)
+			{
+				start = anjuta_token_insert_child (file->content, copy);
+			}
+			else
+			{
+				start = anjuta_token_insert_after (start, copy);
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	return TRUE;
+}
+
+
 /* GObject functions
  *---------------------------------------------------------------------------*/
 

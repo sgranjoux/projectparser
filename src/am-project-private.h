@@ -37,7 +37,8 @@ struct _AmpModule {
 };
 
 struct _AmpProperty {
-	AnjutaTokenGroup *ac_init;				/* AC_INIT macro */
+	AnjutaToken *ac_init;				/* AC_INIT macro */
+	AnjutaTokenGroup *args;
 	gchar *name;
 	gchar *version;
 	gchar *bug_report;

@@ -20,7 +20,8 @@ TESTSUITE_AT = \
 	$(srcdir)/group.at \
 	$(srcdir)/target.at \
 	$(srcdir)/parser.at \
-	$(srcdir)/makefile.at
+	$(srcdir)/makefile.at \
+	$(srcdir)/acinit.at
 
 TESTSUITE = $(srcdir)/testsuite
 
