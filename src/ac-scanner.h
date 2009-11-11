@@ -39,7 +39,7 @@ AnjutaToken* amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *tok
 
 void amp_ac_scanner_load_module (AmpAcScanner *scanner, AnjutaTokenGroup *module);
 void amp_ac_scanner_load_config (AmpAcScanner *scanner, AnjutaTokenGroup *list);
-void amp_ac_scanner_load_properties (AmpAcScanner *scanner, AnjutaToken *macro, AnjutaTokenGroup *args);
+void amp_ac_scanner_load_properties (AmpAcScanner *scanner, AnjutaToken *macro, AnjutaToken *args);
 
 void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s);
 

@@ -495,6 +495,8 @@ ac_init_default_tarname (const gchar *name)
 {
 	gchar *tarname;
 
+	if (name == NULL) return NULL;
+	
 	/* Remove GNU prefix */
 	if (strncmp (name, "GNU ", 4) == 0) name += 4;
 
@@ -612,10 +614,10 @@ amp_project_free_module_hash (AmpProject *project)
  *---------------------------------------------------------------------------*/
 
 static AmpProperty*
-amp_property_new (AnjutaToken *macro, AnjutaTokenGroup *list)
+amp_property_new (AnjutaToken *macro, AnjutaToken *list)
 {
 	AmpProperty *prop;
-	AnjutaTokenGroup *arg;
+	AnjutaToken *arg;
 	
 	prop = g_slice_new0(AmpProperty); 
 	prop->ac_init = macro;
@@ -623,16 +625,16 @@ amp_property_new (AnjutaToken *macro, AnjutaTokenGroup *list)
 
 	if (list != NULL)
 	{
-		arg = anjuta_token_group_first (list);
-		prop->name = anjuta_token_group_evaluate (arg);
-		arg = anjuta_token_group_next (arg);
-		prop->version = anjuta_token_group_evaluate (arg);
-		arg = anjuta_token_group_next (arg);
-		prop->bug_report = anjuta_token_group_evaluate (arg);
-		arg = anjuta_token_group_next (arg);
-		prop->tarname = anjuta_token_group_evaluate (arg);
-		arg = anjuta_token_group_next (arg);
-		prop->url = anjuta_token_group_evaluate (arg);
+		arg = anjuta_token_first_item (list);
+		prop->name = anjuta_token_evaluate (arg);
+		arg = anjuta_token_next_item (arg);
+		prop->version = anjuta_token_evaluate (arg);
+		arg = anjuta_token_next_item (arg);
+		prop->bug_report = anjuta_token_evaluate (arg);
+		arg = anjuta_token_next_item (arg);
+		prop->tarname = anjuta_token_evaluate (arg);
+		arg = anjuta_token_next_item (arg);
+		prop->url = anjuta_token_evaluate (arg);
 	}
 	
 	return prop;
@@ -988,8 +990,10 @@ project_node_destroy (AmpProject *project, AnjutaProjectNode *g_node)
 }
 
 void
-amp_project_load_properties (AmpProject *project, AnjutaToken *macro, AnjutaTokenGroup *list)
+amp_project_load_properties (AmpProject *project, AnjutaToken *macro, AnjutaToken *list)
 {
+	fprintf (stdout, "property list:\n");
+	anjuta_token_dump (list);
 	project->property = amp_property_new (macro, list);
 }
 

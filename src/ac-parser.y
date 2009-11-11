@@ -87,6 +87,8 @@
 %type   <token> any_macro
 
 %type   <group> arg_list arg_list_body arg arg_body arg_part_or_space arg_part
+%type   <token> arg_list_old arg_list_body_old arg_body_old arg_part_or_space_old arg_part_old arg_old
+%type   <token> separator
 %type   <group> spaces
 %type   <group> expression expression_body
 %type   <group> raw_string raw_string_body
@@ -201,7 +203,7 @@ dnl:
     
 
 pkg_check_modules:
-    PKG_CHECK_MODULES arg_list {
+    PKG_CHECK_MODULES arg_list_old {
         amp_ac_scanner_load_module (scanner, $2);
     }
 	;
@@ -233,13 +235,13 @@ ac_output:
 	;
 
 obsolete_ac_output:
-    OBSOLETE_AC_OUTPUT  arg_list {
+    OBSOLETE_AC_OUTPUT  arg_list_old {
         amp_ac_scanner_load_config (scanner, $2);
     }
 	;
 	
 ac_config_files:
-    AC_CONFIG_FILES  arg_list {
+    AC_CONFIG_FILES  arg_list_old {
         amp_ac_scanner_load_config (scanner, $2);
     }
 	;
@@ -248,16 +250,51 @@ ac_config_files:
  *----------------------------------------------------------------------------*/
 
 arg_list:
-    arg_list_body  RIGHT_PAREN
-    | spaces  arg_list_body  RIGHT_PAREN
+    arg_list_body  RIGHT_PAREN {
+        $$ = anjuta_token_new_static (ANJUTA_TOKEN_LAST, NULL);
+        anjuta_token_merge ($$, $2);
+        $$ = $1;
+    }
+    | spaces  arg_list_body  RIGHT_PAREN {
+        $$ = anjuta_token_new_static (ANJUTA_TOKEN_LAST, NULL);
+        anjuta_token_merge ($$, $3);
+        $$ = $1;
+    }
     ;
 
 arg_list_body:
     arg {
+        $$ = anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL);
+        anjuta_token_merge ($$, $1);
+        fprintf(stdout, "arg_list_body arg\n");
+        anjuta_token_dump ($1);
+    }
+    | arg_list_body  separator  arg {
+        fprintf(stdout, "arg_list_body body\n");
+        anjuta_token_dump ($1);
+        fprintf(stdout, "arg_list_body separator\n");
+        anjuta_token_dump ($2);
+        fprintf(stdout, "arg_list_body arg\n");
+        anjuta_token_dump ($3);
+        anjuta_token_merge ($1, $3);
+        fprintf(stdout, "arg_list_body merge\n");
+        anjuta_token_dump ($1);
+    }
+    ;
+
+arg_list_old:
+    arg_list_body_old  RIGHT_PAREN
+    | spaces  arg_list_body_old  RIGHT_PAREN {
+        $$ = $2;
+    }
+    ;
+
+arg_list_body_old:
+    arg_old {
         $$ = anjuta_token_group_new (ANJUTA_TOKEN_LIST, NULL);
         anjuta_token_group_append ($$, $1);
     }
-    | arg_list_body  separator  arg {
+    | arg_list_body_old  separator  arg_old {
         $$ = anjuta_token_group_append ($1, $3);
     }
     ;
@@ -377,33 +414,75 @@ arg_string_body:
 
 arg:
     /* empty */ {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL);
+        $$ = anjuta_token_new_static (ANJUTA_TOKEN_ITEM, NULL);
     }
     | arg_part arg_body {
+        fprintf(stdout, "arg part\n");
+        anjuta_token_dump ($1);
+        fprintf(stdout, "arg body\n");
+        anjuta_token_dump ($2);
+        anjuta_token_merge_children ($1, $2);
+        fprintf(stdout, "arg merge\n");
+        anjuta_token_dump ($1);
+    }        
+    ;
+
+arg_body:
+    /* empty */ {
+        $$ = anjuta_token_new_static (ANJUTA_TOKEN_ITEM, NULL);
+    }
+    | arg_body arg_part_or_space {
+        anjuta_token_merge_children ($1, $2);
+    }
+    ;
+
+arg_part_or_space:
+    space_token {
+        $$ = anjuta_token_new_static (ANJUTA_TOKEN_ITEM, NULL);
+        anjuta_token_merge ($$, $1);
+    }
+    | arg_part
+    ;
+
+arg_part:
+    arg_string
+    | expression { $$ = NULL;}
+    | dnl
+    | arg_token {
+        $$ = anjuta_token_new_static (ANJUTA_TOKEN_ITEM, NULL);
+        anjuta_token_merge ($$, $1);
+    }
+    ;
+
+arg_old:
+    /* empty */ {
+        $$ = anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL);
+    }
+    | arg_part_old arg_body_old {
         $$ = anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL);
         anjuta_token_group_append_children ($$, $1);
         anjuta_token_group_append_children ($$, $2);
     }        
     ;
 
-arg_body:
+arg_body_old:
     /* empty */ {
         $$ = anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL);
     }
-    | arg_body arg_part_or_space {
+    | arg_body_old arg_part_or_space_old {
         anjuta_token_group_append_children ($1, $2);
     }
     ;
 
-arg_part_or_space:
+arg_part_or_space_old:
     space_token {
         $$ = anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL);
         anjuta_token_group_append_token ($$, $1);
     }
-    | arg_part
+    | arg_part_old
     ;
 
-arg_part:
+arg_part_old:
     arg_string
     | expression { $$ = NULL;}
     | dnl
@@ -424,9 +503,22 @@ arg_token:
     ;
 
 separator:
-    COMMA
+    COMMA {
+        $$ = anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL);
+        anjuta_token_merge ($$, $1);
+    }
     | COMMA spaces {
-        anjuta_token_group_free ($2);
+        $$ = anjuta_token_new_static (ANJUTA_TOKEN_NEXT, NULL);
+        fprintf(stdout, "separator spaces\n");
+        anjuta_token_dump ($2);
+        fprintf(stdout, "separator comma\n");
+        anjuta_token_dump ($1);
+        fprintf(stdout, "separator next\n");
+        anjuta_token_dump ($$);
+        anjuta_token_merge ($$, $1);
+        anjuta_token_merge_children ($$, $2);
+        fprintf(stdout, "separator merge\n");
+        anjuta_token_dump ($$);
     }
     ;
 
@@ -477,11 +569,11 @@ expression_body:
 
 spaces:
 	space_token {
-        $$ = anjuta_token_group_new (ANJUTA_TOKEN_SPACE, NULL);
-        anjuta_token_group_append_token ($$, $1);
+        $$ = anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL);
+        anjuta_token_merge ($$, $1);
     }
 	| spaces space_token {
-        anjuta_token_group_append_token ($1, $2);
+        anjuta_token_merge ($1, $2);
 	}
 	;
 

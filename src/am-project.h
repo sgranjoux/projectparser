@@ -73,7 +73,7 @@ gboolean amp_project_reload (AmpProject *project, GError **error);
 void amp_project_unload (AmpProject *project);
 
 void amp_project_load_config (AmpProject *project, AnjutaTokenGroup *arg_list);
-void amp_project_load_properties (AmpProject *project, AnjutaToken *macro, AnjutaTokenGroup *list);
+void amp_project_load_properties (AmpProject *project, AnjutaToken *macro, AnjutaToken *list);
 void amp_project_load_module (AmpProject *project, AnjutaTokenGroup *module);
 
 
