@@ -142,13 +142,13 @@ anjuta_token_style_insert_separator_between (AnjutaTokenStyle *style, gint next,
 }
 
 static AnjutaToken*
-anjuta_token_style_lookup (AnjutaTokenStyle *style)
+anjuta_token_style_lookup (AnjutaTokenStyle *style, AnjutaTokenType type, gboolean eol)
 {
 	GList *list;
 	
-	list = g_hash_table_lookup (style->separator, GINT_TO_POINTER (ANJUTA_TOKEN_NEXT));
+	list = g_hash_table_lookup (style->separator, GINT_TO_POINTER (type));
 
-	return anjuta_token_new_string (ANJUTA_TOKEN_NEXT, ((AnjutaTokenStyleSeparator *)list->data)->value);
+	return anjuta_token_new_string (ANJUTA_TOKEN_NAME, ((AnjutaTokenStyleSeparator *)list->data)->value);
 }
 
 /* Public functions
@@ -254,14 +254,59 @@ anjuta_token_style_format_line (AnjutaTokenStyle *style, AnjutaToken *bol, Anjut
 void
 anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
 {
-	AnjutaToken *arg;
+	AnjutaToken *item;
+	AnjutaToken *last;
+	AnjutaToken *text;
+	AnjutaToken *prev;
 
-	for (arg = anjuta_token_next_child (list); arg != NULL; arg = anjuta_token_next_sibling (arg))
+	/* Find following tokens */
+	for (last = list; last != NULL; last = anjuta_token_next (last))
 	{
-		if ((anjuta_token_get_type (arg) == ANJUTA_TOKEN_NEXT) && (anjuta_token_get_flags (arg) & (ANJUTA_TOKEN_ADDED)))
+		/* Get all tokens in group */
+		last = anjuta_token_last (last);
+
+		gint flags = anjuta_token_get_flags (last);
+		if (!(flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED))) break;
+	}
+	
+	/* Find previous token */
+	for (prev = list; prev != NULL; prev = anjuta_token_previous (prev))
+	{
+		gint flags = anjuta_token_get_flags (prev);
+		if ((anjuta_token_get_string (prev) != NULL) && !(flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED))) break;
+		list = prev;    
+	}
+
+	for (item = list; (item != NULL) && (item != last); item = anjuta_token_next (item))
+	{
+		if (anjuta_token_get_flags (item) & ANJUTA_TOKEN_ADDED)
 		{
-			anjuta_token_insert_after (arg, anjuta_token_style_lookup (style));
-			anjuta_token_free (arg);
+			switch (anjuta_token_get_type (item))
+			{
+			case ANJUTA_TOKEN_START:
+				text = anjuta_token_style_lookup (style, ANJUTA_TOKEN_START, FALSE);
+				anjuta_token_set_flags (text, ANJUTA_TOKEN_ADDED);
+				anjuta_token_insert_after (item, text);
+				anjuta_token_merge (item, text);
+				item = text;
+				break;
+			case ANJUTA_TOKEN_NEXT:
+				text = anjuta_token_style_lookup (style, ANJUTA_TOKEN_NEXT, FALSE);
+				anjuta_token_set_flags (text, ANJUTA_TOKEN_ADDED);
+				anjuta_token_insert_after (item, text);
+				anjuta_token_merge (item, text);
+				item = text;
+				break;
+			case ANJUTA_TOKEN_LAST:
+				text = anjuta_token_style_lookup (style, ANJUTA_TOKEN_LAST, FALSE);
+				anjuta_token_set_flags (text, ANJUTA_TOKEN_ADDED);
+				anjuta_token_insert_after (item, text);
+				anjuta_token_merge (item, text);
+				item = text;
+				break;
+			default:
+				break;
+			}
 		}
 	}
 #if 0	

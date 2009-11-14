@@ -253,11 +253,13 @@ arg_list:
     arg_list_body  RIGHT_PAREN {
         $$ = anjuta_token_new_static (ANJUTA_TOKEN_LAST, NULL);
         anjuta_token_merge ($$, $2);
+        anjuta_token_merge ($1, $$);
         $$ = $1;
     }
     | spaces  arg_list_body  RIGHT_PAREN {
         $$ = anjuta_token_new_static (ANJUTA_TOKEN_LAST, NULL);
         anjuta_token_merge ($$, $3);
+        anjuta_token_merge ($1, $$);
         $$ = $1;
     }
     ;

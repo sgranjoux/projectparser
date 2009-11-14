@@ -50,6 +50,53 @@ static GObjectClass *parent_class = NULL;
 /* Helpers functions
  *---------------------------------------------------------------------------*/
 
+/* Private functions
+ *---------------------------------------------------------------------------*/
+
+static AnjutaToken*
+anjuta_token_file_find_position (AnjutaTokenFile *file, AnjutaToken *token)
+{
+	AnjutaToken *start;
+	const gchar *pos;
+	const gchar *ptr;
+	const gchar *end;
+	
+	if (token == NULL) return NULL;
+
+	if (anjuta_token_get_length (token) == 0)
+	{
+		AnjutaToken *last = anjuta_token_last (token);
+
+		for (; (token != NULL) && (token != last); token = anjuta_token_next (token))
+		{
+			if (anjuta_token_get_length (token) != 0) break;
+		}
+
+		if (anjuta_token_get_length (token) == 0) return NULL;
+	}
+
+	pos = anjuta_token_get_string (token);
+	for (start = file->content; start != NULL; start = anjuta_token_next (start))
+	{
+		guint len = anjuta_token_get_length (start);
+			
+		if (len)
+		{
+			ptr = anjuta_token_get_string (start);
+			end = ptr + len;
+
+			if ((pos >= ptr) && (pos < end)) break;
+		}
+	}
+	if ((start != NULL) && (ptr != pos))
+	{
+		start = anjuta_token_split (start, pos - ptr);
+		start = anjuta_token_next (start);
+	}
+
+	return start;
+}
+
 /* Public functions
  *---------------------------------------------------------------------------*/
 
@@ -232,76 +279,113 @@ gboolean
 anjuta_token_file_update (AnjutaTokenFile *file, AnjutaToken *token)
 {
 	AnjutaToken *prev;
-	AnjutaToken *start = NULL;
 	AnjutaToken *next;
-	const gchar *pos;
-	const gchar *ptr;
-	const gchar *last;
-	const gchar *end;
+	AnjutaToken *last;
+	guint added;
 
-	/* Find position a token in the file */
-	for (prev = token; prev != NULL; prev = anjuta_token_previous_sibling (prev))
-	{
-		if (anjuta_token_get_string (prev) != NULL)
-		{
-			gint flags = anjuta_token_get_flags (prev);
-			if (!(flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED))) break;
-			token = prev;    
-		}
-	}	
+	/* Find all token needing an update */
 	
-	/* Find token position */
-	if (prev != NULL)
+	/* Find following tokens */
+	for (last = token; last != NULL; last = anjuta_token_next (last))
 	{
-		pos = anjuta_token_get_string (prev);
-		for (start = file->content; start != NULL; start = anjuta_token_next (start))
-		{
-			guint len = anjuta_token_get_length (start);
-			
-			if (len)
-			{
-				ptr = anjuta_token_get_string (start);
-				end = ptr + len;
+		/* Get all tokens in group */
+		last = anjuta_token_last (last);
 
-				if ((pos >= ptr) && (pos < end)) break;
-			}
-		}
-		if (ptr != pos)
-		{
-			start = anjuta_token_split (start, ptr - pos);
-			start = anjuta_token_next (start);
-		}
+		gint flags = anjuta_token_get_flags (last);
+		if (!(flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED))) break;
 	}
-
-	/* Updated token */
-	last = pos;
-	for (next = token; next != NULL; next = anjuta_token_next_sibling (next))
+	
+	/* Find previous token */
+	for (prev = token; prev != NULL; prev = anjuta_token_previous (prev))
+	{
+		gint flags = anjuta_token_get_flags (prev);
+		if ((anjuta_token_get_string (prev) != NULL) && !(flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED))) break;
+		token = prev;    
+	}
+	
+	/* Delete removed token and compute length of added token */
+	added = 0;
+	for (next = token; (next != NULL) && (next != last);)
 	{
 		gint flags = anjuta_token_get_flags (next);
 		
-		if (flags & ANJUTA_TOKEN_REMOVED)
+		if ((flags & ANJUTA_TOKEN_REMOVED) && (anjuta_token_get_length (next) > 0))
 		{
+			AnjutaToken *pos = anjuta_token_file_find_position (file, next);
 			guint len = anjuta_token_get_length (next);
+
+			if (pos != NULL)
+			{
+				while (len != 0)
+				{
+					guint flen = anjuta_token_get_length (pos);
+					if (len < flen)
+					{
+						pos = anjuta_token_split (pos, len);
+						flen = len;
+					}
+					pos = anjuta_token_free (pos);
+					len -= flen;
+				}
+				next = anjuta_token_free (next);
+				continue;
+			}
 		}
 		else if (flags & ANJUTA_TOKEN_ADDED)
 		{
-			AnjutaToken* copy = anjuta_token_copy_token (next);
+			added += anjuta_token_get_length (next);
+		}
+		next = anjuta_token_next (next);
+	}
 
-			if (start == NULL)
-			{
-				start = anjuta_token_insert_child (file->content, copy);
-			}
-			else
-			{
-				start = anjuta_token_insert_after (start, copy);
-			}
+	/* Add new token */
+	if (added != 0)
+	{
+		gchar *value;
+		AnjutaToken *add;
+		AnjutaToken *start = NULL;
+		
+		value = g_new (gchar, added);
+		anjuta_token_insert_child (file->save, anjuta_token_new_with_string (ANJUTA_TOKEN_NAME, value, added));
+		
+		/* Find token position */
+		if (prev != NULL)
+		{
+			start = anjuta_token_file_find_position (file, prev);
+			if (start != NULL) start = anjuta_token_split (start, anjuta_token_get_length (prev));
+		}
+
+		/* Insert token */
+		add = anjuta_token_new_fragment (ANJUTA_TOKEN_NAME, value, added);
+		if (start == NULL)
+		{
+			anjuta_token_insert_child (file->content, add);
 		}
 		else
 		{
-			break;
+			anjuta_token_insert_after (start, add);
+		}
+
+		for (next = token; (next != NULL) && (next != last); next = anjuta_token_next (next))
+		{
+			gint flags = anjuta_token_get_flags (next);
+
+
+			if (flags & ANJUTA_TOKEN_ADDED)
+			{
+				guint len = anjuta_token_get_length (next);
+
+				if (len > 0)
+				{
+					memcpy(value, anjuta_token_get_string (next), len);
+					anjuta_token_set_string (next, value, len);
+					value += len;
+				}
+			}
 		}
 	}
-
+	
+	
 	return TRUE;
 }
 

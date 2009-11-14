@@ -108,7 +108,9 @@ AnjutaToken *anjuta_token_new_with_string (AnjutaTokenType type, gchar *value, g
 AnjutaToken *anjuta_token_new_static (AnjutaTokenType type, const gchar *value);
 AnjutaToken *anjuta_token_new_fragment (gint type, const gchar *pos, gsize length);
 
-void anjuta_token_free (AnjutaToken *token);
+AnjutaToken* anjuta_token_free (AnjutaToken *token);
+
+AnjutaToken *anjuta_token_unlink (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_merge_children (AnjutaToken *first, AnjutaToken *end);
@@ -139,6 +141,8 @@ AnjutaToken *anjuta_token_next_group (AnjutaToken *item);
 AnjutaToken *anjuta_token_first_item (AnjutaToken *list);
 AnjutaToken *anjuta_token_next_item (AnjutaToken *item);
 
+AnjutaToken *anjuta_token_replace_nth_item (AnjutaToken *list, guint n, AnjutaToken *item);
+
 //AnjutaToken *anjuta_token_copy (AnjutaToken *token);
 //AnjutaToken *anjuta_token_copy_include_range (AnjutaToken *token, AnjutaToken *end);
 //AnjutaToken *anjuta_token_copy_exclude_range (AnjutaToken *token, AnjutaToken *end);
@@ -159,6 +163,7 @@ gchar *anjuta_token_value (AnjutaToken *token);
 AnjutaToken *anjuta_token_next_lex (AnjutaToken *token);
 
 void anjuta_token_dump (AnjutaToken *token);
+void anjuta_token_dump_link (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_next (AnjutaToken *token);
 AnjutaToken *anjuta_token_next_after_children (AnjutaToken *token);
@@ -167,6 +172,7 @@ AnjutaToken *anjuta_token_next_child (AnjutaToken *token);
 AnjutaToken *anjuta_token_previous (AnjutaToken *token);
 AnjutaToken *anjuta_token_previous_sibling (AnjutaToken *token);
 AnjutaToken *anjuta_token_parent (AnjutaToken *token);
+AnjutaToken *anjuta_token_last (AnjutaToken *token);
 gboolean anjuta_token_compare (AnjutaToken *tokena, AnjutaToken *tokenb);
 
 AnjutaToken *anjuta_token_get_next_arg (AnjutaToken *arg, gchar ** value);
@@ -177,6 +183,7 @@ gint anjuta_token_get_flags (AnjutaToken *token);
 gchar *anjuta_token_get_value (AnjutaToken *token);
 gchar *anjuta_token_get_value_range (AnjutaToken *token, AnjutaToken *end);
 const gchar *anjuta_token_get_string (AnjutaToken *token);
+void anjuta_token_set_string (AnjutaToken *token, const char *value, guint length);
 guint anjuta_token_get_length (AnjutaToken *token);
 
 G_END_DECLS

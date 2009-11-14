@@ -1008,8 +1008,8 @@ mkp_project_reload (MkpProject *project, GError **error)
 	mkp_project_init_rules (project);
 	
 	/* Initialize list styles */
-	project->space_list = anjuta_token_style_new (NULL, " ", "\\n", NULL, 0);
-	project->arg_list = anjuta_token_style_new (NULL, ", ", ",\\n ", ")", 0);
+	project->space_list = anjuta_token_style_new (NULL, " ", "\n", NULL, 0);
+	project->arg_list = anjuta_token_style_new (NULL, ", ", ",\n ", ")", 0);
 
 	/* Find make file */
 	for (makefile = valid_makefiles; *makefile != NULL; makefile++)

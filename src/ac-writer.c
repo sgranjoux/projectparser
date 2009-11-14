@@ -140,23 +140,22 @@ skip_comment (AnjutaToken *token)
 		for (;;)
 		{
 			AnjutaToken *next = anjuta_token_next (token);
-			AnjutaTokenType type;
 
 			if (next == NULL) return token;
 			
-			type = anjuta_token_get_type (token);
-			if (type == SPACE)
+			switch (anjuta_token_get_type (token))
 			{
+			case ANJUTA_TOKEN_FILE:
+			case SPACE:
 				token = next;
 				continue;
-			}
-			if (type == COMMENT)
-			{
+			case COMMENT:
 				token = next;
 				break;
+			default:
+				return token;
 			}
-
-			return token;
+			break;
 		}
 		
 		for (;;)
@@ -177,6 +176,7 @@ gboolean
 amp_project_update_property (AmpProject *project, AmpPropertyType type)
 {
 	AnjutaToken *token;
+	AnjutaToken *arg;
 	guint pos;
 	const gchar *value;
 
@@ -209,7 +209,7 @@ amp_project_update_property (AmpProject *project, AmpPropertyType type)
 	if (project->property->ac_init == NULL)
 	{
 		gint types[] = {AC_TOKEN_AC_PREREQ, 0};
-		AnjutaTokenGroup *group;
+		AnjutaToken *group;
 
 		token = find_tokens (project->configure_token, types);
 		if (token == NULL)
@@ -223,27 +223,33 @@ amp_project_update_property (AmpProject *project, AmpPropertyType type)
 				token = anjuta_token_insert_after (token, anjuta_token_new_string (EOL | ANJUTA_TOKEN_ADDED, "\n"));
 			}
 		}
-		token = find_next_eol (token);
 		
-		token = anjuta_token_insert_after (token, anjuta_token_new_string (AC_TOKEN_AC_INIT | ANJUTA_TOKEN_ADDED, "AC_INIT("));
+		token = anjuta_token_insert_before (token, anjuta_token_new_string (AC_TOKEN_AC_INIT | ANJUTA_TOKEN_ADDED, "AC_INIT("));
 		project->property->ac_init = token;
-		group = anjuta_token_group_new (ANJUTA_TOKEN_LIST, NULL);
+		group = anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_LIST | ANJUTA_TOKEN_ADDED, NULL));
 		project->property->args = group;
-		group = anjuta_token_group_append (project->property->args, anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL));
-		group = anjuta_token_group_append (project->property->args, anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL));
-		token = anjuta_token_insert_after (token, anjuta_token_new_string (ANJUTA_TOKEN_START | ANJUTA_TOKEN_ADDED, NULL));
-		token = anjuta_token_insert_after (token, anjuta_token_new_string (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
-		token = anjuta_token_insert_after (token, anjuta_token_new_string (COMMA | ANJUTA_TOKEN_ADDED, ","));
-		token = anjuta_token_insert_after (token, anjuta_token_new_string (SPACE | ANJUTA_TOKEN_ADDED, " "));
+		token = anjuta_token_insert_after (group, anjuta_token_new_static (ANJUTA_TOKEN_LAST | ANJUTA_TOKEN_ADDED, NULL));
+		anjuta_token_merge (group, token);
+		group = token;
 		token = anjuta_token_insert_after (token, anjuta_token_new_string (RIGHT_PAREN | ANJUTA_TOKEN_ADDED, ")"));
-		token = anjuta_token_insert_after (token, anjuta_token_new_string (ANJUTA_TOKEN_LAST | ANJUTA_TOKEN_ADDED, NULL));
-		token = anjuta_token_insert_after (token, anjuta_token_new_string (EOL | ANJUTA_TOKEN_ADDED, "\n"));
+		anjuta_token_merge (group, token);
+		anjuta_token_insert_after (token, anjuta_token_new_string (EOL | ANJUTA_TOKEN_ADDED, "\n"));
+		fprintf(stdout, "whole file\n");
+		anjuta_token_dump (project->configure_token);
 	}
-	anjuta_token_dump (project->property->ac_init);
+	fprintf(stdout, "ac_init before replace\n");
+	anjuta_token_dump (project->property->args);
 	token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, value);
-	anjuta_token_list_replace_nth (project->property->ac_init, pos, token);
-	anjuta_token_dump (project->property->ac_init);
-	anjuta_token_style_format (project->arg_list, project->property->ac_init);
+	arg = anjuta_token_insert_before (token, anjuta_token_new_static (ANJUTA_TOKEN_ITEM | ANJUTA_TOKEN_ADDED, NULL));
+	anjuta_token_merge (arg, token);
+	anjuta_token_replace_nth_item (project->property->args, pos, arg);
+	fprintf(stdout, "ac_init after replace\n");
+	anjuta_token_dump (project->property->args);
+	fprintf(stdout, "ac_init after replace link\n");
+	anjuta_token_dump_link (project->property->args);
+	anjuta_token_style_format (project->arg_list, project->property->args);
+	fprintf(stdout, "ac_init after update link\n");
+	anjuta_token_dump (project->property->args);
 	anjuta_token_file_update (project->configure_file, token);
 	
 	return TRUE;
