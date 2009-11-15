@@ -625,15 +625,15 @@ amp_property_new (AnjutaToken *macro, AnjutaToken *list)
 
 	if (list != NULL)
 	{
-		arg = anjuta_token_first_item (list);
+		arg = anjuta_token_nth_item (list, 0);
 		prop->name = anjuta_token_evaluate (arg);
-		arg = anjuta_token_next_item (arg);
+		arg = anjuta_token_nth_item (list, 1);
 		prop->version = anjuta_token_evaluate (arg);
-		arg = anjuta_token_next_item (arg);
+		arg = anjuta_token_nth_item (list, 2);
 		prop->bug_report = anjuta_token_evaluate (arg);
-		arg = anjuta_token_next_item (arg);
+		arg = anjuta_token_nth_item (list, 3);
 		prop->tarname = anjuta_token_evaluate (arg);
-		arg = anjuta_token_next_item (arg);
+		arg = anjuta_token_nth_item (list, 4);
 		prop->url = anjuta_token_evaluate (arg);
 	}
 	

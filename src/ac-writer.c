@@ -230,9 +230,6 @@ amp_project_update_property (AmpProject *project, AmpPropertyType type)
 		project->property->args = group;
 		token = anjuta_token_insert_after (group, anjuta_token_new_static (ANJUTA_TOKEN_LAST | ANJUTA_TOKEN_ADDED, NULL));
 		anjuta_token_merge (group, token);
-		group = token;
-		token = anjuta_token_insert_after (token, anjuta_token_new_string (RIGHT_PAREN | ANJUTA_TOKEN_ADDED, ")"));
-		anjuta_token_merge (group, token);
 		anjuta_token_insert_after (token, anjuta_token_new_string (EOL | ANJUTA_TOKEN_ADDED, "\n"));
 		fprintf(stdout, "whole file\n");
 		anjuta_token_dump (project->configure_token);

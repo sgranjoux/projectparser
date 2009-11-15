@@ -326,6 +326,39 @@ anjuta_token_replace (AnjutaToken *sibling, AnjutaToken *token)
 }
 
 AnjutaToken *
+anjuta_token_nth_item (AnjutaToken *list, guint n)
+{
+	AnjutaToken *item;
+	gboolean no_item = TRUE;
+
+	for (item = anjuta_token_first_group (list); item != NULL; item = anjuta_token_next_group (item))
+	{
+		switch (anjuta_token_get_type (item))
+		{
+		case ANJUTA_TOKEN_START:
+			break;
+		case ANJUTA_TOKEN_NEXT:
+			if (no_item)	
+			{
+				if (n == 0) return NULL;
+				n--;
+			}
+			no_item = TRUE;
+			break;
+		case ANJUTA_TOKEN_LAST:
+			return NULL;
+		default:
+			if (n == 0) return item;
+			n--;
+			no_item = FALSE;
+			break;
+		}
+	}
+
+	return NULL;
+}
+
+AnjutaToken *
 anjuta_token_replace_nth_item (AnjutaToken *list, guint n, AnjutaToken *item)
 {
 	AnjutaToken *token;
@@ -1001,6 +1034,8 @@ anjuta_token_dump_child (AnjutaToken *token, gint indent)
 void
 anjuta_token_dump (AnjutaToken *token)
 {
+	if (token == NULL) return;
+	
 	anjuta_token_dump_child (token, 0);
 }
 

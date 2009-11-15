@@ -1,0 +1,63 @@
+AT_SETUP([Read and Write AC_INIT macro])
+AS_MKDIR_P([empty])
+AT_DATA([empty/configure.ac],
+[[AC_CONFIG_FILES(Makefile)
+]])
+AT_DATA([empty/Makefile.am],
+[[
+]])
+AT_DATA([expect],
+[[    NAME: empty
+    TARNAME: empty
+    GROUP (0): empty
+]])
+AT_PARSER_CHECK([load empty \
+		 set 0 empty \
+		 list \
+		 save])
+AT_CHECK([diff -b output expect])
+AT_PARSER_CHECK([load empty \
+		list])
+AT_CHECK([diff -b output expect])
+AT_DATA([expect],
+[[    NAME: empty2
+    TARNAME: empty2
+    GROUP (0): empty
+]])
+AT_PARSER_CHECK([load empty \
+		 set 0 empty2 \
+		 list \
+		 save])
+AT_CHECK([diff -b output expect])
+AT_PARSER_CHECK([load empty \
+		list])
+AT_CHECK([diff -b output expect])
+AT_DATA([expect],
+[[    NAME: empty2
+    VERSION: 0.1
+    TARNAME: empty2
+    GROUP (0): empty
+]])
+AT_PARSER_CHECK([load empty \
+		 set 1 0.1 \
+		 list \
+		 save])
+AT_CHECK([diff -b output expect])
+AT_PARSER_CHECK([load empty \
+		list])
+AT_CHECK([diff -b output expect])
+AT_DATA([expect],
+[[    NAME: empty2
+    VERSION: 0.1
+    TARNAME: empty3
+    GROUP (0): empty
+]])
+AT_PARSER_CHECK([load empty \
+		 set 3 empty3 \
+		 list \
+		 save])
+AT_CHECK([diff -b output expect])
+AT_PARSER_CHECK([load empty \
+		list])
+AT_CHECK([diff -b output expect])
+AT_CLEANUP
