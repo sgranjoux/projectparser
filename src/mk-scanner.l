@@ -148,6 +148,8 @@ struct _MkpBuffer
     AnjutaToken *start;
     gsize begin;
 
+    AnjutaToken *end;   /* Last token */
+
     /* Next data read buffer */
     AnjutaToken *next;
     gsize pos;
@@ -241,7 +243,7 @@ mkp_scanner_append_lex_token (MkpScanner *scanner, gint token)
         }
         else
         {
-            end = anjuta_token_next_sibling (end);
+            end = anjuta_token_next (end);
             scanner->buffer->begin = 0;
         }
     }
@@ -256,7 +258,7 @@ mkp_scanner_input (MkpScanner *scanner, gchar *buffer, gsize max_size)
 {
     gint result = YY_NULL;
 
-    if (scanner->buffer->next)
+    if (scanner->buffer->next != NULL)
     {
         gsize length = anjuta_token_get_length (scanner->buffer->next);
 
@@ -264,9 +266,12 @@ mkp_scanner_input (MkpScanner *scanner, gchar *buffer, gsize max_size)
         {
             for (;;)
             {
+                /* Last token */
+                if (scanner->buffer->next == scanner->buffer->end) return 0;
+
                 if (anjuta_token_get_type (scanner->buffer->next) >= ANJUTA_TOKEN_PARSED)
                 {
-                    scanner->buffer->next = anjuta_token_next_sibling (scanner->buffer->next);
+                    scanner->buffer->next = anjuta_token_next (scanner->buffer->next);
                 }
                 else
                 {
@@ -332,6 +337,7 @@ mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s)
 {
     AnjutaTokenFileLocation location;
 
+    //g_message ("error at %d  error at * %d string \"%s\"", anjuta_token_get_type((AnjutaToken *)loc), anjuta_token_get_type(*loc), anjuta_token_get_string ((AnjutaToken *loc));
     if (mkp_project_get_token_location (scanner->project, &location, *loc))
     {
         g_message ("%s:%d.%d %s\n", location.filename, location.line, location.column, s);
@@ -344,13 +350,13 @@ mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s)
 }
 
 void
-mkp_scanner_update_variable (MkpScanner *scanner, AnjutaTokenGroup *variable)
+mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable)
 {
     mkp_project_update_variable (scanner->project, variable);
 }
 
 void
-mkp_scanner_add_rule (MkpScanner *scanner, AnjutaTokenGroup *rule)
+mkp_scanner_add_rule (MkpScanner *scanner, AnjutaToken *rule)
 {
     mkp_project_add_rule (scanner->project, rule);
 }
@@ -358,7 +364,7 @@ mkp_scanner_add_rule (MkpScanner *scanner, AnjutaTokenGroup *rule)
 void
 mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable)
 {
-    AnjutaTokenGroup *group;
+    AnjutaToken *group;
     AnjutaToken *content;
 
     anjuta_token_set_type (variable, ANJUTA_TOKEN_VARIABLE);
@@ -366,17 +372,18 @@ mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable)
     mkp_scanner_append_token (scanner, content);
 
     group = mkp_project_get_variable_token (scanner->project, variable);
+    fprintf(stdout, "get variable %s is %p\n", anjuta_token_evaluate (variable), group);
     if (group != NULL)
     {
-        AnjutaToken *token;
+        //AnjutaToken *token;
 
-        anjuta_token_group_dump (group);
-        token = anjuta_token_group_into_token (group);
-        anjuta_token_set_type (token, ANJUTA_TOKEN_CONTENT);
+        //anjuta_token_dump (group);
+        //token = anjuta_token_group_into_token (group);
+        //anjuta_token_set_type (token, ANJUTA_TOKEN_CONTENT);
         //anjuta_token_dump (token);
-        //fprintf (stdout,"variable %s\n", anjuta_token_get_string (variable));
-        anjuta_token_dump (token);
-        mkp_scanner_parse_token (scanner, token, NULL);
+        fprintf (stdout,"variable %s\n", anjuta_token_get_string (variable));
+        anjuta_token_dump (group);
+        mkp_scanner_parse_token (scanner, group, NULL);
         //anjuta_token_free (token);
     }
 }
@@ -395,8 +402,10 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
     buffer->begin = 0;
     buffer->parent = NULL;
 
-    buffer->next = token;
+    buffer->next = anjuta_token_next (token);
     buffer->start = buffer->next;
+    buffer->end = anjuta_token_last (token);
+    if (buffer->end == token) buffer->end = NULL;
 
     if (scanner->buffer != NULL)
     {

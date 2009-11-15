@@ -31,8 +31,8 @@ G_BEGIN_DECLS
 
 void mkp_project_init_rules (MkpProject *project);
 void mkp_project_free_rules (MkpProject *project);
-void mkp_project_enumerate_targets (MkpProject *project, AnjutaProjectGroup *parent);
-void mkp_project_add_rule (MkpProject *project, AnjutaTokenGroup *group);
+void mkp_project_enumerate_targets (MkpProject *project, MkpGroup *parent);
+void mkp_project_add_rule (MkpProject *project, AnjutaToken *group);
 
 
 G_END_DECLS

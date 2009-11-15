@@ -26,7 +26,6 @@
 
 #include <libanjuta/anjuta-project.h>
 #include <libanjuta/anjuta-token.h>
-#include <libanjuta/anjuta-token-group.h>
 #include <libanjuta/anjuta-token-file.h>
 #include <libanjuta/anjuta-token-style.h>
 
@@ -79,10 +78,10 @@ void mkp_project_unload (MkpProject *project);
 MkpGroup *mkp_project_get_root (MkpProject *project);
 MkpVariable *mkp_project_get_variable (MkpProject *project, const gchar *name);
 GList *mkp_project_list_variable (MkpProject *project);
-AnjutaTokenGroup* mkp_project_get_variable_token (MkpProject *project, AnjutaToken *variable);
+AnjutaToken* mkp_project_get_variable_token (MkpProject *project, AnjutaToken *variable);
 
-void mkp_project_update_variable (MkpProject *project, AnjutaTokenGroup *variable);
-void mkp_project_add_rule (MkpProject *project, AnjutaTokenGroup *rule);
+void mkp_project_update_variable (MkpProject *project, AnjutaToken *variable);
+void mkp_project_add_rule (MkpProject *project, AnjutaToken *rule);
 
 MkpGroup *mkp_project_get_group (MkpProject *project, const gchar *id);
 MkpTarget *mkp_project_get_target (MkpProject *project, const gchar *id);

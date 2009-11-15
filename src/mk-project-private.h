@@ -74,14 +74,14 @@ struct _MkpRule {
 	gboolean phony;
 	gboolean pattern;
 	GList *prerequisite;
-	AnjutaTokenGroup *rule;
+	AnjutaToken *rule;
 };
 
 gchar *mkp_project_token_evaluate (MkpProject *project, AnjutaToken *token);
 
 MkpTarget* mkp_target_new (const gchar *name, AnjutaProjectTargetType type);
 void mkp_target_free (MkpTarget *node);
-void mkp_target_add_token (MkpGroup *node, AnjutaTokenGroup *token);
+void mkp_target_add_token (MkpGroup *node, AnjutaToken *token);
 MkpSource* mkp_source_new (GFile *file);
 
 G_END_DECLS

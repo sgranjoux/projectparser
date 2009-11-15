@@ -42,9 +42,9 @@ void mkp_scanner_free (MkpScanner *scanner);
 
 gboolean mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error);
 
-void mkp_scanner_update_variable (MkpScanner *scanner, AnjutaTokenGroup *variable);
+void mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable);
 void mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable);
-void mkp_scanner_add_rule (MkpScanner *scanner, AnjutaTokenGroup *rule);
+void mkp_scanner_add_rule (MkpScanner *scanner, AnjutaToken *rule);
 
 void mkp_yyerror (YYLTYPE *loc, MkpScanner *scanner, char const *s);
 

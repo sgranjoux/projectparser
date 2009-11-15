@@ -38,12 +38,12 @@ typedef enum
 	ANJUTA_TOKEN_MACRO,
 	ANJUTA_TOKEN_CONTENT,
 	ANJUTA_TOKEN_ARGUMENT,
+	ANJUTA_TOKEN_VALUE,
 	ANJUTA_TOKEN_EOV,
 	ANJUTA_TOKEN_PARSED,
 	ANJUTA_TOKEN_KEYWORD,
 	ANJUTA_TOKEN_OPERATOR,
 	ANJUTA_TOKEN_NAME,
-	ANJUTA_TOKEN_VALUE,
 	ANJUTA_TOKEN_VARIABLE,
 	ANJUTA_TOKEN_DEFINITION,
 	ANJUTA_TOKEN_STATEMENT,
@@ -113,6 +113,7 @@ AnjutaToken* anjuta_token_free (AnjutaToken *token);
 AnjutaToken *anjuta_token_unlink (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
+AnjutaToken *anjuta_token_merge_own_children (AnjutaToken *first);
 AnjutaToken *anjuta_token_merge_children (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_copy_token (AnjutaToken *token);

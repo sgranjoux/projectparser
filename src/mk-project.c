@@ -66,7 +66,7 @@ static const gchar *valid_makefiles[] = {"GNUmakefile", "makefile", "Makefile", 
 struct _MkpVariable {
 	gchar *name;
 	AnjutaTokenType assign;
-	AnjutaTokenGroup *value;
+	AnjutaToken *value;
 };
 
 typedef enum {
@@ -341,7 +341,7 @@ mkp_group_free (MkpGroup *node)
  *---------------------------------------------------------------------------*/
 
 void
-mkp_target_add_token (MkpGroup *node, AnjutaTokenGroup *token)
+mkp_target_add_token (MkpGroup *node, AnjutaToken *token)
 {
     MkpTargetData *target;
 	
@@ -626,7 +626,7 @@ project_load_makefile (MkpProject *project, GFile *file, MkpGroup *parent, GErro
 //	g_object_add_toggle_ref (G_OBJECT (project->make_file), remove_make_file, project);
 	arg = anjuta_token_file_load (tfile, NULL);
 	scanner = mkp_scanner_new (project);
-	ok = mkp_scanner_parse_token (scanner, anjuta_token_next_child (arg), &err);
+	ok = mkp_scanner_parse_token (scanner, arg, &err);
 	mkp_scanner_free (scanner);
 	if (!ok)
 	{
@@ -881,11 +881,11 @@ mkp_variable_get_name (MkpVariable *variable)
 gchar *
 mkp_variable_evaluate (MkpVariable *variable, MkpProject *project)
 {
-	return anjuta_token_group_evaluate (variable->value);
+	return anjuta_token_evaluate (variable->value);
 }
 
 static MkpVariable*
-mkp_variable_new (gchar *name, AnjutaTokenType assign, AnjutaTokenGroup *value)
+mkp_variable_new (gchar *name, AnjutaTokenType assign, AnjutaToken *value)
 {
     MkpVariable *variable = NULL;
 
@@ -911,36 +911,40 @@ mkp_variable_free (MkpVariable *variable)
  *---------------------------------------------------------------------------*/
 
 void
-mkp_project_update_variable (MkpProject *project, AnjutaTokenGroup *variable)
+mkp_project_update_variable (MkpProject *project, AnjutaToken *variable)
 {
-	AnjutaTokenGroup *arg;
+	AnjutaToken *arg;
 	char *name = NULL;
 	MakeTokenType assign = 0;	
-	AnjutaTokenGroup *value = NULL;
+	AnjutaToken *value = NULL;
 
-	arg = anjuta_token_group_first (variable);
-	name = g_strstrip (anjuta_token_group_evaluate (arg));
-	arg = anjuta_token_group_next (arg);
+	fprintf(stdout, "update variable");
+	anjuta_token_dump (variable);
+	
+	arg = anjuta_token_first_group (variable);
+	name = g_strstrip (anjuta_token_evaluate (arg));
+	arg = anjuta_token_next_group (arg);
 	
 	g_message ("new variable %s", name);
-	switch (anjuta_token_get_type (anjuta_token_group_get_token (arg)))
+	switch (anjuta_token_get_type (arg))
 	{
 	case MK_TOKEN_EQUAL:
 	case MK_TOKEN_IMMEDIATE_EQUAL:
 	case MK_TOKEN_CONDITIONAL_EQUAL:
 	case MK_TOKEN_APPEND:
-		assign = anjuta_token_get_type (anjuta_token_group_get_token (arg));
+		assign = anjuta_token_get_type (arg);
 		break;
 	default:
 		break;
 	}
 	
-	value = anjuta_token_group_next (arg);
+	value = anjuta_token_next_group (arg);
 
 	if (assign != 0)
 	{
 		MkpVariable *var;
 
+		g_message ("assign %d name %s value %s\n", assign, name, anjuta_token_evaluate (value));
 		var = (MkpVariable *)g_hash_table_lookup (project->variables, name);
 		if (var != NULL)
 		{
@@ -960,7 +964,7 @@ mkp_project_update_variable (MkpProject *project, AnjutaTokenGroup *variable)
 	if (name) g_free (name);
 }
 
-AnjutaTokenGroup*
+AnjutaToken*
 mkp_project_get_variable_token (MkpProject *project, AnjutaToken *variable)
 {
 	guint length;
