@@ -31,62 +31,37 @@
 
 %}
 
-%union {
-	AnjutaToken *token;
-	AnjutaToken* group;
-}
-
-%token  <token> EOL	'\n'
-%token	<token> SPACE
-%token	<token> TAB '\t'
-%token  <token> HASH '#'
-%token	<token> MACRO
-%token	<token> VARIABLE
-%token  <token> COMMA ','
-%token	<token> COLON ':'
-%token	<token> DOUBLE_COLON "::"
-%token	<token> ORDER '|'
-%token	<token> SEMI_COLON ';'
-%token	<token> EQUAL '='
-%token	<token> IMMEDIATE_EQUAL ":="
-%token	<token> CONDITIONAL_EQUAL "?="
-%token	<token> APPEND "+="
-%token	<token> CHARACTER
-%token	<token> NAME
-%token	<token> MK_VARIABLE
-%token  <token> _PHONY
-%token  <token> _SUFFIXES
-%token  <token> _DEFAULT
-%token  <token> _PRECIOUS
-%token  <token> _INTERMEDIATE
-%token  <token> _SECONDARY
-%token  <token> _SECONDEXPANSION
-%token  <token> _DELETE_ON_ERROR
-%token  <token> _IGNORE
-%token  <token> _LOW_RESOLUTION_TIME
-%token  <token> _SILENT
-%token  <token> _EXPORT_ALL_VARIABLES
-%token  <token> _NOTPARALLEL
-
-/*%type   <group> definition rule
-%type   <group> depend_list
-%type   <group> command_list command_line
-%type   <group> prerequisite_list prerequisite_list_body prerequisite name_prerequisite var_prerequisite
-%type   <group> head_list head_list_body head
-%type   <group> space value optional_space
-%type   <group> equal_group*/
-
-%type   <token> definition rule
-%type   <token> depend_list
-%type   <token> command_list command_line
-%type   <token> prerequisite_list prerequisite_list_body prerequisite name_prerequisite
-%type   <token> head_list head_list_body head
-%type   <token> space value optional_space
-%type   <token> equal_group end_of_line
-
-%type   <token> variable_token rule_token command_token space_token head_token value_token
-%type   <token> prerequisite_token name_token depend_token equal_token
-
+%token  EOL	'\n'
+%token	SPACE
+%token	TAB '\t'
+%token  HASH '#'
+%token	MACRO
+%token	VARIABLE
+%token  COMMA ','
+%token	COLON ':'
+%token	DOUBLE_COLON "::"
+%token	ORDER '|'
+%token	SEMI_COLON ';'
+%token	EQUAL '='
+%token	IMMEDIATE_EQUAL ":="
+%token	CONDITIONAL_EQUAL "?="
+%token	APPEND "+="
+%token	CHARACTER
+%token	NAME
+%token	MK_VARIABLE
+%token  _PHONY
+%token  _SUFFIXES
+%token  _DEFAULT
+%token  _PRECIOUS
+%token  _INTERMEDIATE
+%token  _SECONDARY
+%token  _SECONDEXPANSION
+%token  _DELETE_ON_ERROR
+%token  _IGNORE
+%token  _LOW_RESOLUTION_TIME
+%token  _SILENT
+%token  _EXPORT_ALL_VARIABLES
+%token  _NOTPARALLEL
 
 %defines
 

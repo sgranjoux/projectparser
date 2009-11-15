@@ -34,6 +34,7 @@ G_BEGIN_DECLS
 /* Token location is found directly from token value. We don't maintain a 
  * independent position. */
 #define YYLTYPE AnjutaToken*
+#define YYSTYPE AnjutaToken*
 
 typedef struct _MkpScanner MkpScanner;
 

@@ -38,7 +38,7 @@ static AnjutaToken* mkp_scanner_append_lex_token (MkpScanner *scanner, gint toke
 static gint mkp_scanner_input (MkpScanner *scanner, gchar *buffer, gsize max_size);
 static gint mkp_scanner_parse_end (MkpScanner *scanner);
 
-#define RETURN(tok) yylval->token = mkp_scanner_append_lex_token (yyextra, tok); \
+#define RETURN(tok) *yylval = mkp_scanner_append_lex_token (yyextra, tok); \
                     return tok
 
 %}
@@ -442,7 +442,7 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
         {
             gint yychar = mkp_mk_yylex (&yylval_param, &yylloc_param, scanner->scanner);
         
-            yylloc_param = yylval_param.token;
+            yylloc_param = yylval_param;
             status = mkp_yypush_parse (ps, yychar, &yylval_param, &yylloc_param, scanner);
         } while (status == YYPUSH_MORE);
         mkp_yypstate_delete (ps);
