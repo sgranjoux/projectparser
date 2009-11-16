@@ -27,7 +27,10 @@
 
 G_BEGIN_DECLS
 
+/* Token location is found directly from token value. We don't maintain a 
+ * independent position. */
 #define YYLTYPE AnjutaToken*
+#define YYSTYPE AnjutaToken*
 
 typedef struct _AmpAcScanner AmpAcScanner;
 
@@ -37,8 +40,8 @@ void amp_ac_scanner_free (AmpAcScanner *scanner);
 gboolean amp_ac_scanner_parse (AmpAcScanner *scanner, AnjutaTokenFile *file, GError **error);
 AnjutaToken* amp_ac_scanner_parse_token (AmpAcScanner *scanner, AnjutaToken *token, gint start, GError **error);
 
-void amp_ac_scanner_load_module (AmpAcScanner *scanner, AnjutaTokenGroup *module);
-void amp_ac_scanner_load_config (AmpAcScanner *scanner, AnjutaTokenGroup *list);
+void amp_ac_scanner_load_module (AmpAcScanner *scanner, AnjutaToken *module);
+void amp_ac_scanner_load_config (AmpAcScanner *scanner, AnjutaToken *list);
 void amp_ac_scanner_load_properties (AmpAcScanner *scanner, AnjutaToken *macro, AnjutaToken *args);
 
 void amp_ac_yyerror (YYLTYPE *loc, AmpAcScanner *scanner, char const *s);

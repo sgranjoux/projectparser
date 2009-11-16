@@ -574,7 +574,7 @@ amp_package_free (AmpPackage *package)
  *---------------------------------------------------------------------------*/
 
 static AmpModule*
-amp_module_new (AnjutaTokenGroup *token)
+amp_module_new (AnjutaToken *token)
 {
 	AmpModule *module;
 	
@@ -998,13 +998,13 @@ amp_project_load_properties (AmpProject *project, AnjutaToken *macro, AnjutaToke
 }
 
 void
-amp_project_load_module (AmpProject *project, AnjutaTokenGroup *module)
+amp_project_load_module (AmpProject *project, AnjutaToken *module)
 {
 	AmpAcScanner *scanner = NULL;
 
 	if (module != NULL)
 	{
-		AnjutaTokenGroup *arg;
+		AnjutaToken *arg;
 		AnjutaToken *list;
 		AnjutaToken *item;
 		gchar *value;
@@ -1013,42 +1013,53 @@ amp_project_load_module (AmpProject *project, AnjutaTokenGroup *module)
 		gchar *compare;
 
 
+		fprintf(stdout, "Load module\n");
+		anjuta_token_dump (module);
+		
 		/* Module name */
-		arg = anjuta_token_group_first (module);
-		value = anjuta_token_group_evaluate (arg);
+		arg = anjuta_token_first_group (module);
+		value = anjuta_token_evaluate (arg);
 		mod = amp_module_new (arg);
 		mod->packages = NULL;
 		g_hash_table_insert (project->modules, value, mod);
 
 		/* Package list */
-		arg = anjuta_token_group_next (arg);
+		arg = anjuta_token_next_item (arg);
 		scanner = amp_ac_scanner_new (project);
 		fprintf (stdout, "\nParse list\n");
-		
-        list = anjuta_token_group_into_token (arg);
-        anjuta_token_set_type (list, ANJUTA_TOKEN_CONTENT);
+		list = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		anjuta_token_dump (list);
-		list = amp_ac_scanner_parse_token (scanner, list, AC_SPACE_LIST_STATE, NULL);
+		
 		amp_ac_scanner_free (scanner);
 		
 		pack = NULL;
 		compare = NULL;
-		for (item = anjuta_token_next_child (list); item != NULL; item = anjuta_token_next_sibling (item))
+		for (item = anjuta_token_next_child (list); item != NULL; item = anjuta_token_next_item (item))
 		{
 			switch (anjuta_token_get_type (item))
 			{
-				case ANJUTA_TOKEN_START:
-				case ANJUTA_TOKEN_NEXT:
-				case ANJUTA_TOKEN_LAST:
-				case ANJUTA_TOKEN_JUNK:
-					continue;
-				default:
-					break;
+			case ANJUTA_TOKEN_NEXT:
+			case ANJUTA_TOKEN_START:
+			case ANJUTA_TOKEN_LAST:
+				continue;
+			default:
+				break;
 			}
 			
 			value = anjuta_token_evaluate (item);
 			if (value == NULL) continue;		/* Empty value, a comment of a quote by example */
-
+			if (*value == '\0')
+			{
+				g_free (value);
+				continue;
+			}
+			if (strcmp (value, "$VTE_NEW_REQUIRED") == 0)
+			{
+				int i = 0;
+				i++;
+				i++;
+			}
+			
 			if ((pack != NULL) && (compare != NULL))
 			{
 				amp_package_set_version (pack, compare, value);
@@ -1074,13 +1085,13 @@ amp_project_load_module (AmpProject *project, AnjutaTokenGroup *module)
 }
 
 void
-amp_project_load_config (AmpProject *project, AnjutaTokenGroup *arg_list)
+amp_project_load_config (AmpProject *project, AnjutaToken *arg_list)
 {
 	AmpAcScanner *scanner = NULL;
 
 	if (arg_list != NULL)
 	{
-		AnjutaTokenGroup *arg;
+		AnjutaToken *arg;
 		AnjutaToken *list;
 		AnjutaToken *item;
 
@@ -1088,27 +1099,23 @@ amp_project_load_config (AmpProject *project, AnjutaTokenGroup *arg_list)
 		scanner = amp_ac_scanner_new (project);
 		fprintf (stdout, "\nParse list\n");
 		
-		arg = anjuta_token_group_first (arg_list);
-        list = anjuta_token_group_into_token (arg);
-        anjuta_token_set_type (list, ANJUTA_TOKEN_CONTENT);
-		anjuta_token_dump (list);
-		list = amp_ac_scanner_parse_token (scanner, list, AC_SPACE_LIST_STATE, NULL);
+		arg = anjuta_token_first_group (arg_list);
+		list = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		amp_ac_scanner_free (scanner);
 		
-		for (item = anjuta_token_next_child (list); item != NULL; item = anjuta_token_next_sibling (item))
+		for (item = anjuta_token_next_child (list); item != NULL; item = anjuta_token_next_item (item))
 		{
 			gchar *value;
 			AmpConfigFile *cfg;
-	
+
 			switch (anjuta_token_get_type (item))
 			{
-				case ANJUTA_TOKEN_START:
-				case ANJUTA_TOKEN_NEXT:
-				case ANJUTA_TOKEN_LAST:
-				case ANJUTA_TOKEN_JUNK:
-					continue;
-				default:
-					break;
+			case ANJUTA_TOKEN_NEXT:
+			case ANJUTA_TOKEN_START:
+			case ANJUTA_TOKEN_LAST:
+				continue;
+			default:
+				break;
 			}
 			
 			value = anjuta_token_evaluate (item);
@@ -1525,7 +1532,7 @@ amp_project_reload (AmpProject *project, GError **error)
 	g_object_add_toggle_ref (G_OBJECT (project->configure_file), remove_config_file, project);
 	arg = anjuta_token_file_load (project->configure_file, NULL);
 	scanner = amp_ac_scanner_new (project);
-	project->configure_token = amp_ac_scanner_parse_token (scanner, anjuta_token_next_child (arg), 0, &err);
+	project->configure_token = amp_ac_scanner_parse_token (scanner, arg, 0, &err);
 	amp_ac_scanner_free (scanner);
 	if (project->configure_token == NULL)
 	{

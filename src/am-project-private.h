@@ -33,7 +33,7 @@ struct _AmpPackage {
 
 struct _AmpModule {
     GList *packages;
-    AnjutaTokenGroup *module;
+    AnjutaToken *module;
 };
 
 struct _AmpProperty {

@@ -599,7 +599,11 @@ anjuta_token_evaluate_group (AnjutaToken *token, GString *value, gboolean raw)
 	{
 		anjuta_token_evaluate_token (child, value, raw);
 		
-		if (child == last) break;
+		if (child == last)
+		{
+			if (child->children) anjuta_token_evaluate_child (child->children, value, FALSE);
+			break;
+		}
 	}
 }
 
