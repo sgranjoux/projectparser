@@ -1998,7 +1998,7 @@ amp_project_add_target (AmpProject  *project,
 		prev_token = anjuta_token_insert_after (prev_token, anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
 		anjuta_token_merge (token, prev_token);
 		anjuta_token_merge (list, token);
-		anjuta_token_insert_after (token, anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, "\n"));
+		anjuta_token_insert_after (token, anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, "\\\n"));
 		token = prev_token;
 	}
 	else
@@ -2023,6 +2023,7 @@ amp_project_add_target (AmpProject  *project,
 	}
 	token = anjuta_token_insert_after (token, anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, name));
 	amp_target_add_token (child, token);
+	//anjuta_token_file_update (AMP_GROUP_DATA (parent)->tfile, token);
 
 	return child;
 }
@@ -2097,7 +2098,7 @@ amp_project_add_source (AmpProject  *project,
 		tok = anjuta_token_insert_after (tok, token);
 		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, relative_name);
 		tok = anjuta_token_insert_after (tok, token);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_EOL | ANJUTA_TOKEN_ADDED, "\n"));
+		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_EOL | ANJUTA_TOKEN_ADDED, "\\\n"));
 	}
 	else
 	{
