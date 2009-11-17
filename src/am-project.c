@@ -1034,18 +1034,8 @@ amp_project_load_module (AmpProject *project, AnjutaToken *module)
 		
 		pack = NULL;
 		compare = NULL;
-		for (item = anjuta_token_next_child (list); item != NULL; item = anjuta_token_next_item (item))
+		for (item = anjuta_token_first_item (list); item != NULL; item = anjuta_token_next_item (item))
 		{
-			switch (anjuta_token_get_type (item))
-			{
-			case ANJUTA_TOKEN_NEXT:
-			case ANJUTA_TOKEN_START:
-			case ANJUTA_TOKEN_LAST:
-				continue;
-			default:
-				break;
-			}
-			
 			value = anjuta_token_evaluate (item);
 			if (value == NULL) continue;		/* Empty value, a comment of a quote by example */
 			if (*value == '\0')
@@ -1103,21 +1093,11 @@ amp_project_load_config (AmpProject *project, AnjutaToken *arg_list)
 		list = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		amp_ac_scanner_free (scanner);
 		
-		for (item = anjuta_token_next_child (list); item != NULL; item = anjuta_token_next_item (item))
+		for (item = anjuta_token_first_item (list); item != NULL; item = anjuta_token_next_item (item))
 		{
 			gchar *value;
 			AmpConfigFile *cfg;
 
-			switch (anjuta_token_get_type (item))
-			{
-			case ANJUTA_TOKEN_NEXT:
-			case ANJUTA_TOKEN_START:
-			case ANJUTA_TOKEN_LAST:
-				continue;
-			default:
-				break;
-			}
-			
 			value = anjuta_token_evaluate (item);
 			if (value == NULL) continue;
 		
@@ -1783,7 +1763,7 @@ amp_project_add_group (AmpProject  *project,
 		AnjutaToken *list;
 
 		/* Skip comment and one space at the beginning */
-		for (prev_token = anjuta_token_next_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile)); prev_token != NULL; prev_token = anjuta_token_next_sibling (prev_token))
+		for (prev_token = anjuta_token_first_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile)); prev_token != NULL; prev_token = anjuta_token_next_sibling (prev_token))
 		{
 			switch (anjuta_token_get_type (prev_token))
 			{
@@ -1805,7 +1785,7 @@ amp_project_add_group (AmpProject  *project,
 
 		if (prev_token == NULL)
 		{
-			prev_token = anjuta_token_next_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile));
+			prev_token = anjuta_token_first_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile));
 			/*if (prev_token)
 			{
 				prev_token = anjuta_token_file_last (AMP_GROUP_DATA (parent)->tfile);
@@ -1968,7 +1948,7 @@ amp_project_add_target (AmpProject  *project,
 
 	if (last == NULL)
 	{
-		prev_token = anjuta_token_next_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile));
+		prev_token = anjuta_token_first_group (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile));
 		if (prev_token != NULL)
 		{
 			/* Add at the end of the file */
@@ -2005,13 +1985,13 @@ amp_project_add_target (AmpProject  *project,
 	{
 		for (token = (AnjutaToken *)last->data; anjuta_token_get_type (token) != ANJUTA_TOKEN_LIST; token = anjuta_token_next_sibling (token));
 
-		if (anjuta_token_next_child (token) == NULL)
+		if (anjuta_token_next_group(token) == NULL)
 		{
-			token = anjuta_token_insert_child (token, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
+			token = anjuta_token_merge (token, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
 		}
 		else
 		{
-			token = anjuta_token_next_child (token);
+			token = anjuta_token_next_item (token);
 		}
 
 		for (; anjuta_token_next_sibling (token) != NULL; token = anjuta_token_next_sibling (token));

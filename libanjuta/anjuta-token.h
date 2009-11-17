@@ -139,6 +139,7 @@ void anjuta_token_foreach (AnjutaToken *token, AnjutaTokenForeachFunc, gpointer 
 
 AnjutaToken *anjuta_token_first_group (AnjutaToken *list);
 AnjutaToken *anjuta_token_next_group (AnjutaToken *item);
+AnjutaToken *anjuta_token_first_child (AnjutaToken *parent);
 AnjutaToken *anjuta_token_first_item (AnjutaToken *list);
 AnjutaToken *anjuta_token_nth_item (AnjutaToken *list, guint n);
 AnjutaToken *anjuta_token_next_item (AnjutaToken *item);

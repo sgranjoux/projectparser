@@ -183,7 +183,7 @@ anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 		line_width += len;
 	}
 	
-	for (token = anjuta_token_next_child (list); token != NULL; token = next_token)
+	for (token = anjuta_token_first_group (list); token != NULL; token = next_token)
 	{
 		gchar *value = NULL;
 		const gchar *eol;
@@ -314,7 +314,7 @@ anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
 
 	if (style->sep == NULL)
 	{
-		for (arg = anjuta_token_next_child (list); arg != NULL; arg = anjuta_token_next_sibling (arg))
+		for (arg = anjuta_token_first_child (list); arg != NULL; arg = anjuta_token_next_sibling (arg))
 		{
 			if ((anjuta_token_get_type (arg) == ANJUTA_TOKEN_SPACE) && (anjuta_token_get_flags (arg) & (ANJUTA_TOKEN_ADDED)))
 			{
@@ -325,7 +325,7 @@ anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
 	}
 	else
 	{
-		AnjutaToken *bol = anjuta_token_next_child (list);
+		AnjutaToken *bol = anjuta_token_first_child (list);
 		gboolean modified = FALSE;
 		
 		for (arg = bol; arg != NULL; arg = anjuta_token_next_sibling (arg))
