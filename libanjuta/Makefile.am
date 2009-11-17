@@ -27,8 +27,6 @@ libanjuta_a_SOURCES = \
 	anjuta-token-style.c \
 	anjuta-token-file.h \
 	anjuta-token-file.c \
-	anjuta-token-group.c \
-	anjuta-token-group.h \
 	anjuta-project.c \
 	anjuta-project.h \
     interfaces/ianjuta-project.c \
