@@ -40,7 +40,7 @@ static AnjutaToken* amp_am_scanner_append_lex_token (AmpAmScanner *scanner, gint
 static gint amp_am_scanner_input (AmpAmScanner *scanner, gchar *buffer, gsize max_size);
 static int amp_am_scanner_parse_end (AmpAmScanner *scanner);
 
-#define RETURN(tok) yylval->token = amp_am_scanner_append_lex_token (yyextra, tok); \
+#define RETURN(tok) *yylval = amp_am_scanner_append_lex_token (yyextra, tok); \
                     return tok
 
 %}
@@ -148,6 +148,8 @@ struct _AmpAmBuffer
     AnjutaToken *start;
     gsize begin;
 
+    AnjutaToken *end;   /* Last token */
+
     /* Next data read buffer */
     AnjutaToken *next;
     gsize pos;
@@ -243,7 +245,7 @@ amp_am_scanner_append_lex_token (AmpAmScanner *scanner, gint token)
         }
         else
         {
-            end = anjuta_token_next_sibling (end);
+            end = anjuta_token_next (end);
             scanner->buffer->begin = 0;
         }
     }
@@ -258,7 +260,7 @@ amp_am_scanner_input (AmpAmScanner *scanner, gchar *buffer, gsize max_size)
 {
     gint result = YY_NULL;
 
-    if (scanner->buffer->next)
+    if (scanner->buffer->next != NULL)
     {
         gsize length = anjuta_token_get_length (scanner->buffer->next);
 
@@ -266,9 +268,12 @@ amp_am_scanner_input (AmpAmScanner *scanner, gchar *buffer, gsize max_size)
         {
             for (;;)
             {
+                /* Last token */
+                if (scanner->buffer->next == scanner->buffer->end) return 0;
+
                 if (anjuta_token_get_type (scanner->buffer->next) >= ANJUTA_TOKEN_PARSED)
                 {
-                    scanner->buffer->next = anjuta_token_next_sibling (scanner->buffer->next);
+                    scanner->buffer->next = anjuta_token_next (scanner->buffer->next);
                 }
                 else
                 {
@@ -346,7 +351,7 @@ amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s)
 }
 
 void
-amp_am_scanner_set_am_variable (AmpAmScanner *scanner, AnjutaTokenType variable, AnjutaToken *name, AnjutaTokenGroup *list)
+amp_am_scanner_set_am_variable (AmpAmScanner *scanner, AnjutaTokenType variable, AnjutaToken *name, AnjutaToken *list)
 {
     amp_project_set_am_variable (scanner->project, scanner->group, variable, name, list, scanner->orphan_sources);
 }
@@ -365,8 +370,10 @@ amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **
     buffer->begin = 0;
     buffer->parent = NULL;
 
-    buffer->next = token;
+    buffer->next = anjuta_token_next (token);
     buffer->start = buffer->next;
+    buffer->end = anjuta_token_last (token);
+    if (buffer->end == token) buffer->end = NULL;
 
     if (scanner->buffer != NULL)
     {
@@ -404,7 +411,7 @@ amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **
         {
             gint yychar = am_yylex (&yylval_param, &yylloc_param, scanner->scanner);
 
-			yylloc_param = yylval_param.token;
+			yylloc_param = yylval_param;
             status = amp_am_yypush_parse (ps, yychar, &yylval_param, &yylloc_param, scanner);
  
         } while (status == YYPUSH_MORE);

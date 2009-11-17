@@ -31,48 +31,37 @@
 %}
 
 
-%union {
-	AnjutaToken *token;
-	AnjutaTokenGroup* group;
-}
+%token	EOL	'\n'
+%token	SPACE
+%token	TAB '\t'
+%token	MACRO
+%token	VARIABLE
+%token	COLON ':'
+%token	DOUBLE_COLON "::"
+%token	ORDER '|'
+%token	SEMI_COLON ';'
+%token	EQUAL '='
+%token	IMMEDIATE_EQUAL ":="
+%token	CONDITIONAL_EQUAL "?="
+%token	APPEND "+="
+%token	CHARACTER
+%token	NAME
+%token	AM_VARIABLE
 
-%token	<token> EOL	'\n'
-%token	<token> SPACE
-%token	<token> TAB '\t'
-%token	<token> MACRO
-%token	<token> VARIABLE
-%token	<token> COLON ':'
-%token	<token> DOUBLE_COLON "::"
-%token	<token> ORDER '|'
-%token	<token> SEMI_COLON ';'
-%token	<token> EQUAL '='
-%token	<token> IMMEDIATE_EQUAL ":="
-%token	<token> CONDITIONAL_EQUAL "?="
-%token	<token> APPEND "+="
-%token	<token> CHARACTER
-%token	<token> NAME
-%token	<token> AM_VARIABLE
-
-%token  <token> SUBDIRS
-%token  <token> DIST_SUBDIRS
-%token  <token> _DATA
-%token  <token> _HEADERS
-%token  <token> _LIBRARIES
-%token  <token> _LISP
-%token  <token> _LTLIBRARIES
-%token  <token> _MANS
-%token  <token> _PROGRAMS
-%token  <token> _PYTHON
-%token  <token> _JAVA
-%token  <token> _SCRIPTS
-%token  <token> _SOURCES
-%token  <token> _TEXINFOS
-
-%type   <token> space_token automake_token value_token target_token equal_token rule_token head_token
-%type   <token> space optional_space
-
-%type   <group> space_list_value value_list strip_value_list value
-
+%token  SUBDIRS
+%token  DIST_SUBDIRS
+%token  _DATA
+%token  _HEADERS
+%token  _LIBRARIES
+%token  _LISP
+%token  _LTLIBRARIES
+%token  _MANS
+%token  _PROGRAMS
+%token  _PYTHON
+%token  _JAVA
+%token  _SCRIPTS
+%token  _SOURCES
+%token  _TEXINFOS
 
 %defines
 
@@ -150,16 +139,22 @@ space_list_value: optional_space  equal_token   value_list  {
 
 value_list:
 	optional_space strip_value_list optional_space {
+		if ($1 != NULL) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
+		if ($3 != NULL) anjuta_token_set_type ($3, ANJUTA_TOKEN_LAST);
+		anjuta_token_merge_previous ($2, $1);
+		anjuta_token_merge ($2, $3);
 		$$ = $2;
 	}
 		
 strip_value_list:
 	value {
-		$$ = anjuta_token_group_new (ANJUTA_TOKEN_LIST, NULL);
-		anjuta_token_group_append ($$, $1);
+		$$ = anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL);
+		anjuta_token_merge ($$, $1);
 	}
 	| strip_value_list  space  value {
-		anjuta_token_group_append ($$, $3);
+		anjuta_token_set_type ($2, ANJUTA_TOKEN_NEXT);
+		anjuta_token_merge ($1, $2);
+		anjuta_token_merge ($1, $3);
 	}
 	;
 
@@ -172,16 +167,18 @@ optional_space:
 
 value:
 	value_token {
-		$$ = anjuta_token_group_new (ANJUTA_TOKEN_ARGUMENT, NULL);
-		anjuta_token_group_append_token ($$, $1);
+		$$ = anjuta_token_new_static (ANJUTA_TOKEN_ARGUMENT, NULL);
+		anjuta_token_merge ($$, $1);
 	}
 	| value value_token {
-		anjuta_token_group_append_token ($1, $2);
+		anjuta_token_merge ($1, $2);
 	}
 	;
 
 space:
-	space_token {anjuta_token_set_type ($1, ANJUTA_TOKEN_SPACE);}
+	space_token {
+		$$ = anjuta_token_new_static (ANJUTA_TOKEN_SPACE, NULL);
+		anjuta_token_merge ($$, $1);}
 	| space space_token	{
 		anjuta_token_merge ($1, $2);
 	}

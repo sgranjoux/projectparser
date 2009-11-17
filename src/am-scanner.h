@@ -32,6 +32,7 @@ G_BEGIN_DECLS
 
 //#define YYSTYPE AnjutaToken*
 #define YYLTYPE AnjutaToken*
+#define YYSTYPE AnjutaToken*
 
 typedef struct _AmpAmScanner AmpAmScanner;
 
@@ -40,7 +41,7 @@ void amp_am_scanner_free (AmpAmScanner *scanner);
 
 AnjutaToken *amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **error);
 
-void amp_am_scanner_set_am_variable (AmpAmScanner *scanner, AnjutaTokenType variable, AnjutaToken *name, AnjutaTokenGroup *list);
+void amp_am_scanner_set_am_variable (AmpAmScanner *scanner, AnjutaTokenType variable, AnjutaToken *name, AnjutaToken *list);
 
 void amp_am_yyerror (YYLTYPE *loc, AmpAmScanner *scanner, char const *s);
 
