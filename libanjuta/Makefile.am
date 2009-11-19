@@ -29,6 +29,8 @@ libanjuta_a_SOURCES = \
 	anjuta-token-file.c \
 	anjuta-project.c \
 	anjuta-project.h \
+	anjuta-token-stream.c \
+	anjuta-token-stream.h \
     interfaces/ianjuta-project.c \
     interfaces/ianjuta-project.h \
     interfaces/libanjuta-iface-marshallers.c \

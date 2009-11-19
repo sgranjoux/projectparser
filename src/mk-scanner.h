@@ -41,7 +41,7 @@ typedef struct _MkpScanner MkpScanner;
 MkpScanner *mkp_scanner_new (MkpProject *project);
 void mkp_scanner_free (MkpScanner *scanner);
 
-gboolean mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error);
+AnjutaToken *mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error);
 
 void mkp_scanner_update_variable (MkpScanner *scanner, AnjutaToken *variable);
 void mkp_scanner_parse_variable (MkpScanner *scanner, AnjutaToken *variable);

@@ -626,7 +626,8 @@ project_load_makefile (MkpProject *project, GFile *file, MkpGroup *parent, GErro
 //	g_object_add_toggle_ref (G_OBJECT (project->make_file), remove_make_file, project);
 	arg = anjuta_token_file_load (tfile, NULL);
 	scanner = mkp_scanner_new (project);
-	ok = mkp_scanner_parse_token (scanner, arg, &err);
+	mkp_scanner_parse_token (scanner, arg, &err);
+	ok = TRUE;
 	mkp_scanner_free (scanner);
 	if (!ok)
 	{
