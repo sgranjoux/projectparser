@@ -166,6 +166,7 @@ gchar *anjuta_token_value (AnjutaToken *token);
 AnjutaToken *anjuta_token_next_lex (AnjutaToken *token);
 
 void anjuta_token_dump (AnjutaToken *token);
+gboolean anjuta_token_check (AnjutaToken *token);
 void anjuta_token_dump_link (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_next (AnjutaToken *token);

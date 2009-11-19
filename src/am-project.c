@@ -1511,8 +1511,15 @@ amp_project_reload (AmpProject *project, GError **error)
 	g_hash_table_insert (project->files, configure_file, project->configure_file);
 	g_object_add_toggle_ref (G_OBJECT (project->configure_file), remove_config_file, project);
 	arg = anjuta_token_file_load (project->configure_file, NULL);
+	fprintf (stdout, "AC file before parsing\n");
+	anjuta_token_dump (arg);
+	fprintf (stdout, "\n");
 	scanner = amp_ac_scanner_new (project);
 	project->configure_token = amp_ac_scanner_parse_token (scanner, arg, 0, &err);
+	fprintf (stdout, "AC file after parsing\n");
+	anjuta_token_check (arg);
+	anjuta_token_dump (arg);
+	fprintf (stdout, "\n");
 	amp_ac_scanner_free (scanner);
 	if (project->configure_token == NULL)
 	{
