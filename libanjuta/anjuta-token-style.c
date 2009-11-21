@@ -273,7 +273,7 @@ anjuta_token_style_format (AnjutaTokenStyle *style, AnjutaToken *list)
 	for (prev = list; prev != NULL; prev = anjuta_token_previous (prev))
 	{
 		gint flags = anjuta_token_get_flags (prev);
-		if ((anjuta_token_get_string (prev) != NULL) && !(flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED))) break;
+		if ((anjuta_token_get_length (prev) != 0) && !(flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED))) break;
 		list = prev;    
 	}
 
