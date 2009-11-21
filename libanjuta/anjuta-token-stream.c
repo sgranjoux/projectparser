@@ -27,9 +27,15 @@
 #include <string.h>
 
 /*
- * This object manages two list of tokens:
- *  - One is can be read as a string and is used by the lexer
- *  - The other one is written token by token by the lexer
+ * This object manages two lists of tokens and is used to create the second list
+ * from the first one.
+ *
+ * The first list of tokens is assigned at creation time. These tokens can be
+ * read in sequence as C strings like in an input stream.
+ * The second list is written as an output stream, using the characters of the
+ * first list but grouped into different tokens.
+ *
+ * Moreover, several objects can be linked together to create a stack.
  */ 
 
 /* Types declarations
@@ -65,6 +71,13 @@ struct _AnjutaTokenStream
 /* Public functions
  *---------------------------------------------------------------------------*/
 
+/**
+ * anjuta_token_stream_append_token:
+ * @stream: a #AnjutaTokenStream object.
+ * @token: a #AnjutaToken object.
+ *
+ * Append an already existing token in the output stream. 
+ */
 void
 anjuta_token_stream_append_token (AnjutaTokenStream *stream, AnjutaToken *token)
 {
@@ -82,6 +95,18 @@ anjuta_token_stream_append_token (AnjutaTokenStream *stream, AnjutaToken *token)
     }
 }
 
+/**
+ * anjuta_token_stream_tokenize:
+ * @stream: a #AnjutaTokenStream object.
+ * @type: a token type.
+ * @length: the token length in character.
+ *
+ * Create a token of type from the last length characters previously read and
+ * append it in the output stream. The characters are not copied in the output
+ * stream, the new token uses the same characters.
+ *
+ * Return value: The created token.
+ */
 AnjutaToken* 
 anjuta_token_stream_tokenize (AnjutaTokenStream *stream, gint type, gsize length)
 {
@@ -145,6 +170,17 @@ anjuta_token_stream_tokenize (AnjutaTokenStream *stream, gint type, gsize length
     return frag;
 }
 
+/**
+ * anjuta_token_stream_read:
+ * @stream: a #AnjutaTokenStream object.
+ * @buffer: a character buffer to fill with token data.
+ * @max_size: the size of the buffer.
+ *
+ * Read token from the input stream and write the content as a C string in the
+ * buffer passed as argument.
+ *
+ * Return value: The number of characters written in the buffer.
+ */
 gint 
 anjuta_token_stream_read (AnjutaTokenStream *stream, gchar *buffer, gsize max_size)
 {
@@ -201,6 +237,14 @@ anjuta_token_stream_read (AnjutaTokenStream *stream, gchar *buffer, gsize max_si
     return result;
 }
 
+/**
+ * anjuta_token_stream_get_root:
+ * @stream: a #AnjutaTokenStream object.
+ *
+ * Return the root token for the output stream.
+ *
+ * Return value: The output root token.
+ */
 AnjutaToken* 
 anjuta_token_stream_get_root (AnjutaTokenStream *stream)
 {
@@ -214,8 +258,19 @@ anjuta_token_stream_get_root (AnjutaTokenStream *stream)
 /* Constructor & Destructor
  *---------------------------------------------------------------------------*/
 
+/**
+ * anjuta_token_stream_push:
+ * @parent: a parent #AnjutaTokenStream object or NULL.
+ * @token: a token list.
+ *
+ * Create a new stream from a list of tokens. If a parent stream is passed,
+ * the new stream keep a link on it, so we can return it when the new stream
+ * will be destroyed.
+ *
+ * Return value: The newly created stream.
+ */
 AnjutaTokenStream *
-anjuta_token_stream_push (AnjutaTokenStream *stream, AnjutaToken *token)
+anjuta_token_stream_push (AnjutaTokenStream *parent, AnjutaToken *token)
 {
 	AnjutaTokenStream *child;
 
@@ -223,7 +278,7 @@ anjuta_token_stream_push (AnjutaTokenStream *stream, AnjutaToken *token)
     child->token = token;
     child->pos = 0;
     child->begin = 0;
-    child->parent = stream;
+    child->parent = parent;
 
     child->next = anjuta_token_next (token);
     child->start = child->next;
@@ -231,11 +286,19 @@ anjuta_token_stream_push (AnjutaTokenStream *stream, AnjutaToken *token)
     if (child->end == token) child->end = NULL;
 
 	child->last = NULL;
-	child->first = (stream != NULL) ? stream->last : anjuta_token_new_static (ANJUTA_TOKEN_FILE, NULL);
+	child->first = anjuta_token_new_static (ANJUTA_TOKEN_FILE, NULL);
 	
 	return child;
 }
 
+/**
+ * anjuta_token_stream_pop:
+ * @parent: a #AnjutaTokenStream object.
+ *
+ * Destroy the stream object and return the parent stream if it exists.
+ *
+ * Return value: The parent stream or NULL if there is no parent.
+ */
 AnjutaTokenStream *
 anjuta_token_stream_pop (AnjutaTokenStream *stream)
 {

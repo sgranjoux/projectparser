@@ -234,7 +234,7 @@ mkp_scanner_parse_token (MkpScanner *scanner, AnjutaToken *token, GError **error
     AnjutaTokenStream *stream;
 
     stream = anjuta_token_stream_push (scanner->stream, token);
-    first = anjuta_token_stream_get_root (scanner->stream);
+    first = anjuta_token_stream_get_root (stream);
 
     if (scanner->stream != NULL)
     {
