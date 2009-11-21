@@ -225,12 +225,12 @@ amp_am_scanner_parse_token (AmpAmScanner *scanner, AnjutaToken *token, GError **
     AnjutaTokenStream *stream;
 
     stream = anjuta_token_stream_push (scanner->stream, token);
-    first = anjuta_token_stream_get_root (scanner->stream);
 
     if (scanner->stream != NULL)
     {
         /* Parse an included file or a expanded variable */
 
+        first = anjuta_token_stream_get_root (scanner->stream);
         scanner->stream = stream;
         yypush_buffer_state(yy_create_buffer(NULL, YY_BUF_SIZE, scanner->scanner), scanner->scanner);
     }

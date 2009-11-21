@@ -282,6 +282,7 @@ main(int argc, char *argv[])
 {
 	IAnjutaProject *project;
 	AnjutaProjectNode *node;
+	AnjutaProjectNode *sibling;
 	char **command;
 	GOptionContext *context;
 	GError *error = NULL;
@@ -381,7 +382,22 @@ main(int argc, char *argv[])
 			node = get_node (project, command[2]);
 			if (g_ascii_strcasecmp (command[1], "group") == 0)
 			{
-				ianjuta_project_add_group (project, node, command[3], NULL);
+				if ((command[4] != NULL) && (g_ascii_strcasecmp (command[4], "before") == 0))
+				{
+					sibling = get_node (project, command[5]);
+					amp_project_add_sibling_group (project, node, command[3], FALSE, sibling, NULL);
+					command += 2;
+				}
+				else if ((command[4] != NULL) && (g_ascii_strcasecmp (command[4], "after") == 0))
+				{
+					sibling = get_node (project, command[5]);
+					amp_project_add_sibling_group (project, node, command[3], TRUE, sibling, NULL);
+					command += 2;
+				}
+				else
+				{
+					ianjuta_project_add_group (project, node, command[3], NULL);
+				}
 			}
 			else if (g_ascii_strcasecmp (command[1], "target") == 0)
 			{

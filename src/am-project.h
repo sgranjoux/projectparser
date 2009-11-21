@@ -89,6 +89,7 @@ gchar * amp_project_get_uri (AmpProject *project);
 GFile* amp_project_get_file (AmpProject *project);
 
 AmpGroup* amp_project_add_group (AmpProject  *project, AmpGroup *parent, const gchar *name, GError **error);
+AmpGroup* amp_project_add_sibling_group (AmpProject  *project, AmpGroup *parent, const gchar *name, gboolean after, AmpGroup *sibling, GError **error);
 void amp_project_remove_group (AmpProject  *project, AmpGroup *group, GError **error);
 
 AmpTarget* amp_project_add_target (AmpProject  *project, AmpGroup *parent, const gchar *name, AnjutaProjectTargetType type, GError **error);

@@ -1674,12 +1674,13 @@ amp_project_get_token_location (AmpProject *project, AnjutaTokenFileLocation *lo
 	return FALSE;
 }
 
-
-AmpGroup* 
-amp_project_add_group (AmpProject  *project,
-		AmpGroup *parent,
-		const gchar *name,
-		GError     **error)
+AmpGroup*
+amp_project_add_sibling_group (AmpProject  *project,
+    	AmpGroup *parent,
+    	const gchar *name,
+    	gboolean after,
+    	AmpGroup *sibling,
+    	GError **error)
 {
 	AmpGroup *last;
 	AmpGroup *child;
@@ -1724,6 +1725,15 @@ amp_project_add_group (AmpProject  *project,
 	if (g_hash_table_lookup (project->groups, uri) != NULL)
 	{
 		g_free (uri);
+		error_set (error, IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
+			_("Sibling group has not the same parent"));
+		return NULL;
+	}
+
+	/* If a sibling is used, check that the parent is right */
+	if ((sibling != NULL) && (parent != anjuta_project_node_parent (sibling)))
+	{
+		g_free (uri);
 		error_set (error, IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
 			_("Group already exists"));
 		return NULL;
@@ -1733,7 +1743,14 @@ amp_project_add_group (AmpProject  *project,
 	child = amp_group_new (directory, FALSE);
 	g_hash_table_insert (project->groups, uri, child);
 	g_object_unref (directory);
-	anjuta_project_node_append (parent, child);
+	if (after)
+	{
+		anjuta_project_node_insert_after (parent, sibling, child);
+	}
+	else
+	{
+		anjuta_project_node_insert_before (parent, sibling, child);
+	}
 
 	/* Create directory */
 	g_file_make_directory (directory, NULL, NULL);
@@ -1851,6 +1868,16 @@ amp_project_add_group (AmpProject  *project,
 	amp_group_add_token (child, token, AM_GROUP_TOKEN_SUBDIRS);
 
 	return child;
+}
+
+
+AmpGroup* 
+amp_project_add_group (AmpProject  *project,
+		AmpGroup *parent,
+		const gchar *name,
+		GError     **error)
+{
+	return amp_project_add_sibling_group (project, parent, name, TRUE, NULL, error);
 }
 
 void 

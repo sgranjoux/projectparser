@@ -151,6 +151,18 @@ anjuta_project_node_append (AnjutaProjectNode *parent, AnjutaProjectNode *node)
 }
 
 AnjutaProjectNode *
+anjuta_project_node_insert_before (AnjutaProjectNode *parent, AnjutaProjectNode *sibling, AnjutaProjectNode *node)
+{
+	return g_node_insert_before (parent, sibling, node);
+}
+
+AnjutaProjectNode *
+anjuta_project_node_insert_after (AnjutaProjectNode *parent, AnjutaProjectNode *sibling, AnjutaProjectNode *node)
+{
+	return g_node_insert_after (parent, sibling, node);
+}
+
+AnjutaProjectNode *
 anjuta_project_node_prepend (AnjutaProjectNode *parent, AnjutaProjectNode *node)
 {
 	return g_node_prepend (parent, node);
