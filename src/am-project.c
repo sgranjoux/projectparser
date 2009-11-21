@@ -1026,15 +1026,28 @@ amp_project_load_module (AmpProject *project, AnjutaToken *module)
 		/* Package list */
 		arg = anjuta_token_next_item (arg);
 		scanner = amp_ac_scanner_new (project);
-		fprintf (stdout, "\nParse list\n");
 		list = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
-		anjuta_token_dump (list);
-		
+		//fprintf(stdout, "Parse list\n");
+		//anjuta_token_dump (list);
+		//fprintf(stdout, "Parse argument\n");
+		//anjuta_token_dump (arg);
+		anjuta_token_free_children (arg);
+		//fprintf(stdout, "Free child argument\n");
+		//anjuta_token_dump (arg);
+		list = anjuta_token_insert_after (arg, list);
+		//fprintf(stdout, "Insert list parent\n");
+		//anjuta_token_dump (anjuta_token_parent (arg));
+		anjuta_token_group_children (list);
+		//fprintf(stdout, "Group children\n");
+		//anjuta_token_dump (list);
+		anjuta_token_merge_children (arg, list);
+		//fprintf(stdout, "Merge list parent\n");
+		//anjuta_token_dump (anjuta_token_parent (arg));
 		amp_ac_scanner_free (scanner);
 		
 		pack = NULL;
 		compare = NULL;
-		for (item = anjuta_token_first_item (list); item != NULL; item = anjuta_token_next_item (item))
+		for (item = anjuta_token_first_item (arg); item != NULL; item = anjuta_token_next_item (item))
 		{
 			value = anjuta_token_evaluate (item);
 			if (value == NULL) continue;		/* Empty value, a comment of a quote by example */
@@ -1091,9 +1104,13 @@ amp_project_load_config (AmpProject *project, AnjutaToken *arg_list)
 		
 		arg = anjuta_token_first_group (arg_list);
 		list = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
+		anjuta_token_free_children (arg);
+		list = anjuta_token_insert_after (arg, list);
+		anjuta_token_group_children (list);
+		anjuta_token_merge_children (arg, list);
 		amp_ac_scanner_free (scanner);
 		
-		for (item = anjuta_token_first_item (list); item != NULL; item = anjuta_token_next_item (item))
+		for (item = anjuta_token_first_item (arg); item != NULL; item = anjuta_token_next_item (item))
 		{
 			gchar *value;
 			AmpConfigFile *cfg;
@@ -1518,7 +1535,7 @@ amp_project_reload (AmpProject *project, GError **error)
 	project->configure_token = amp_ac_scanner_parse_token (scanner, arg, 0, &err);
 	fprintf (stdout, "AC file after parsing\n");
 	anjuta_token_check (arg);
-	anjuta_token_dump (arg);
+	anjuta_token_dump (project->configure_token);
 	fprintf (stdout, "\n");
 	amp_ac_scanner_free (scanner);
 	if (project->configure_token == NULL)

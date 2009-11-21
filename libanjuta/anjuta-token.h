@@ -108,10 +108,12 @@ AnjutaToken *anjuta_token_new_with_string (AnjutaTokenType type, gchar *value, g
 AnjutaToken *anjuta_token_new_static (AnjutaTokenType type, const gchar *value);
 AnjutaToken *anjuta_token_new_fragment (gint type, const gchar *pos, gsize length);
 
+AnjutaToken* anjuta_token_free_children (AnjutaToken *token);
 AnjutaToken* anjuta_token_free (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_unlink (AnjutaToken *token);
 
+AnjutaToken *anjuta_token_group_children (AnjutaToken *token);
 AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_merge_own_children (AnjutaToken *first);
 AnjutaToken *anjuta_token_merge_children (AnjutaToken *first, AnjutaToken *end);
