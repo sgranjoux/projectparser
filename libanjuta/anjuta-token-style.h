@@ -39,7 +39,7 @@ AnjutaToken *anjuta_token_list_last (AnjutaToken *list);
 AnjutaToken *anjuta_token_list_next (AnjutaToken *sibling);
 AnjutaToken *anjuta_token_list_replace (AnjutaToken *sibling, AnjutaToken *baby);
 AnjutaToken *anjuta_token_list_replace_nth (AnjutaToken *list, guint n, AnjutaToken *baby);
-AnjutaToken *anjuta_token_list_insert_after (AnjutaToken *sibling, AnjutaToken *baby);
+AnjutaToken *anjuta_token_list_insert_after (AnjutaToken *list, AnjutaToken *sibling, AnjutaToken *baby);
 void anjuta_token_list_delete (AnjutaToken *sibling);
 
 G_END_DECLS

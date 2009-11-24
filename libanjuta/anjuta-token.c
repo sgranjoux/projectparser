@@ -747,9 +747,6 @@ anjuta_token_merge_children (AnjutaToken *first, AnjutaToken *end)
 AnjutaToken *
 anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end)
 {
-	AnjutaToken *child;
-	AnjutaToken *tok;
-
 	if ((end == NULL) || (first == end)) return first;
 
 	anjuta_token_unlink (first);
@@ -1172,8 +1169,6 @@ anjuta_token_check_child (AnjutaToken *token, AnjutaToken *parent)
 gboolean
 anjuta_token_check (AnjutaToken *token)
 {
-	AnjutaToken *next = token;
-
 	if ((token->children != NULL) && (token->last != NULL))
 	{
 		anjuta_token_show (token, 0);
@@ -1240,6 +1235,116 @@ AnjutaToken *anjuta_token_group_children (AnjutaToken *token)
 
 	return token;
 }
+
+/* Additional public functions
+ *---------------------------------------------------------------------------*/
+
+AnjutaToken *
+anjuta_token_find_type (AnjutaToken *list, gint flags, AnjutaTokenType* types)
+{
+	AnjutaToken *tok;
+	AnjutaToken *last = NULL;
+	
+	for (tok = list; tok != NULL; tok = anjuta_token_next (tok))
+	{
+		AnjutaTokenType *type;
+		for (type = types; *type != 0; type++)
+		{
+			if (anjuta_token_get_type (tok) == *type)
+			{
+				last = tok;
+				if (flags & ANJUTA_TOKEN_SEARCH_NOT) break;
+				if (!(flags & ANJUTA_TOKEN_SEARCH_LAST)) break;
+			}
+		}
+		if ((flags & ANJUTA_TOKEN_SEARCH_NOT) && (*type == 0)) break;
+	}
+
+	return last;
+}
+
+AnjutaToken *
+anjuta_token_skip_comment (AnjutaToken *token)
+{
+	if (token == NULL) return NULL;
+	
+	for (;;)
+	{
+		for (;;)
+		{
+			AnjutaToken *next = anjuta_token_next (token);
+
+			if (next == NULL) return token;
+			
+			switch (anjuta_token_get_type (token))
+			{
+			case ANJUTA_TOKEN_FILE:
+			case ANJUTA_TOKEN_SPACE:
+				token = next;
+				continue;
+			case ANJUTA_TOKEN_COMMENT:
+				token = next;
+				break;
+			default:
+				return token;
+			}
+			break;
+		}
+		
+		for (;;)
+		{
+			AnjutaToken *next = anjuta_token_next (token);
+
+			if (next == NULL) return token;
+			token = next;
+			if (anjuta_token_get_type (token) == ANJUTA_TOKEN_EOL) break;
+		}
+	}
+}
+
+AnjutaToken *
+anjuta_token_insert_token_before (AnjutaToken *pos,...)
+{
+	AnjutaToken *first = NULL;
+	GList *group = NULL;
+	va_list args;
+	gint type;
+
+	va_start (args, pos);
+
+	for (type = va_arg (args, gint); type != 0; type = va_arg (args, gint))
+	{
+		gchar *string = va_arg (args, gchar *);
+		AnjutaToken *token;
+
+		token = anjuta_token_insert_before (pos, anjuta_token_new_string (type | ANJUTA_TOKEN_ADDED, string));
+		if (first == NULL) first = token;
+
+		if (group != NULL)
+		{
+			anjuta_token_merge ((AnjutaToken *)group->data, token);
+		}
+
+		if (string == NULL)
+		{
+			switch (type)
+			{
+			case ANJUTA_TOKEN_LIST:
+				break;
+			default:
+				group = g_list_delete_link (group, group);
+				break;
+			}
+			group = g_list_prepend (group, token);
+		}
+	}
+	g_list_free (group);
+	
+	va_end (args);
+	
+	return first;
+}
+
 
 /* Constructor & Destructor
  *---------------------------------------------------------------------------*/

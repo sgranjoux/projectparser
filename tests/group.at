@@ -19,4 +19,18 @@ AT_CHECK([diff output expect])
 AT_PARSER_CHECK([load empty2 \
 		 list])
 AT_CHECK([diff output expect])
+AT_DATA([expect],
+[[    GROUP (0): empty2
+        GROUP (0:0): group1
+	GROUP (0:1): group2
+]])
+AT_PARSER_CHECK([load empty \
+		 move empty2 \
+		 add group 0 group2 after 0:0\
+		 list \
+		 save])
+AT_CHECK([diff output expect])
+AT_PARSER_CHECK([load empty2 \
+		 list])
+AT_CHECK([diff output expect])
 AT_CLEANUP

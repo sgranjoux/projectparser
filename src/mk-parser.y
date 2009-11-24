@@ -32,7 +32,7 @@
 %}
 
 %token  EOL	'\n'
-%token	SPACE
+%token	SPACE ' '
 %token	TAB '\t'
 %token  HASH '#'
 %token	MACRO

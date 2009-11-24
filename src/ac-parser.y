@@ -49,7 +49,7 @@
 %token  LOWER           '<'
 %token  GREATER         '>'
 
-%token  COMMENT
+%token  COMMENT         256
 %token  NAME
 %token  VARIABLE
 %token  MACRO

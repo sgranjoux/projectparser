@@ -97,7 +97,9 @@ enum AnjutaTokenSearchFlag
 	ANJUTA_SEARCH_OVER	  = 0,
 	ANJUTA_SEARCH_INTO		= 1 << 0,
 	ANJUTA_SEARCH_ALL	   = 1 << 1,
-	ANJUTA_SEARCH_BACKWARD = 1 << 2
+	ANJUTA_SEARCH_BACKWARD = 1 << 2,
+	ANJUTA_TOKEN_SEARCH_LAST = 1 << 3,
+	ANJUTA_TOKEN_SEARCH_NOT	= 1 << 4,
 };
 
 typedef gboolean (*AnjutaTokenTraverseFunc) (AnjutaToken* token, gpointer data);
@@ -191,6 +193,10 @@ gchar *anjuta_token_get_value_range (AnjutaToken *token, AnjutaToken *end);
 const gchar *anjuta_token_get_string (AnjutaToken *token);
 void anjuta_token_set_string (AnjutaToken *token, const char *value, guint length);
 guint anjuta_token_get_length (AnjutaToken *token);
+
+AnjutaToken *anjuta_token_find_type (AnjutaToken *list, gint flags, AnjutaTokenType* types);
+AnjutaToken *anjuta_token_skip_comment (AnjutaToken *list);
+AnjutaToken *anjuta_token_insert_token_before (AnjutaToken *list,...);
 
 G_END_DECLS
 

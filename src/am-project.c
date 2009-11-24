@@ -1772,14 +1772,21 @@ amp_project_add_sibling_group (AmpProject  *project,
 	g_object_add_toggle_ref (G_OBJECT (tfile), remove_config_file, project);
 
 	/* Add in configure */
-	token_list= amp_group_get_token (parent, AM_GROUP_TOKEN_CONFIGURE);
+	token_list = NULL;
+	if (sibling) amp_group_get_token (sibling, AM_GROUP_TOKEN_CONFIGURE);
+	if (token_list == NULL) token_list= amp_group_get_token (parent, AM_GROUP_TOKEN_CONFIGURE);
+	if (token_list == NULL)
+	{
+		token_list = amp_project_write_config_list (project);
+		token_list = anjuta_token_next (token_list);
+	}
 	if (token_list != NULL)
 	{
 		gchar *relative_make;
 		gchar *ext;
-		AnjutaTokenStyle *style;
+		//AnjutaTokenStyle *style;
 		
-		prev_token = (AnjutaToken *)token_list->data;
+		//prev_token = (AnjutaToken *)token_list->data;
 
 		relative_make = g_file_get_relative_path (project->root_file, makefile);
 		ext = relative_make + strlen (relative_make) - 3;
@@ -1787,12 +1794,13 @@ amp_project_add_sibling_group (AmpProject  *project,
 		{
 			*ext = '\0';
 		}
-		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED,  relative_make);
+		//token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED,  relative_make);
+		amp_project_write_config_file_before (project, token_list, sibling, relative_make);
 		g_free (relative_make);
 		
-		style = anjuta_token_style_new (NULL," ","\n",NULL,0);
-		add_list_item (prev_token, token, style);
-		anjuta_token_style_free (style);
+		//style = anjuta_token_style_new (NULL," ","\n",NULL,0);
+		//add_list_item (prev_token, token, style);
+		//anjuta_token_style_free (style);
 	}
 	
 	/* Add in Makefile.am */

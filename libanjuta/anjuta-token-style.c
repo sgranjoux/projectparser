@@ -463,25 +463,56 @@ anjuta_token_list_replace_nth (AnjutaToken *list, guint n, AnjutaToken *item)
 }
 
 AnjutaToken *
-anjuta_token_list_insert_after (AnjutaToken *sibling, AnjutaToken *baby)
+anjuta_token_list_insert_after (AnjutaToken *list, AnjutaToken *sibling, AnjutaToken *item)
 {
-	AnjutaToken *token = sibling;
-	AnjutaToken *separator;
+	AnjutaToken *token;
 
-	if (anjuta_token_get_type (token) == ANJUTA_TOKEN_LAST)
+	token = anjuta_token_list_first (list); 
+	if (token == NULL)
 	{
-		token = anjuta_token_previous_sibling (token);
+		token = anjuta_token_insert_child (list, anjuta_token_new_static (ANJUTA_TOKEN_START | ANJUTA_TOKEN_ADDED, NULL));
+		token = anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_LAST | ANJUTA_TOKEN_ADDED, NULL));
 	}
-	else if ((anjuta_token_get_type (token) != ANJUTA_TOKEN_NEXT) && (anjuta_token_next_sibling (token) != NULL))
-	{
-		token = anjuta_token_next_sibling (token);
-	}
-	
-	separator = anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL);
-	token = anjuta_token_insert_after (token, separator);
-	token = anjuta_token_insert_after (token, baby);
 
-	return token;
+	for (;;)
+	{
+		AnjutaToken *next;
+
+		switch (anjuta_token_get_type (token))
+		{
+		case ANJUTA_TOKEN_LAST:
+			anjuta_token_insert_before (token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
+			anjuta_token_insert_before (token, item);
+			return token;
+		case ANJUTA_TOKEN_START:		
+		case ANJUTA_TOKEN_NEXT:
+			if (token == sibling)
+			{
+				anjuta_token_insert_after (token, item);
+				anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
+				return token;
+			}
+			break;
+		default:
+			if (token == sibling)
+			{
+				anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
+				anjuta_token_insert_after (token, item);
+				return token;
+			}
+			break;
+		}
+
+		next = anjuta_token_next (token);
+		if (next == NULL)
+		{
+			token = anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_LAST | ANJUTA_TOKEN_ADDED, NULL));
+		}
+		else
+		{
+			token = next;
+		}
+	}
 }
 
 void

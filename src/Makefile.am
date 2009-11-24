@@ -34,6 +34,8 @@ projectparser_SOURCES = \
 	ac-scanner.h \
 	ac-writer.h \
 	ac-writer.c \
+	am-writer.h \
+	am-writer.c \
 	am-dialogs.c \
 	am-dialogs.h \
 	mk-project.c \
