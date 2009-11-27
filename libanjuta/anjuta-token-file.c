@@ -108,16 +108,17 @@ anjuta_token_file_load (AnjutaTokenFile *file, GError **error)
 
 	anjuta_token_file_unload (file);
 	
+	file->save = anjuta_token_new_static (ANJUTA_TOKEN_FILE,  NULL);
+	file->content = anjuta_token_new_static (ANJUTA_TOKEN_FILE,  NULL);
+	
 	if (g_file_load_contents (file->file, NULL, &content, &length, NULL, error))
 	{
 		AnjutaToken *token;
 			
 		token =	anjuta_token_new_with_string (ANJUTA_TOKEN_FILE, content, length);
-		file->save = anjuta_token_new_static (ANJUTA_TOKEN_FILE,  NULL);
 		anjuta_token_insert_child (file->save, token);
 		
 		token =	anjuta_token_new_static (ANJUTA_TOKEN_FILE, content);
-		file->content = anjuta_token_new_static (ANJUTA_TOKEN_FILE,  NULL);
 		anjuta_token_insert_child (file->content, token);
 	}
 	

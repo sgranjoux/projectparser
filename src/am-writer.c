@@ -87,6 +87,7 @@ amp_project_write_config_list (AmpProject *project)
 	
 	return token;
 }
+
 AnjutaToken *
 amp_project_write_config_file_before (AmpProject *project, AnjutaToken *list, AnjutaToken *sibling, const gchar *filename)
 {
@@ -95,9 +96,28 @@ amp_project_write_config_file_before (AmpProject *project, AnjutaToken *list, An
 	token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, filename);
 	anjuta_token_list_insert_after (list, sibling, token);
 	
-	anjuta_token_style_format (list, project->space_list);
+	anjuta_token_style_format (project->space_list, list);
 	
 	anjuta_token_file_update (project->configure_file, list);
+	
+	return token;
+}
+
+AnjutaToken *
+amp_project_write_subdirs_list (AmpGroup *project)
+{
+	AnjutaToken *pos;
+	AnjutaToken *token;
+	static gint eol_type[] = {ANJUTA_TOKEN_EOL, ANJUTA_TOKEN_SPACE, ANJUTA_TOKEN_COMMENT, 0};
+	
+	pos = anjuta_token_find_type (pos, ANJUTA_TOKEN_SEARCH_NOT, eol_type);
+
+	token = anjuta_token_insert_token_before (pos,
+	    		AC_TOKEN_AC_CONFIG_FILES, "AC_CONFIG_FILES(",
+	    		ANJUTA_TOKEN_LIST, NULL,
+	    		ANJUTA_TOKEN_LAST, NULL,
+	    		RIGHT_PAREN, ")",
+	    		NULL);
 	
 	return token;
 }

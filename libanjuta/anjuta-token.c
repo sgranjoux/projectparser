@@ -344,7 +344,7 @@ AnjutaToken *
 anjuta_token_replace (AnjutaToken *sibling, AnjutaToken *token)
 {
 	anjuta_token_remove (sibling);
-	token = anjuta_token_insert_before (sibling, token);
+	token = anjuta_token_insert_before (NULL, sibling, token);
 
 	return token;
 }
@@ -407,11 +407,11 @@ anjuta_token_replace_nth_item (AnjutaToken *list, guint n, AnjutaToken *item)
 				n--;
 				if (n == 0)
 				{
-					token = anjuta_token_insert_before (token, item);
+					token = anjuta_token_insert_before (NULL, token, item);
 					return token;
 				}
 			}
-			token = anjuta_token_insert_before (token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
+			token = anjuta_token_insert_before (NULL, token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
 			no_item = TRUE;
 			break;
 		case ANJUTA_TOKEN_NEXT:
@@ -420,7 +420,7 @@ anjuta_token_replace_nth_item (AnjutaToken *list, guint n, AnjutaToken *item)
 				n--;
 				if (n == 0)
 				{
-					token = anjuta_token_insert_before (token, item);
+					token = anjuta_token_insert_before (NULL, token, item);
 					return token;
 				}
 			}
@@ -431,7 +431,7 @@ anjuta_token_replace_nth_item (AnjutaToken *list, guint n, AnjutaToken *item)
 			if (n == 0)
 			{
 				anjuta_token_remove (token);
-				token = anjuta_token_insert_before (token, item);
+				token = anjuta_token_insert_before (NULL, token, item);
 				return token;
 			}
 			no_item = FALSE;
@@ -457,6 +457,12 @@ AnjutaToken *
 anjuta_token_parent (AnjutaToken *token)
 {
 	return token->parent;
+}
+
+AnjutaToken *
+anjuta_token_parent_group (AnjutaToken *token)
+{
+	return token->group;
 }
 
 AnjutaToken *
@@ -678,7 +684,7 @@ anjuta_token_merge (AnjutaToken *first, AnjutaToken *end)
 	}
 	if (first->next == NULL)
 	{
-		anjuta_token_insert_before (end, first);
+		anjuta_token_insert_before (NULL, end, first);
 	}
 	first->last = end;
 	end->group = first;
@@ -730,7 +736,7 @@ anjuta_token_merge_children (AnjutaToken *first, AnjutaToken *end)
 	}
 	if (first->next == NULL)
 	{
-		anjuta_token_insert_before (end, first);
+		anjuta_token_insert_before (NULL, end, first);
 	}
 	anjuta_token_unlink (end);
 	if (end->last != NULL)
@@ -750,7 +756,7 @@ anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end)
 	if ((end == NULL) || (first == end)) return first;
 
 	anjuta_token_unlink (first);
-	anjuta_token_insert_before (end, first);
+	anjuta_token_insert_before (NULL, end, first);
 	end->group = first;
 
 	return first;
@@ -875,32 +881,42 @@ anjuta_token_insert_after (AnjutaToken *sibling, AnjutaToken *token)
 }
 
 AnjutaToken *
-anjuta_token_insert_before (AnjutaToken *sibling, AnjutaToken *baby)
+anjuta_token_insert_before (AnjutaToken *parent, AnjutaToken *sibling, AnjutaToken *child)
 {
 	AnjutaToken *next = NULL;
 	AnjutaToken *token;
 
-	for (token = baby; token != NULL; token = next)
+	if (sibling == NULL)
+	{
+		if (parent != NULL) parent->children = child;
+	}
+	else if (sibling->prev == NULL)
+	{
+		if (sibling->parent != NULL) sibling->parent->children = child;
+	}
+	
+	for (token = child; token != NULL; token = next)
 	{
 		next = anjuta_token_next (token);
-		
-		token->parent = sibling->parent;
-		if (sibling->prev)
+
+		if (sibling == NULL)
 		{
-			token->prev = sibling->prev;
-			token->prev->next = token;
-			token->next = sibling;
-	  		sibling->prev = token;
+			token->parent = parent;
 		}
 		else
 		{
-	  		if (token->parent) token->parent->children = token;
-	  		token->next = sibling;
-	  		sibling->prev = token;
+			token->parent = sibling->parent;
+			if (sibling->prev)
+			{
+				token->prev = sibling->prev;
+				token->prev->next = token;
+			}
+  			sibling->prev = token;
 		}
+		token->next = sibling;
 	}
 
-	return baby;
+	return child;
 }	
 
 void
@@ -953,7 +969,7 @@ AnjutaToken *anjuta_token_new_group (AnjutaTokenType type, AnjutaToken* first)
 {
 	AnjutaToken *parent = anjuta_token_new_static (type, NULL);
 
-	anjuta_token_insert_before (first, parent);
+	anjuta_token_insert_before (NULL, first, parent);
 	return anjuta_token_group (parent, first);
 }
 
@@ -978,7 +994,7 @@ AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size)
 		AnjutaToken *copy;
 
 		copy = anjuta_token_copy (token);
-		anjuta_token_insert_before (token, copy);
+		anjuta_token_insert_before (NULL, token, copy);
 
 		ANJUTA_TOKEN_DATA (copy)->length = size;
 		if (ANJUTA_TOKEN_DATA (token)->flags & ANJUTA_TOKEN_STATIC)
@@ -1317,7 +1333,7 @@ anjuta_token_insert_token_before (AnjutaToken *pos,...)
 		gchar *string = va_arg (args, gchar *);
 		AnjutaToken *token;
 
-		token = anjuta_token_insert_before (pos, anjuta_token_new_string (type | ANJUTA_TOKEN_ADDED, string));
+		token = anjuta_token_insert_before (NULL, pos, anjuta_token_new_string (type | ANJUTA_TOKEN_ADDED, string));
 		if (first == NULL) first = token;
 
 		if (group != NULL)

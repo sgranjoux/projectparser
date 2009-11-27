@@ -409,7 +409,7 @@ anjuta_token_list_replace (AnjutaToken *sibling, AnjutaToken *token)
 		}
 		break;
 	}
-	token = anjuta_token_insert_before (sibling, token);
+	token = anjuta_token_insert_before (NULL, sibling, token);
 
 	return token;
 }
@@ -434,7 +434,7 @@ anjuta_token_list_replace_nth (AnjutaToken *list, guint n, AnjutaToken *item)
 		switch (anjuta_token_get_type (token))
 		{
 		case ANJUTA_TOKEN_LAST:
-			anjuta_token_insert_before (token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
+			anjuta_token_insert_before (NULL, token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
 			continue;
 		case ANJUTA_TOKEN_NEXT:
 			if (no_item) n--;
@@ -481,8 +481,8 @@ anjuta_token_list_insert_after (AnjutaToken *list, AnjutaToken *sibling, AnjutaT
 		switch (anjuta_token_get_type (token))
 		{
 		case ANJUTA_TOKEN_LAST:
-			anjuta_token_insert_before (token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
-			anjuta_token_insert_before (token, item);
+			anjuta_token_insert_before (NULL, token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
+			anjuta_token_insert_before (NULL, token, item);
 			return token;
 		case ANJUTA_TOKEN_START:		
 		case ANJUTA_TOKEN_NEXT:
