@@ -141,14 +141,9 @@ gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequen
 
 void anjuta_token_foreach (AnjutaToken *token, AnjutaTokenForeachFunc, gpointer data);
 
-AnjutaToken *anjuta_token_first_group (AnjutaToken *list);
-AnjutaToken *anjuta_token_next_group (AnjutaToken *item);
+AnjutaToken *anjuta_token_first_part (AnjutaToken *list);
+AnjutaToken *anjuta_token_next_part (AnjutaToken *item);
 AnjutaToken *anjuta_token_first_child (AnjutaToken *parent);
-AnjutaToken *anjuta_token_first_item (AnjutaToken *list);
-AnjutaToken *anjuta_token_nth_item (AnjutaToken *list, guint n);
-AnjutaToken *anjuta_token_next_item (AnjutaToken *item);
-
-AnjutaToken *anjuta_token_replace_nth_item (AnjutaToken *list, guint n, AnjutaToken *item);
 
 //AnjutaToken *anjuta_token_copy (AnjutaToken *token);
 //AnjutaToken *anjuta_token_copy_include_range (AnjutaToken *token, AnjutaToken *end);

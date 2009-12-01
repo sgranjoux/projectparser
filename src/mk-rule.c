@@ -156,7 +156,7 @@ mkp_project_add_rule (MkpProject *project, AnjutaToken *group)
 	fprintf(stdout, "add rule\n");
 	anjuta_token_dump (group);
 	
-	targ = anjuta_token_first_group (group);
+	targ = anjuta_token_first_part (group);
 	arg = anjuta_token_next_item (targ);
 	if (anjuta_token_get_type (arg) == MK_TOKEN_DOUBLE_COLON) double_colon = TRUE;
 	dep = anjuta_token_next_item (arg);

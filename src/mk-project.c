@@ -923,9 +923,9 @@ mkp_project_update_variable (MkpProject *project, AnjutaToken *variable)
 	fprintf(stdout, "update variable");
 	anjuta_token_dump (variable);
 	
-	arg = anjuta_token_first_group (variable);
+	arg = anjuta_token_first_part (variable);
 	name = g_strstrip (anjuta_token_evaluate (arg));
-	arg = anjuta_token_next_group (arg);
+	arg = anjuta_token_next_part (arg);
 	
 	g_message ("new variable %s", name);
 	switch (anjuta_token_get_type (arg))
@@ -940,7 +940,7 @@ mkp_project_update_variable (MkpProject *project, AnjutaToken *variable)
 		break;
 	}
 	
-	value = anjuta_token_next_group (arg);
+	value = anjuta_token_next_part (arg);
 
 	if (assign != 0)
 	{

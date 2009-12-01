@@ -94,7 +94,11 @@ amp_project_write_config_file_before (AmpProject *project, AnjutaToken *list, An
 	AnjutaToken *token;
 
 	token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, filename);
-	anjuta_token_list_insert_after (list, sibling, token);
+	fprintf (stdout, "Dump config list:\n");
+	anjuta_token_dump (list);
+	anjuta_token_list_insert_before (list, sibling, token);
+	fprintf (stdout, "Dump config list after insertion:\n");
+	anjuta_token_dump (list);
 	
 	anjuta_token_style_format (project->space_list, list);
 	

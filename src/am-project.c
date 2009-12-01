@@ -1040,7 +1040,7 @@ amp_project_load_module (AmpProject *project, AnjutaToken *module)
 		anjuta_token_dump (module);
 		
 		/* Module name */
-		arg = anjuta_token_first_group (module);
+		arg = anjuta_token_first_part (module);
 		value = anjuta_token_evaluate (arg);
 		mod = amp_module_new (arg);
 		mod->packages = NULL;
@@ -1125,7 +1125,7 @@ amp_project_load_config (AmpProject *project, AnjutaToken *arg_list)
 		scanner = amp_ac_scanner_new (project);
 		fprintf (stdout, "\nParse list\n");
 		
-		arg = anjuta_token_first_group (arg_list);
+		arg = anjuta_token_first_part (arg_list);
 		list = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		anjuta_token_free_children (arg);
 		list = anjuta_token_insert_after (arg, list);
@@ -1823,7 +1823,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 	{
 		gchar *relative_make;
 		gchar *ext;
-		AnjutaToken *prev;
+		AnjutaToken *prev = NULL;
 
 		if (sibling)
 		{
@@ -1867,7 +1867,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 	    		ANJUTA_TOKEN_LIST, NULL,
 	    		ANJUTA_TOKEN_LAST, NULL,
 	    		NULL);
-		list = anjuta_token_next (anjuta_token_next (anjuta_token_next (list)));
+		list = anjuta_token_next (anjuta_token_next ( anjuta_token_next (list)));
 	}
 	else
 	{
@@ -1900,7 +1900,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 		anjuta_token_list_insert_after (list, prev, token);
 	
 		anjuta_token_style_format (project->space_list, list);
-		anjuta_token_file_update (AMP_GROUP_DATA (child)->tfile, token);
+		anjuta_token_file_update (AMP_GROUP_DATA (parent)->tfile, token);
 		
 		amp_group_add_token (child, token, AM_GROUP_TOKEN_SUBDIRS);
 	}
@@ -2037,7 +2037,7 @@ amp_project_add_target (AmpProject  *project,
 
 	if (last == NULL)
 	{
-		prev_token = anjuta_token_first_group (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile));
+		prev_token = anjuta_token_first_part (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile));
 		if (prev_token != NULL)
 		{
 			/* Add at the end of the file */
@@ -2074,7 +2074,7 @@ amp_project_add_target (AmpProject  *project,
 	{
 		for (token = (AnjutaToken *)last->data; anjuta_token_get_type (token) != ANJUTA_TOKEN_LIST; token = anjuta_token_next_sibling (token));
 
-		if (anjuta_token_next_group(token) == NULL)
+		if (anjuta_token_next_part(token) == NULL)
 		{
 			token = anjuta_token_merge (token, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
 		}

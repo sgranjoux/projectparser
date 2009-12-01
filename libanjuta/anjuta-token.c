@@ -250,7 +250,7 @@ anjuta_token_last_child (AnjutaToken *token)
 }
 
 AnjutaToken *
-anjuta_token_first_group (AnjutaToken *list)
+anjuta_token_first_part (AnjutaToken *list)
 {
 	if (list == NULL) return NULL;
 	if (list->children != NULL) return list->children;
@@ -260,7 +260,7 @@ anjuta_token_first_group (AnjutaToken *list)
 }
 
 AnjutaToken *
-anjuta_token_next_group (AnjutaToken *group)
+anjuta_token_next_part (AnjutaToken *group)
 {
 	AnjutaToken *last;
 
@@ -292,165 +292,6 @@ anjuta_token_next_child (AnjutaToken *child)
 	} while (child != NULL);
 
 	return NULL;
-}
-
-AnjutaToken *
-anjuta_token_first_item (AnjutaToken *list)
-{
-	AnjutaToken *item;
-
-	for (item = anjuta_token_first_group (list); item != NULL; item = anjuta_token_next_group (item))
-	{
-		switch (anjuta_token_get_type (item))
-		{
-		case ANJUTA_TOKEN_START:
-		case ANJUTA_TOKEN_NEXT:
-			continue;
-		case ANJUTA_TOKEN_LAST:
-			item = NULL;
-			break;
-		default:
-			break;
-		}
-		break;
-	}
-
-	return item;
-}
-
-AnjutaToken *
-anjuta_token_next_item (AnjutaToken *item)
-{
-	for (item = anjuta_token_next_group (item); item != NULL; item = anjuta_token_next_group (item))
-	{
-		switch (anjuta_token_get_type (item))
-		{
-		case ANJUTA_TOKEN_START:
-		case ANJUTA_TOKEN_NEXT:
-			continue;
-		case ANJUTA_TOKEN_LAST:
-			item = NULL;
-			break;	
-		default:
-			break;
-		}
-		break;
-	}
-
-	return item;
-}
-
-AnjutaToken *
-anjuta_token_replace (AnjutaToken *sibling, AnjutaToken *token)
-{
-	anjuta_token_remove (sibling);
-	token = anjuta_token_insert_before (NULL, sibling, token);
-
-	return token;
-}
-
-AnjutaToken *
-anjuta_token_nth_item (AnjutaToken *list, guint n)
-{
-	AnjutaToken *item;
-	gboolean no_item = TRUE;
-
-	for (item = anjuta_token_first_group (list); item != NULL; item = anjuta_token_next_group (item))
-	{
-		switch (anjuta_token_get_type (item))
-		{
-		case ANJUTA_TOKEN_START:
-			break;
-		case ANJUTA_TOKEN_NEXT:
-			if (no_item)	
-			{
-				if (n == 0) return NULL;
-				n--;
-			}
-			no_item = TRUE;
-			break;
-		case ANJUTA_TOKEN_LAST:
-			return NULL;
-		default:
-			if (n == 0) return item;
-			n--;
-			no_item = FALSE;
-			break;
-		}
-	}
-
-	return NULL;
-}
-
-AnjutaToken *
-anjuta_token_replace_nth_item (AnjutaToken *list, guint n, AnjutaToken *item)
-{
-	AnjutaToken *token;
-	gboolean no_item = TRUE;
-
-	token = anjuta_token_first_group (list); 
-	if (token == NULL)
-	{
-		token = anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_LAST | ANJUTA_TOKEN_ADDED, NULL));
-		anjuta_token_merge (list, token);
-	}
-
-	for (n++;;)
-	{
-		AnjutaToken *next;
-
-		switch (anjuta_token_get_type (token))
-		{
-		case ANJUTA_TOKEN_LAST:
-			if (no_item)
-			{
-				n--;
-				if (n == 0)
-				{
-					token = anjuta_token_insert_before (NULL, token, item);
-					return token;
-				}
-			}
-			token = anjuta_token_insert_before (NULL, token, anjuta_token_new_static (ANJUTA_TOKEN_NEXT | ANJUTA_TOKEN_ADDED, NULL));
-			no_item = TRUE;
-			break;
-		case ANJUTA_TOKEN_NEXT:
-			if (no_item)	
-			{
-				n--;
-				if (n == 0)
-				{
-					token = anjuta_token_insert_before (NULL, token, item);
-					return token;
-				}
-			}
-			no_item = TRUE;
-			break;
-		case ANJUTA_TOKEN_ITEM:
-			n--;
-			if (n == 0)
-			{
-				anjuta_token_remove (token);
-				token = anjuta_token_insert_before (NULL, token, item);
-				return token;
-			}
-			no_item = FALSE;
-			break;
-		default:
-			break;
-		}
-
-		next = anjuta_token_next_group (token);
-		if (next == NULL)
-		{
-			token = anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_LAST | ANJUTA_TOKEN_ADDED, NULL));
-			anjuta_token_merge (list, token);
-		}
-		else
-		{
-			token = next;
-		}
-	}
 }
 
 AnjutaToken *
