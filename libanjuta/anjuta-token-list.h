@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
 /*
- * anjuta-token-style.h
+ * anjuta-token-list.h
  * Copyright (C) Sébastien Granjoux 2009 <seb.sfo@free.fr>
  * 
  * This program is free software: you can redistribute it and/or modify it
@@ -17,8 +17,8 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _ANJUTA_TOKEN_STYLE_H_
-#define _ANJUTA_TOKEN_STYLE_H_
+#ifndef _ANJUTA_TOKEN_LIST_H_
+#define _ANJUTA_TOKEN_LIST_H_
 
 #include <glib.h>
 

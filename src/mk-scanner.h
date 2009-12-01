@@ -24,7 +24,7 @@
 
 #include "libanjuta/anjuta-token.h"
 #include "libanjuta/anjuta-token-file.h"
-#include "libanjuta/anjuta-token-style.h"
+#include "libanjuta/anjuta-token-list.h"
 
 #include <glib.h>
 #include <gio/gio.h>

@@ -23,8 +23,8 @@ libanjuta_a_SOURCES = \
 	anjuta-debug.h \
 	anjuta-utils.c \
 	anjuta-utils.h \
-	anjuta-token-style.h \
-	anjuta-token-style.c \
+	anjuta-token-list.h \
+	anjuta-token-list.c \
 	anjuta-token-file.h \
 	anjuta-token-file.c \
 	anjuta-project.c \
