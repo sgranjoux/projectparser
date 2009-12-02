@@ -337,58 +337,6 @@ file_type (GFile *file, const gchar *filename)
 	return type;
 }
 
-gboolean
-remove_list_item (AnjutaToken *token, AnjutaTokenStyle *user_style)
-{
-	AnjutaTokenStyle *style;
-	AnjutaToken *space;
-
-	DEBUG_PRINT ("remove list item");
-
-	style = user_style != NULL ? user_style : anjuta_token_style_new (NULL," ","\n",NULL,0);
-	anjuta_token_style_update (style, anjuta_token_parent (token));
-	
-	anjuta_token_remove (token);
-	space = anjuta_token_next_sibling (token);
-	if (space && (anjuta_token_get_type (space) == ANJUTA_TOKEN_SPACE) && (anjuta_token_next (space) != NULL))
-	{
-		/* Remove following space */
-		anjuta_token_remove (space);
-	}
-	else
-	{
-		space = anjuta_token_previous_sibling (token);
-		if (space && (anjuta_token_get_type (space) == ANJUTA_TOKEN_SPACE) && (anjuta_token_previous (space) != NULL))
-		{
-			anjuta_token_remove (space);
-		}
-	}
-	
-	anjuta_token_style_format (style, anjuta_token_parent (token));
-	if (user_style == NULL) anjuta_token_style_free (style);
-	
-	return TRUE;
-}
-
-static gboolean
-add_list_item (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_style)
-{
-	AnjutaTokenStyle *style;
-	AnjutaToken *space;
-
-	style = user_style != NULL ? user_style : anjuta_token_style_new (NULL," ","\n",NULL,0);
-	anjuta_token_style_update (style, anjuta_token_parent (list));
-	
-	space = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " ");
-	space = anjuta_token_insert_after (list, space);
-	anjuta_token_insert_after (space, token);
-
-	anjuta_token_style_format (style, anjuta_token_parent (list));
-	if (user_style == NULL) anjuta_token_style_free (style);
-	
-	return TRUE;
-}
-
 /* Automake parsing function
  *---------------------------------------------------------------------------*/
 
@@ -627,15 +575,15 @@ amp_property_new (AnjutaToken *macro, AnjutaToken *list)
 
 	if (list != NULL)
 	{
-		arg = anjuta_token_nth_item (list, 0);
+		arg = anjuta_token_nth_word (list, 0);
 		prop->name = anjuta_token_evaluate (arg);
-		arg = anjuta_token_nth_item (list, 1);
+		arg = anjuta_token_nth_word (list, 1);
 		prop->version = anjuta_token_evaluate (arg);
-		arg = anjuta_token_nth_item (list, 2);
+		arg = anjuta_token_nth_word (list, 2);
 		prop->bug_report = anjuta_token_evaluate (arg);
-		arg = anjuta_token_nth_item (list, 3);
+		arg = anjuta_token_nth_word (list, 3);
 		prop->tarname = anjuta_token_evaluate (arg);
-		arg = anjuta_token_nth_item (list, 4);
+		arg = anjuta_token_nth_word (list, 4);
 		prop->url = anjuta_token_evaluate (arg);
 	}
 	
@@ -1047,7 +995,7 @@ amp_project_load_module (AmpProject *project, AnjutaToken *module)
 		g_hash_table_insert (project->modules, value, mod);
 
 		/* Package list */
-		arg = anjuta_token_next_item (arg);
+		arg = anjuta_token_next_word (arg);
 		scanner = amp_ac_scanner_new (project);
 		list = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		//fprintf(stdout, "Parse list\n");
@@ -1070,7 +1018,7 @@ amp_project_load_module (AmpProject *project, AnjutaToken *module)
 		
 		pack = NULL;
 		compare = NULL;
-		for (item = anjuta_token_first_item (arg); item != NULL; item = anjuta_token_next_item (item))
+		for (item = anjuta_token_first_word (arg); item != NULL; item = anjuta_token_next_word (item))
 		{
 			value = anjuta_token_evaluate (item);
 			if (value == NULL) continue;		/* Empty value, a comment of a quote by example */
@@ -1133,7 +1081,7 @@ amp_project_load_config (AmpProject *project, AnjutaToken *arg_list)
 		anjuta_token_merge_children (arg, list);
 		amp_ac_scanner_free (scanner);
 		
-		for (item = anjuta_token_first_item (arg); item != NULL; item = anjuta_token_next_item (item))
+		for (item = anjuta_token_first_word (arg); item != NULL; item = anjuta_token_next_word (item))
 		{
 			gchar *value;
 			AmpConfigFile *cfg;
@@ -1209,7 +1157,7 @@ project_load_target (AmpProject *project, AnjutaToken *name, AnjutaToken *list, 
 
 	amp_group_add_token (parent, name, AM_GROUP_TARGET);
 	
-	for (arg = anjuta_token_first_item (list); arg != NULL; arg = anjuta_token_next_item (arg))
+	for (arg = anjuta_token_first_word (list); arg != NULL; arg = anjuta_token_next_word (arg))
 	{
 		gchar *value;
 		gchar *canon_id;
@@ -1288,7 +1236,7 @@ project_load_sources (AmpProject *project, AnjutaToken *name, AnjutaToken *list,
 		anjuta_project_node_children_foreach (parent, find_canonical_target, &find);
 		parent = (gchar *)find != target_id ? (AnjutaProjectTarget *)find : NULL;
 
-		for (arg = anjuta_token_first_item (list); arg != NULL; arg = anjuta_token_next_item (arg))
+		for (arg = anjuta_token_first_word (list); arg != NULL; arg = anjuta_token_next_word (arg))
 		{
 			gchar *value;
 			AmpSource *source;
@@ -1348,7 +1296,7 @@ project_load_subdirs (AmpProject *project, AnjutaToken *list, AmpGroup *parent, 
 {
 	AnjutaToken *arg;
 
-	for (arg = anjuta_token_first_item (list); arg != NULL; arg = anjuta_token_next_item (arg))
+	for (arg = anjuta_token_first_word (list); arg != NULL; arg = anjuta_token_next_word (arg))
 	{
 		gchar *value;
 		
@@ -1830,7 +1778,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 			prev = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_CONFIGURE);
 			if ((prev != NULL) && after)
 			{
-				prev = anjuta_token_next_item (prev);
+				prev = anjuta_token_next_word (prev);
 			}
 		}
 		//prev_token = (AnjutaToken *)token_list->data;
@@ -1846,7 +1794,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 		g_free (relative_make);
 		
 		//style = anjuta_token_style_new (NULL," ","\n",NULL,0);
-		//add_list_item (prev_token, token, style);
+		//anjuta_token_add_word (prev_token, token, style);
 		//anjuta_token_style_free (style);
 	}
 	
@@ -1876,7 +1824,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 		prev = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_SUBDIRS);
 		if ((prev != NULL) && after)
 		{
-			prev = anjuta_token_next_item (prev);
+			prev = anjuta_token_next_word (prev);
 		}
 		
 		list = anjuta_token_parent_group (prev);
@@ -1892,7 +1840,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 			prev = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_SUBDIRS);
 			if ((prev != NULL) && after)
 			{
-				prev = anjuta_token_next_item (prev);
+				prev = anjuta_token_next_word (prev);
 			}
 		}		
 		
@@ -1929,15 +1877,15 @@ amp_project_remove_group (AmpProject  *project,
 	
 	for (token_list = amp_group_get_token (group, AM_GROUP_TOKEN_CONFIGURE); token_list != NULL; token_list = g_list_next (token_list))
 	{
-		remove_list_item ((AnjutaToken *)token_list->data, NULL);
+		anjuta_token_remove_word ((AnjutaToken *)token_list->data, NULL);
 	}
 	for (token_list = amp_group_get_token (group, AM_GROUP_TOKEN_SUBDIRS); token_list != NULL; token_list = g_list_next (token_list))
 	{
-		remove_list_item ((AnjutaToken *)token_list->data, NULL);
+		anjuta_token_remove_word ((AnjutaToken *)token_list->data, NULL);
 	}
 	for (token_list = amp_group_get_token (group, AM_GROUP_TOKEN_DIST_SUBDIRS); token_list != NULL; token_list = g_list_next (token_list))
 	{
-		remove_list_item ((AnjutaToken *)token_list->data, NULL);
+		anjuta_token_remove_word ((AnjutaToken *)token_list->data, NULL);
 	}
 
 	amp_group_free (group);
@@ -2080,7 +2028,7 @@ amp_project_add_target (AmpProject  *project,
 		}
 		else
 		{
-			token = anjuta_token_next_item (token);
+			token = anjuta_token_next_word (token);
 		}
 
 		for (; anjuta_token_next_sibling (token) != NULL; token = anjuta_token_next_sibling (token));
@@ -2172,7 +2120,7 @@ amp_project_add_source (AmpProject  *project,
 	else
 	{
 		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, relative_name);
-		add_list_item (AMP_SOURCE_DATA (last)->token, token, NULL);
+		anjuta_token_add_word (AMP_SOURCE_DATA (last)->token, token, NULL);
 	}
 	g_free (relative_name);
 	
@@ -2192,7 +2140,7 @@ amp_project_remove_source (AmpProject  *project,
 	amp_dump_node (source);
 	if (AMP_NODE_DATA (source)->type != ANJUTA_PROJECT_SOURCE) return;
 	
-	remove_list_item (AMP_SOURCE_DATA (source)->token, NULL);
+	anjuta_token_remove_word (AMP_SOURCE_DATA (source)->token, NULL);
 
 	amp_source_free (source);
 }

@@ -43,10 +43,12 @@ AnjutaToken *anjuta_token_list_insert_after (AnjutaToken *list, AnjutaToken *sib
 AnjutaToken *anjuta_token_list_insert_before (AnjutaToken *list, AnjutaToken *sibling, AnjutaToken *baby);
 void anjuta_token_list_delete (AnjutaToken *sibling);
 
-AnjutaToken *anjuta_token_first_item (AnjutaToken *list);
-AnjutaToken *anjuta_token_nth_item (AnjutaToken *list, guint n);
-AnjutaToken *anjuta_token_next_item (AnjutaToken *item);
-AnjutaToken *anjuta_token_replace_nth_item (AnjutaToken *list, guint n, AnjutaToken *item);
+AnjutaToken *anjuta_token_first_word (AnjutaToken *list);
+AnjutaToken *anjuta_token_nth_word (AnjutaToken *list, guint n);
+AnjutaToken *anjuta_token_next_word (AnjutaToken *item);
+AnjutaToken *anjuta_token_replace_nth_word (AnjutaToken *list, guint n, AnjutaToken *item);
+AnjutaToken *anjuta_token_add_word (AnjutaToken *list, AnjutaToken *token, AnjutaTokenStyle *user_style);
+AnjutaToken *anjuta_token_remove_word (AnjutaToken *token, AnjutaTokenStyle *user_style);
 
 G_END_DECLS
 

@@ -157,10 +157,10 @@ mkp_project_add_rule (MkpProject *project, AnjutaToken *group)
 	anjuta_token_dump (group);
 	
 	targ = anjuta_token_first_part (group);
-	arg = anjuta_token_next_item (targ);
+	arg = anjuta_token_next_word (targ);
 	if (anjuta_token_get_type (arg) == MK_TOKEN_DOUBLE_COLON) double_colon = TRUE;
-	dep = anjuta_token_next_item (arg);
-	for (arg = anjuta_token_first_item (targ); arg != NULL; arg = anjuta_token_next_item (arg))
+	dep = anjuta_token_next_word (arg);
+	for (arg = anjuta_token_first_word (targ); arg != NULL; arg = anjuta_token_next_word (arg))
 	{
 		AnjutaToken *src;
 		gchar *target;
@@ -171,7 +171,7 @@ mkp_project_add_rule (MkpProject *project, AnjutaToken *group)
 		switch (anjuta_token_get_type (arg))
 		{
 		case MK_TOKEN__PHONY:
-			for (src = anjuta_token_first_item (dep); src != NULL; src = anjuta_token_next_item (src))
+			for (src = anjuta_token_first_word (dep); src != NULL; src = anjuta_token_next_word (src))
 			{
 				if (anjuta_token_get_type (src) != MK_TOKEN_ORDER)
 				{
@@ -191,7 +191,7 @@ mkp_project_add_rule (MkpProject *project, AnjutaToken *group)
 			}
 			break;
 		case MK_TOKEN__SUFFIXES:
-			for (src = anjuta_token_first_item (dep); src != NULL; src = anjuta_token_next_item (src))
+			for (src = anjuta_token_first_word (dep); src != NULL; src = anjuta_token_next_word (src))
 			{
 				if (anjuta_token_get_type (src) != MK_TOKEN_ORDER)
 				{
@@ -240,7 +240,7 @@ mkp_project_add_rule (MkpProject *project, AnjutaToken *group)
 				rule->rule = group;
 			}
 				
-			for (src = anjuta_token_first_item (dep); src != NULL; src = anjuta_token_next_item (src))
+			for (src = anjuta_token_first_word (dep); src != NULL; src = anjuta_token_next_word (src))
 			{
 				gchar *src_name = anjuta_token_evaluate (src);
 
@@ -330,12 +330,12 @@ mkp_project_enumerate_targets (MkpProject *project, AnjutaProjectGroup *parent)
 		anjuta_project_node_append (parent, target);
 
 		/* Get prerequisite */
-		prerequisite = anjuta_token_first_item (rule->rule);
-		if (prerequisite != NULL) prerequisite = anjuta_token_next_item (prerequisite);
-		if (prerequisite != NULL) prerequisite = anjuta_token_next_item (prerequisite);
+		prerequisite = anjuta_token_first_word (rule->rule);
+		if (prerequisite != NULL) prerequisite = anjuta_token_next_word (prerequisite);
+		if (prerequisite != NULL) prerequisite = anjuta_token_next_word (prerequisite);
 		
 		/* Add prerequisite */
-		for (arg = anjuta_token_first_item (prerequisite); arg != NULL; arg = anjuta_token_next_item (arg))
+		for (arg = anjuta_token_first_word (prerequisite); arg != NULL; arg = anjuta_token_next_word (arg))
 		{
 			MkpSource *source;
 			GFile *src_file;
