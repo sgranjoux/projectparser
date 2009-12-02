@@ -237,6 +237,12 @@ anjuta_token_last (AnjutaToken *token)
 }
 
 AnjutaToken *
+anjuta_token_last_item (AnjutaToken *list)
+{
+	return list->last;
+}
+
+AnjutaToken *
 anjuta_token_last_child (AnjutaToken *token)
 {
 	AnjutaToken *last = NULL;
@@ -250,7 +256,7 @@ anjuta_token_last_child (AnjutaToken *token)
 }
 
 AnjutaToken *
-anjuta_token_first_part (AnjutaToken *list)
+anjuta_token_first_item (AnjutaToken *list)
 {
 	if (list == NULL) return NULL;
 	if (list->children != NULL) return list->children;
@@ -260,14 +266,14 @@ anjuta_token_first_part (AnjutaToken *list)
 }
 
 AnjutaToken *
-anjuta_token_next_part (AnjutaToken *group)
+anjuta_token_next_item (AnjutaToken *item)
 {
 	AnjutaToken *last;
 
-	if (group == NULL) return NULL;
+	if (item == NULL) return NULL;
 
-	if ((group->group != NULL) && (group == group->group->last)) return NULL;
-	for (last = group; last->last != NULL; last = last->last);
+	if ((item->group != NULL) && (item == item->group->last)) return NULL;
+	for (last = item; last->last != NULL; last = last->last);
 
 	return last->next;
 }
@@ -298,6 +304,12 @@ AnjutaToken *
 anjuta_token_parent (AnjutaToken *token)
 {
 	return token->parent;
+}
+
+AnjutaToken *
+anjuta_token_list (AnjutaToken *token)
+{
+	return token->group;
 }
 
 AnjutaToken *
@@ -703,6 +715,20 @@ anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *child)
 	parent->children = child;
 
 	return child;
+}
+
+AnjutaToken *
+anjuta_token_insert_item (AnjutaToken *list, AnjutaToken *token)
+{
+	token->group = list;
+	token->parent = list->parent;
+	if (list->last == NULL) list->last = token;
+
+	token->next = list->next;
+	token->prev = list;
+	list->next = token;
+
+	return token;
 }
 
 AnjutaToken *

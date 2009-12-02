@@ -133,16 +133,18 @@ AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size);
 
 AnjutaToken *anjuta_token_cut (AnjutaToken *token, guint pos, guint size);
 
-AnjutaToken * anjuta_token_append_child (AnjutaToken *parent, AnjutaToken *child);
-AnjutaToken * anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *child);
-AnjutaToken *anjuta_token_insert_after (AnjutaToken *token, AnjutaToken *sibling);
+AnjutaToken *anjuta_token_append_child (AnjutaToken *parent, AnjutaToken *child);
+AnjutaToken *anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *token);
+AnjutaToken *anjuta_token_insert_item (AnjutaToken *parent, AnjutaToken *token);
+AnjutaToken *anjuta_token_insert_after (AnjutaToken *sibling, AnjutaToken *token);
 AnjutaToken *anjuta_token_insert_before (AnjutaToken *parent, AnjutaToken *sibling, AnjutaToken *token);
 gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end);
 
 void anjuta_token_foreach (AnjutaToken *token, AnjutaTokenForeachFunc, gpointer data);
 
-AnjutaToken *anjuta_token_first_part (AnjutaToken *list);
-AnjutaToken *anjuta_token_next_part (AnjutaToken *item);
+AnjutaToken *anjuta_token_first_item (AnjutaToken *list);
+AnjutaToken *anjuta_token_next_item (AnjutaToken *item);
+AnjutaToken *anjuta_token_last_item (AnjutaToken *list);
 AnjutaToken *anjuta_token_first_child (AnjutaToken *parent);
 
 //AnjutaToken *anjuta_token_copy (AnjutaToken *token);
@@ -175,6 +177,7 @@ AnjutaToken *anjuta_token_next_child (AnjutaToken *token);
 AnjutaToken *anjuta_token_previous (AnjutaToken *token);
 AnjutaToken *anjuta_token_previous_sibling (AnjutaToken *token);
 AnjutaToken *anjuta_token_parent (AnjutaToken *token);
+AnjutaToken *anjuta_token_list (AnjutaToken *token);
 AnjutaToken *anjuta_token_last (AnjutaToken *token);
 AnjutaToken *anjuta_token_parent_group (AnjutaToken *token);
 gboolean anjuta_token_compare (AnjutaToken *tokena, AnjutaToken *tokenb);

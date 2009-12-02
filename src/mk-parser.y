@@ -102,10 +102,10 @@ mkp_special_prerequisite (AnjutaToken *token)
 static void
 mkp_special_target (AnjutaToken *list)
 {
-    AnjutaToken *arg = anjuta_token_first_part (list);
-    AnjutaToken *target = arg != NULL ? anjuta_token_first_part (arg) : NULL;
+    AnjutaToken *arg = anjuta_token_first_item (list);
+    AnjutaToken *target = arg != NULL ? anjuta_token_first_item (arg) : NULL;
 
-    if ((target != NULL) && (anjuta_token_next_part (target) == NULL))
+    if ((target != NULL) && (anjuta_token_next_item (target) == NULL))
     {
         gint mk_token = 0;
 
