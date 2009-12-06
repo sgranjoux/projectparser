@@ -116,10 +116,10 @@ anjuta_token_file_load (AnjutaTokenFile *file, GError **error)
 		AnjutaToken *token;
 			
 		token =	anjuta_token_new_with_string (ANJUTA_TOKEN_FILE, content, length);
-		anjuta_token_insert_child (file->save, token);
+		anjuta_token_prepend_child (file->save, token);
 		
 		token =	anjuta_token_new_static (ANJUTA_TOKEN_FILE, content);
-		anjuta_token_insert_child (file->content, token);
+		anjuta_token_prepend_child (file->content, token);
 	}
 	
 	return file->content;
@@ -347,7 +347,7 @@ anjuta_token_file_update (AnjutaTokenFile *file, AnjutaToken *token)
 		AnjutaToken *start = NULL;
 		
 		value = g_new (gchar, added);
-		anjuta_token_insert_child (file->save, anjuta_token_new_with_string (ANJUTA_TOKEN_NAME, value, added));
+		anjuta_token_prepend_child (file->save, anjuta_token_new_with_string (ANJUTA_TOKEN_NAME, value, added));
 		
 		/* Find token position */
 		if (prev != NULL)
@@ -360,7 +360,7 @@ anjuta_token_file_update (AnjutaTokenFile *file, AnjutaToken *token)
 		add = anjuta_token_new_fragment (ANJUTA_TOKEN_NAME, value, added);
 		if (start == NULL)
 		{
-			anjuta_token_insert_child (file->content, add);
+			anjuta_token_prepend_child (file->content, add);
 		}
 		else
 		{

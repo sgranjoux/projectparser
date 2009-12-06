@@ -172,7 +172,7 @@ amp_project_update_property (AmpProject *project, AmpPropertyType type)
 			}
 		}
 		
-		token = anjuta_token_insert_before (NULL, token, anjuta_token_new_string (AC_TOKEN_AC_INIT | ANJUTA_TOKEN_ADDED, "AC_INIT("));
+		token = anjuta_token_insert_before (token, anjuta_token_new_string (AC_TOKEN_AC_INIT | ANJUTA_TOKEN_ADDED, "AC_INIT("));
 		project->property->ac_init = token;
 		group = anjuta_token_insert_after (token, anjuta_token_new_static (ANJUTA_TOKEN_LIST | ANJUTA_TOKEN_ADDED, NULL));
 		project->property->args = group;
@@ -185,7 +185,7 @@ amp_project_update_property (AmpProject *project, AmpPropertyType type)
 	fprintf(stdout, "ac_init before replace\n");
 	anjuta_token_dump (project->property->args);
 	token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, value);
-	arg = anjuta_token_insert_before (NULL, token, anjuta_token_new_static (ANJUTA_TOKEN_ITEM | ANJUTA_TOKEN_ADDED, NULL));
+	arg = anjuta_token_insert_before (token, anjuta_token_new_static (ANJUTA_TOKEN_ITEM | ANJUTA_TOKEN_ADDED, NULL));
 	anjuta_token_merge (arg, token);
 	anjuta_token_replace_nth_word (project->property->args, pos, arg);
 	fprintf(stdout, "ac_init after replace\n");

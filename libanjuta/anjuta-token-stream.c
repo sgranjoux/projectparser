@@ -81,9 +81,11 @@ struct _AnjutaTokenStream
 void
 anjuta_token_stream_append_token (AnjutaTokenStream *stream, AnjutaToken *token)
 {
+	anjuta_token_append_child (stream->first, token);
+#if 0
     if (stream->last == NULL)
     {
-        stream->last = anjuta_token_insert_child (stream->first, token);
+        stream->last = anjuta_token_prepend_child (stream->first, token);
     }
     else
     {
@@ -91,8 +93,23 @@ anjuta_token_stream_append_token (AnjutaTokenStream *stream, AnjutaToken *token)
         {
             stream->last = anjuta_token_parent (stream->last);
         }
-        stream->last = anjuta_token_insert_after (stream->last, token);
+		while (anjuta_token_list (stream->last) != NULL)
+		{
+			if (anjuta_token_last_item (anjuta_token_list (stream->last)) == stream->last)
+			{
+				stream->last = anjuta_token_list (stream->last);
+				g_message ("go upper");
+			}
+			else
+			{
+				break;
+			}
+		}
+		if (anjuta_token_list (stream->last) != NULL) g_message ("stream->group not null");
+		g_message ("stream->last->list %p", anjuta_token_list (stream->last));
+       	stream->last = anjuta_token_insert_after (stream->last, token);
     }
+#endif
 }
 
 /**

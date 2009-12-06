@@ -333,6 +333,7 @@ anjuta_token_unlink (AnjutaToken *token)
 		token->parent->children = token->next;
 	}
 	token->parent = NULL;
+
 	if (token->next != NULL)
 	{
 		token->next->prev = token->prev;
@@ -537,7 +538,7 @@ anjuta_token_merge (AnjutaToken *first, AnjutaToken *end)
 	}
 	if (first->next == NULL)
 	{
-		anjuta_token_insert_before (NULL, end, first);
+		anjuta_token_insert_before (end, first);
 	}
 	first->last = end;
 	end->group = first;
@@ -589,7 +590,7 @@ anjuta_token_merge_children (AnjutaToken *first, AnjutaToken *end)
 	}
 	if (first->next == NULL)
 	{
-		anjuta_token_insert_before (NULL, end, first);
+		anjuta_token_insert_before (end, first);
 	}
 	anjuta_token_unlink (end);
 	if (end->last != NULL)
@@ -609,7 +610,7 @@ anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end)
 	if ((end == NULL) || (first == end)) return first;
 
 	anjuta_token_unlink (first);
-	anjuta_token_insert_before (NULL, end, first);
+	anjuta_token_insert_before (end, first);
 	end->group = first;
 
 	return first;
@@ -655,7 +656,7 @@ anjuta_token_copy (AnjutaToken *token)
 		for (child = anjuta_token_first_child (token); child != NULL; child = anjuta_token_next_sibling (child))
 		{
 			AnjutaToken *new_child = anjuta_token_copy (child);
-			last =  last == NULL ? anjuta_token_insert_child (copy, new_child) : anjuta_token_insert_after (last, new_child);
+			last =  last == NULL ? anjuta_token_prepend_child (copy, new_child) : anjuta_token_insert_after (last, new_child);
 		}
 	}
 
@@ -677,114 +678,329 @@ anjuta_token_clear (AnjutaToken *token)
 	return token;
 }
 
+/**
+ * anjuta_token_append_child:
+ * @parent: a #AnjutaToken object used as parent.
+ * @children: a #AnjutaToken object.
+ *
+ * Insert all tokens in children as the last children of the given parent.
+ *
+ * Return value: The first token append.
+ */
 AnjutaToken *
-anjuta_token_append_child (AnjutaToken *parent, AnjutaToken *child)
+anjuta_token_append_child (AnjutaToken *parent, AnjutaToken *children)
 {
-	AnjutaToken *sibling;
-	
-	child->parent = parent;
-  
-	if (parent->children)
-	{
-  		sibling = parent->children;
-		while (sibling->next)
-		{
-			sibling = sibling->next;
-		}
-  		child->prev = sibling;
-  		sibling->next = child;
-	}
-   	else
-	{
-		child->parent->children = child;
-   	}
-
-	return child;
-}
-
-AnjutaToken *
-anjuta_token_insert_child (AnjutaToken *parent, AnjutaToken *child)
-{
-	child->parent = parent;
-	
-	if (parent->children)
-	{
-		child->next = parent->children;
-		parent->children->prev = child;
-	}
-	parent->children = child;
-
-	return child;
-}
-
-AnjutaToken *
-anjuta_token_insert_item (AnjutaToken *list, AnjutaToken *token)
-{
-	token->group = list;
-	token->parent = list->parent;
-	if (list->last == NULL) list->last = token;
-
-	token->next = list->next;
-	token->prev = list;
-	list->next = token;
-
-	return token;
-}
-
-AnjutaToken *
-anjuta_token_insert_after (AnjutaToken *sibling, AnjutaToken *token)
-{
-	token->parent = sibling->parent;
-		
-	if (sibling->next)
-	{
-		sibling->next->prev = token;
-	}
-	token->next = sibling->next;
-	token->prev = sibling;
-	sibling->next = token;
-
-	return token;
-}
-
-AnjutaToken *
-anjuta_token_insert_before (AnjutaToken *parent, AnjutaToken *sibling, AnjutaToken *child)
-{
-	AnjutaToken *next = NULL;
 	AnjutaToken *token;
+	AnjutaToken *last;
+	AnjutaToken *old_group;
+	AnjutaToken *old_parent;
 
-	if (sibling == NULL)
-	{
-		if (parent != NULL) parent->children = child;
-	}
-	else if (sibling->prev == NULL)
-	{
-		if (sibling->parent != NULL) sibling->parent->children = child;
-	}
+	g_return_val_if_fail (parent != NULL, NULL);
+	g_return_val_if_fail (children != NULL, NULL);
+
+	old_group = children->group;
+	old_parent = children->parent;
 	
-	for (token = child; token != NULL; token = next)
+	if (parent->children == NULL)
 	{
-		next = anjuta_token_next (token);
-
-		if (sibling == NULL)
+		parent->children = children;
+		
+		children->prev = NULL;
+	}
+	else
+	{
+		/* Find last children */
+		for (last = parent->children; last->next != NULL;)
 		{
-			token->parent = parent;
+			if ((last->last != NULL) && (last->last->parent == last->parent))
+			{
+				last = last->last;
+			}
+			else
+			{
+				last = last->next;
+			}
+		}
+
+		last->next = children;
+		children->prev = last;
+	}
+
+	/* Update each token */	
+	for (token = children;;)
+	{
+		if (token->parent == old_parent) token->parent = parent;
+		if (token->group == old_group) token->group = parent->group;
+
+		if (token->children != NULL)
+		{
+			token = token->children;
+		}
+		else if (token->next != NULL)
+		{
+			token = token->next;
 		}
 		else
 		{
-			token->parent = sibling->parent;
-			if (sibling->prev)
+			while (token->parent != parent)
 			{
-				token->prev = sibling->prev;
-				token->prev->next = token;
+				token = token->parent;
+				if (token->next != NULL) break;
 			}
-  			sibling->prev = token;
+			if (token->next == NULL) break;
+			token = token->next;
 		}
-		token->next = sibling;
 	}
 
-	return child;
-}	
+	return children;
+}
+
+/**
+ * anjuta_token_prepend_child:
+ * @parent: a #AnjutaToken object used as parent.
+ * @children: a #AnjutaToken object.
+ *
+ * Insert all tokens in children as the first children of the given parent.
+ *
+ * Return value: The first token append.
+ */
+AnjutaToken *
+anjuta_token_prepend_child (AnjutaToken *parent, AnjutaToken *children)
+{
+	AnjutaToken *token;
+	AnjutaToken *old_group;
+	AnjutaToken *old_parent;
+
+	g_return_val_if_fail (parent != NULL, NULL);
+	g_return_val_if_fail (children != NULL, NULL);
+
+	old_group = children->group;
+	old_parent = children->parent;
+
+	/* Update each token */	
+	for (token = children;;)
+	{
+		if (token->parent == old_parent) token->parent = parent;
+		if (token->group == old_group) token->group = parent->group;
+
+		if (token->children != NULL)
+		{
+			token = token->children;
+		}
+		else if (token->next != NULL)
+		{
+			token = token->next;
+		}
+		else
+		{
+			while (token->parent != parent)
+			{
+				token = token->parent;
+				if (token->next != NULL) break;
+			}
+			if (token->next == NULL) break;
+			token = token->next;
+		}
+	}
+
+	token->next = parent->children;
+	parent->children = children;
+
+	if (token->next) token->next->prev = token;
+
+	return children;
+}
+
+/**
+ * anjuta_token_prepend_items:
+ * @list: a #AnjutaToken object used as list.
+ * @item: a #AnjutaToken object.
+ *
+ * Insert all tokens in item as item of the given list.
+ *
+ * Return value: The first token append.
+ */
+AnjutaToken *
+anjuta_token_prepend_items (AnjutaToken *list, AnjutaToken *item)
+{
+	AnjutaToken *token;
+	AnjutaToken *old_group;
+	AnjutaToken *old_parent;
+
+	g_return_val_if_fail (list != NULL, NULL);
+	g_return_val_if_fail (item != NULL, NULL);
+
+	old_group = item->group;
+	old_parent = item->parent;
+
+	/* Update each token */	
+	for (token = item;;)
+	{
+		if (token->parent == old_parent) token->parent = list->parent;
+		if (token->group == old_group) token->group = list;
+
+		if (token->children != NULL)
+		{
+			token = token->children;
+		}
+		else if (token->next != NULL)
+		{
+			token = token->next;
+		}
+		else
+		{
+			while (token->parent != list->parent)
+			{
+				token = token->parent;
+				if (token->next != NULL) break;
+			}
+			if (token->next == NULL) break;
+			token = token->next;
+		}
+	}
+
+	token->next = list->next;
+	if (token->next) token->next->prev = token;
+
+	list->next = item;
+	item->prev = list;
+
+	if (list->last == NULL)
+	{
+		while (token->group != list) token = token->group;
+		list->last = token;
+	}
+
+	return item;
+}
+
+/**
+ * anjuta_token_insert_after:
+ * @sibling: a #AnjutaToken object.
+ * @item: a #AnjutaToken object.
+ *
+ * Insert all tokens after sibling.
+ *
+ * Return value: The first token inserted.
+ */
+AnjutaToken *
+anjuta_token_insert_after (AnjutaToken *sibling, AnjutaToken *list)
+{
+	AnjutaToken *last;
+	AnjutaToken *token;
+	AnjutaToken *old_group;
+	AnjutaToken *old_parent;
+
+	g_return_val_if_fail (sibling != NULL, NULL);
+	g_return_val_if_fail (list != NULL, NULL);
+
+	old_group = list->group;
+	old_parent = list->parent;
+
+	/* Update each token */	
+	for (token = list;;)
+	{
+		if (token->parent == old_parent) token->parent = sibling->parent;
+		if (token->group == old_group) token->group = sibling->group;
+
+		if (token->children != NULL)
+		{
+			token = token->children;
+		}
+		else if (token->next != NULL)
+		{
+			token = token->next;
+		}
+		else
+		{
+			while (token->parent != sibling->parent)
+			{
+				token = token->parent;
+				if (token->next != NULL) break;
+			}
+			if (token->next == NULL) break;
+			token = token->next;
+		}
+	}
+
+	for (last = sibling; last->last != NULL; last = last->last);
+
+	token->next = last->next;
+	if (token->next) token->next->prev = token;
+	
+	last->next = list;
+	list->prev = last;
+
+	if ((sibling->group != NULL) && (sibling->group->last == sibling))
+	{
+		while (token->group != sibling->group) token = token->group;
+		sibling->group->last = token;
+	}
+
+	return list;
+}
+
+/**
+ * anjuta_token_insert_before:
+ * @sibling: a #AnjutaToken object.
+ * @item: a #AnjutaToken object.
+ *
+ * Insert all tokens before sibling.
+ *
+ * Return value: The first token inserted.
+ */
+AnjutaToken *
+anjuta_token_insert_before (AnjutaToken *sibling, AnjutaToken *list)
+{
+	AnjutaToken *last;
+	AnjutaToken *token;
+	AnjutaToken *old_group;
+	AnjutaToken *old_parent;
+
+	g_return_val_if_fail (sibling != NULL, NULL);
+	g_return_val_if_fail (list != NULL, NULL);
+
+	old_group = list->group;
+	old_parent = list->parent;
+
+	/* Update each token */	
+	for (token = list;;)
+	{
+		if (token->parent == old_parent) token->parent = sibling->parent;
+		if (token->group == old_group) token->group = sibling->group;
+
+		if (token->children != NULL)
+		{
+			token = token->children;
+		}
+		else if (token->next != NULL)
+		{
+			token = token->next;
+		}
+		else
+		{
+			while (token->parent != sibling->parent)
+			{
+				token = token->parent;
+				if (token->next != NULL) break;
+			}
+			if (token->next == NULL) break;
+			token = token->next;
+		}
+	}
+
+	for (last = sibling; last->last != NULL; last = last->last);
+
+	token->next = sibling;
+	list->prev = sibling->prev;
+	sibling->prev = token;
+
+	if (list->prev) list->prev->next = list;
+
+	if ((list->parent != NULL) && (list->parent->children == sibling)) list->parent->children = list;
+	
+	return list;
+}
 
 void
 anjuta_token_foreach (AnjutaToken *token, AnjutaTokenTraverseFunc func, gpointer data)
@@ -802,58 +1018,6 @@ anjuta_token_foreach (AnjutaToken *token, AnjutaTokenTraverseFunc func, gpointer
 	}
 }
 
-AnjutaToken *anjuta_token_group (AnjutaToken *parent, AnjutaToken *last)
-{
-	AnjutaToken *child;
-	AnjutaToken *tok;
-
-	if (parent == last) return parent; 
-	if (parent->children == last) return parent;
-
-	child = anjuta_token_last_child (parent);
-	do
-	{
-		tok = anjuta_token_next_sibling (parent);
-		if (tok == NULL) break;
-		
-		anjuta_token_unlink (tok);
-		if (child == NULL)
-		{
-			child = anjuta_token_append_child (parent, tok);
-		}
-		else
-		{
-			child = anjuta_token_insert_after (child, tok);
-		}
-	}
-	while (tok != last);
-
-	return parent;
-	
-}
-
-AnjutaToken *anjuta_token_new_group (AnjutaTokenType type, AnjutaToken* first)
-{
-	AnjutaToken *parent = anjuta_token_new_static (type, NULL);
-
-	anjuta_token_insert_before (NULL, first, parent);
-	return anjuta_token_group (parent, first);
-}
-
-AnjutaToken *anjuta_token_ungroup (AnjutaToken *token)
-{
-	AnjutaToken *last = token;
-	AnjutaToken *child;
-	
-	for (child = anjuta_token_first_child (token); child != NULL; child = anjuta_token_first_child (token))
-	{
-		anjuta_token_unlink (child);
-		last = anjuta_token_insert_after (last, child);
-	}
-
-	return token;
-}
-
 AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size)
 {
 	if (ANJUTA_TOKEN_DATA (token)->length > size)
@@ -861,7 +1025,7 @@ AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size)
 		AnjutaToken *copy;
 
 		copy = anjuta_token_copy (token);
-		anjuta_token_insert_before (NULL, token, copy);
+		anjuta_token_insert_before (token, copy);
 
 		ANJUTA_TOKEN_DATA (copy)->length = size;
 		if (ANJUTA_TOKEN_DATA (token)->flags & ANJUTA_TOKEN_STATIC)
@@ -1090,29 +1254,7 @@ AnjutaToken *anjuta_token_group_children (AnjutaToken *token)
 	
 	if (token->children)
 	{
-		AnjutaToken *child;
-		AnjutaToken *next = token;
-		AnjutaToken *last = NULL;
-		gboolean group = token->last == NULL;
-		
-		for (child = token->children; child != NULL; child = token->children)
-		{
-			next = anjuta_token_insert_after (next, anjuta_token_unlink (child));
-			
-			if (last == NULL)
-			{
-				if (child->last != NULL)
-				{
-					last = child->last;
-				}
-				child->group = token;
-				if (group) token->last = child;
-			}
-			else if (last == child)
-			{
-				last = child->last;
-			}
-		}
+		anjuta_token_prepend_items (token, token->children);
 		token->children = NULL;
 	}
 
@@ -1200,7 +1342,7 @@ anjuta_token_insert_token_before (AnjutaToken *pos,...)
 		gchar *string = va_arg (args, gchar *);
 		AnjutaToken *token;
 
-		token = anjuta_token_insert_before (NULL, pos, anjuta_token_new_string (type | ANJUTA_TOKEN_ADDED, string));
+		token = anjuta_token_insert_before (pos, anjuta_token_new_string (type | ANJUTA_TOKEN_ADDED, string));
 		if (first == NULL) first = token;
 
 		if (group != NULL)

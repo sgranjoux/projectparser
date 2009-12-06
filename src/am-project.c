@@ -1998,7 +1998,7 @@ amp_project_add_target (AmpProject  *project,
 		list = anjuta_token_new_string (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, "\n");
 		if (prev_token == NULL)
 		{
-			prev_token = anjuta_token_insert_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile), list);
+			prev_token = anjuta_token_prepend_child (anjuta_token_file_get_content (AMP_GROUP_DATA (parent)->tfile), list);
 		}
 		else
 		{
