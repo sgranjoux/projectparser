@@ -999,22 +999,9 @@ amp_project_load_module (AmpProject *project, AnjutaToken *module)
 		arg = anjuta_token_next_word (arg);
 		scanner = amp_ac_scanner_new (project);
 		list = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
-		//fprintf(stdout, "Parse list\n");
-		//anjuta_token_dump (list);
-		//fprintf(stdout, "Parse argument\n");
-		//anjuta_token_dump (arg);
 		anjuta_token_free_children (arg);
-		//fprintf(stdout, "Free child argument\n");
-		//anjuta_token_dump (arg);
-		list = anjuta_token_insert_after (arg, list);
-		//fprintf(stdout, "Insert list parent\n");
-		//anjuta_token_dump (anjuta_token_parent (arg));
-		anjuta_token_group_children (list);
-		//fprintf(stdout, "Group children\n");
-		//anjuta_token_dump (list);
-		anjuta_token_merge_children (arg, list);
-		//fprintf(stdout, "Merge list parent\n");
-		//anjuta_token_dump (anjuta_token_parent (arg));
+		list = anjuta_token_delete_parent (list);
+		anjuta_token_prepend_items (arg, list);
 		amp_ac_scanner_free (scanner);
 		
 		pack = NULL;
@@ -1077,9 +1064,8 @@ amp_project_load_config (AmpProject *project, AnjutaToken *arg_list)
 		arg = anjuta_token_first_item (arg_list);
 		list = amp_ac_scanner_parse_token (scanner, arg, AC_SPACE_LIST_STATE, NULL);
 		anjuta_token_free_children (arg);
-		list = anjuta_token_insert_after (arg, list);
-		anjuta_token_group_children (list);
-		anjuta_token_merge_children (arg, list);
+		list = anjuta_token_delete_parent (list);
+		anjuta_token_prepend_items (arg, list);
 		amp_ac_scanner_free (scanner);
 		
 		for (item = anjuta_token_first_word (arg); item != NULL; item = anjuta_token_next_word (item))
@@ -1831,12 +1817,14 @@ amp_project_add_sibling_group (AmpProject  *project,
 		AnjutaToken *prev;
 		
 		prev = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_SUBDIRS);
-		if ((prev != NULL) && after)
+		if (prev != NULL)
 		{
-			prev = anjuta_token_next_word (prev);
+			if (after)
+			{
+				prev = anjuta_token_next_word (prev);
+			}
+			if (prev != NULL) list = anjuta_token_parent_group (prev);
 		}
-		
-		list = anjuta_token_parent_group (prev);
 	}
 
 	if (list != NULL)

@@ -133,6 +133,7 @@ AnjutaToken *anjuta_token_prepend_child (AnjutaToken *parent, AnjutaToken *child
 AnjutaToken *anjuta_token_prepend_items (AnjutaToken *list, AnjutaToken *item);
 AnjutaToken *anjuta_token_insert_after (AnjutaToken *sibling, AnjutaToken *token);
 AnjutaToken *anjuta_token_insert_before (AnjutaToken *sibling, AnjutaToken *token);
+AnjutaToken *anjuta_token_delete_parent (AnjutaToken *parent);
 
 gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end);
 

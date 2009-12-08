@@ -1002,6 +1002,58 @@ anjuta_token_insert_before (AnjutaToken *sibling, AnjutaToken *list)
 	return list;
 }
 
+/**
+ * anjuta_token_delete_parent:
+ * @parent: a #AnjutaToken object used as parent.
+ *
+ * Delete only the parent token.
+ *
+ * Return value: the first children
+ */
+AnjutaToken *
+anjuta_token_delete_parent (AnjutaToken *parent)
+{
+	AnjutaToken *token;
+
+	g_return_val_if_fail (parent != NULL, NULL);
+
+	if (parent->children == NULL) return NULL;
+	
+	/* Update each token */	
+	for (token = parent->children;;)
+	{
+		if (token->parent == parent) token->parent = parent->parent;
+
+		if (token->children != NULL)
+		{
+			token = token->children;
+		}
+		else if (token->next != NULL)
+		{
+			token = token->next;
+		}
+		else
+		{
+			while (token->parent != parent->parent)
+			{
+				token = token->parent;
+				if (token->next != NULL) break;
+			}
+			if (token->next == NULL) break;
+			token = token->next;
+		}
+	}
+
+	token->next = parent->next;
+	if (token->next) token->next->prev = token;
+
+	parent->next = parent->children;
+	parent->children->prev = parent;
+	parent->children = NULL;
+
+	return anjuta_token_free (parent);
+}
+
 void
 anjuta_token_foreach (AnjutaToken *token, AnjutaTokenTraverseFunc func, gpointer data)
 {
