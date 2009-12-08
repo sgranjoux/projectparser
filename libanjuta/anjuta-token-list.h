@@ -41,6 +41,7 @@ AnjutaToken *anjuta_token_list_replace (AnjutaToken *sibling, AnjutaToken *baby)
 AnjutaToken *anjuta_token_list_replace_nth (AnjutaToken *list, guint n, AnjutaToken *baby);
 AnjutaToken *anjuta_token_list_insert_after (AnjutaToken *list, AnjutaToken *sibling, AnjutaToken *baby);
 AnjutaToken *anjuta_token_insert_word_before (AnjutaToken *list, AnjutaToken *sibling, AnjutaToken *baby);
+AnjutaToken *anjuta_token_insert_word_after (AnjutaToken *list, AnjutaToken *sibling, AnjutaToken *baby);
 void anjuta_token_list_delete (AnjutaToken *sibling);
 
 AnjutaToken *anjuta_token_first_word (AnjutaToken *list);

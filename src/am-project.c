@@ -468,6 +468,7 @@ amp_config_file_new (const gchar *pathname, GFile *project_root, AnjutaToken *to
 
 	config = g_slice_new0(AmpConfigFile);
 	config->file = g_file_resolve_relative_path (project_root, pathname);
+	g_message ("new config file =%s= token %p group %p", pathname, token, anjuta_token_parent_group (token));
 	config->token = token;
 
 	return config;
@@ -1388,6 +1389,7 @@ project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *par
 			g_object_unref (final_file);
 			if (config != NULL)
 			{
+				g_message ("add group =%s= token %p group %p", *filename, config->token, anjuta_token_parent_group (config->token));
 				amp_group_add_token (group, config->token, AM_GROUP_TOKEN_CONFIGURE);
 				break;
 			}
@@ -1469,7 +1471,8 @@ amp_project_reload (AmpProject *project, GError **error)
 	amp_project_new_module_hash (project);
 
 	/* Initialize list styles */
-	project->space_list = anjuta_token_style_new (NULL, " ", "\n", NULL, 0);
+	project->ac_space_list = anjuta_token_style_new (NULL, " ", "\n", NULL, 0);
+	project->am_space_list = anjuta_token_style_new (NULL, " ", "\\\n", NULL, 0);
 	project->arg_list = anjuta_token_style_new (NULL, ", ", ", ", ")", 0);
 	
 	/* Find configure file */
@@ -1575,7 +1578,8 @@ amp_project_unload (AmpProject *project)
 	project->configs = NULL;
 
 	/* List styles */
-	if (project->space_list) anjuta_token_style_free (project->space_list);
+	if (project->am_space_list) anjuta_token_style_free (project->am_space_list);
+	if (project->ac_space_list) anjuta_token_style_free (project->ac_space_list);
 	if (project->arg_list) anjuta_token_style_free (project->arg_list);
 	
 	amp_project_free_module_hash (project);
@@ -1760,6 +1764,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 	/* Add in configure */
 	list = NULL;
 	if (sibling) list = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_CONFIGURE);
+	g_message ("get config =%s= sibling %p group %p", name, list, anjuta_token_parent_group (list));
 	if (list == NULL) list= amp_group_get_first_token (parent, AM_GROUP_TOKEN_CONFIGURE);
 	if (list != NULL) list = anjuta_token_parent_group (list);
 	if (list == NULL)
@@ -1776,10 +1781,10 @@ amp_project_add_sibling_group (AmpProject  *project,
 		if (sibling)
 		{
 			prev = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_CONFIGURE);
-			if ((prev != NULL) && after)
+			/*if ((prev != NULL) && after)
 			{
 				prev = anjuta_token_next_word (prev);
-			}
+			}*/
 		}
 		//prev_token = (AnjutaToken *)token_list->data;
 
@@ -1790,7 +1795,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 			*ext = '\0';
 		}
 		//token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED,  relative_make);
-		amp_project_write_config_file_before (project, list, prev, relative_make);
+		amp_project_write_config_file (project, list, after, prev, relative_make);
 		g_free (relative_make);
 		
 		//style = anjuta_token_style_new (NULL," ","\n",NULL,0);
@@ -1805,7 +1810,11 @@ amp_project_add_sibling_group (AmpProject  *project,
 		static gint eol_type[] = {ANJUTA_TOKEN_EOL, ANJUTA_TOKEN_SPACE, ANJUTA_TOKEN_COMMENT, 0};
 	
 		pos = anjuta_token_find_type (AMP_GROUP_DATA (parent)->make_token, ANJUTA_TOKEN_SEARCH_NOT, eol_type);
-		
+		if (pos == NULL)
+		{
+			pos = anjuta_token_prepend_child (AMP_GROUP_DATA (parent)->make_token, anjuta_token_new_static (ANJUTA_TOKEN_SPACE, "\n"));
+		}
+
 		list = anjuta_token_insert_token_before (pos,
 		    	ANJUTA_TOKEN_SPACE, "\n");
 		list = anjuta_token_insert_token_before (list,
@@ -1847,7 +1856,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, name);
 		anjuta_token_list_insert_after (list, prev, token);
 	
-		anjuta_token_style_format (project->space_list, list);
+		anjuta_token_style_format (project->am_space_list, list);
 		anjuta_token_file_update (AMP_GROUP_DATA (parent)->tfile, token);
 		
 		amp_group_add_token (child, token, AM_GROUP_TOKEN_SUBDIRS);
@@ -2670,7 +2679,8 @@ amp_project_instance_init (AmpProject *project)
 	project->root_node = NULL;
 	project->property = NULL;
 
-	project->space_list = NULL;
+	project->am_space_list = NULL;
+	project->ac_space_list = NULL;
 	project->arg_list = NULL;
 }
 

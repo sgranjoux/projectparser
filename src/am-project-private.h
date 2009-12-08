@@ -75,7 +75,8 @@ struct _AmpProject {
 	GHashTable         *monitors;
 
 	/* Keep list style */
-	AnjutaTokenStyle *space_list;
+	AnjutaTokenStyle *ac_space_list;
+	AnjutaTokenStyle *am_space_list;
 	AnjutaTokenStyle *arg_list;
 };
 

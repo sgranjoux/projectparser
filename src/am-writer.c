@@ -89,18 +89,25 @@ amp_project_write_config_list (AmpProject *project)
 }
 
 AnjutaToken *
-amp_project_write_config_file_before (AmpProject *project, AnjutaToken *list, AnjutaToken *sibling, const gchar *filename)
+amp_project_write_config_file (AmpProject *project, AnjutaToken *list, gboolean after, AnjutaToken *sibling, const gchar *filename)
 {
 	AnjutaToken *token;
 
 	token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, filename);
 	fprintf (stdout, "Dump config list:\n");
 	anjuta_token_dump (list);
-	anjuta_token_insert_word_before (list, sibling, token);
+	if (after)
+	{
+		anjuta_token_insert_word_after (list, sibling, token);
+	}
+	else
+	{
+		anjuta_token_insert_word_before (list, sibling, token);
+	}
 	fprintf (stdout, "Dump config list after insertion:\n");
 	anjuta_token_dump (list);
 	
-	anjuta_token_style_format (project->space_list, list);
+	anjuta_token_style_format (project->ac_space_list, list);
 	
 	anjuta_token_file_update (project->configure_file, list);
 	
