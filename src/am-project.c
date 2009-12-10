@@ -1680,8 +1680,8 @@ amp_project_add_sibling_group (AmpProject  *project,
 	if (g_hash_table_lookup (project->groups, uri) != NULL)
 	{
 		g_free (uri);
-		error_set (error, IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
-			_("Sibling group has not the same parent"));
+		error_set (error, IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
+			_("Group already exists"));
 		return NULL;
 	}
 
@@ -1689,8 +1689,8 @@ amp_project_add_sibling_group (AmpProject  *project,
 	if ((sibling != NULL) && (parent != anjuta_project_node_parent (sibling)))
 	{
 		g_free (uri);
-		error_set (error, IANJUTA_PROJECT_ERROR_DOESNT_EXIST,
-			_("Group already exists"));
+		error_set (error, IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
+			_("Sibling group has not the same parent"));
 		return NULL;
 	}
 	
@@ -1883,12 +1883,8 @@ amp_project_remove_group (AmpProject  *project,
 	amp_group_free (group);
 }
 
-AmpTarget*
-amp_project_add_target (AmpProject  *project,
-		 AmpGroup *parent,
-		 const gchar *name,
-		 AnjutaProjectTargetType type,
-		 GError     **error)
+AmpGroup* 
+amp_project_add_sibling_target (AmpProject  *project, AmpGroup *parent, const gchar *name, AnjutaProjectTargetType type, gboolean after, AmpGroup *sibling, GError **error)
 {
 	AmpTarget *child;
 	AnjutaToken* token;
@@ -1941,6 +1937,14 @@ amp_project_add_target (AmpProject  *project,
 			return NULL;
 		}
 	}
+
+	/* If a sibling is used, check that the parent is right */
+	if ((sibling != NULL) && (parent != anjuta_project_node_parent (sibling)))
+	{
+		error_set (error, IANJUTA_PROJECT_ERROR_VALIDATION_FAILED,
+			_("Sibling target has not the same parent"));
+		return NULL;
+	}
 	
 	/* Check that the new target doesn't already exist */
 	find = (gchar *)name;
@@ -1955,7 +1959,15 @@ amp_project_add_target (AmpProject  *project,
 	
 	/* Add target node in project tree */
 	child = amp_target_new (name, type, "", 0);
-	anjuta_project_node_append (parent, child);
+	if (after)
+	{
+		anjuta_project_node_insert_after (parent, sibling, child);
+	}
+	else
+	{
+		anjuta_project_node_insert_before (parent, sibling, child);
+	}
+	//anjuta_project_node_append (parent, child);
 
 	/* Add in Makefile.am */
 	targetname = g_strconcat (((AmpTargetInformation *)type)->install, ((AmpTargetInformation *)type)->prefix, NULL);
@@ -2037,6 +2049,16 @@ amp_project_add_target (AmpProject  *project,
 	return child;
 }
 
+AmpTarget*
+amp_project_add_target (AmpProject  *project,
+		 AmpGroup *parent,
+		 const gchar *name,
+		 AnjutaProjectTargetType type,
+		 GError     **error)
+{
+	return amp_project_add_sibling_target (project, parent, name, type, TRUE, NULL, error);
+}
+
 void 
 amp_project_remove_target (AmpProject  *project,
 		    AmpTarget *target,
@@ -2054,11 +2076,8 @@ amp_project_remove_target (AmpProject  *project,
 	amp_target_free (target);
 }
 
-AmpSource* 
-amp_project_add_source (AmpProject  *project,
-		 AmpTarget *target,
-		 GFile *file,
-		 GError     **error)
+AmpGroup* 
+amp_project_add_sibling_source (AmpProject  *project, AmpTarget *target, GFile *file, gboolean after, AmpGroup *sibling, GError **error)
 {
 	AmpGroup *group;
 	AmpSource *last;
@@ -2122,6 +2141,16 @@ amp_project_add_source (AmpProject  *project,
 	anjuta_project_node_append (target, source);
 
 	return source;
+}
+
+
+AmpSource* 
+amp_project_add_source (AmpProject  *project,
+		 AmpTarget *target,
+		 GFile *file,
+		 GError     **error)
+{
+	return amp_project_add_sibling_source (project, target, file, TRUE, NULL, error);
 }
 
 void 

@@ -93,9 +93,11 @@ AmpGroup* amp_project_add_sibling_group (AmpProject  *project, AmpGroup *parent,
 void amp_project_remove_group (AmpProject  *project, AmpGroup *group, GError **error);
 
 AmpTarget* amp_project_add_target (AmpProject  *project, AmpGroup *parent, const gchar *name, AnjutaProjectTargetType type, GError **error);
+AmpGroup* amp_project_add_sibling_target (AmpProject  *project, AmpGroup *parent, const gchar *name, AnjutaProjectTargetType type, gboolean after, AmpGroup *sibling, GError **error);
 void amp_project_remove_target (AmpProject  *project, AmpTarget *target, GError **error);
 
 AmpSource* amp_project_add_source (AmpProject  *project, AmpTarget *parent, GFile *file, GError **error);
+AmpGroup* amp_project_add_sibling_source (AmpProject  *project, AmpTarget *parent, GFile *file, gboolean after, AmpGroup *sibling, GError **error);
 void amp_project_remove_source (AmpProject  *project, AmpSource *source, GError **error);
 
 

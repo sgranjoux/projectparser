@@ -401,15 +401,44 @@ main(int argc, char *argv[])
 			}
 			else if (g_ascii_strcasecmp (command[1], "target") == 0)
 			{
-				
-				ianjuta_project_add_target (project, node, command[3], get_type (project, command[4]), NULL);
+				if ((command[5] != NULL) && (g_ascii_strcasecmp (command[5], "before") == 0))
+				{
+					sibling = get_node (project, command[6]);
+					amp_project_add_sibling_target (project, node, command[3], get_type (project, command[4]), FALSE, sibling, NULL);
+					command += 2;
+				}
+				else if ((command[5] != NULL) && (g_ascii_strcasecmp (command[5], "after") == 0))
+				{
+					sibling = get_node (project, command[6]);
+					amp_project_add_sibling_target (project, node, command[3], get_type (project, command[4]), TRUE, sibling, NULL);
+					command += 2;
+				}
+				else
+				{
+					ianjuta_project_add_target (project, node, command[3], get_type (project, command[4]), NULL);
+				}
 				command++;
 			}
 			else if (g_ascii_strcasecmp (command[1], "source") == 0)
 			{
 				GFile *file = get_file (node, command[3]);
-				
-				ianjuta_project_add_source (project, node, file, NULL);
+
+				if ((command[4] != NULL) && (g_ascii_strcasecmp (command[4], "before") == 0))
+				{
+					sibling = get_file (project, command[5]);
+					amp_project_add_sibling_source (project, node, file, FALSE, sibling, NULL);
+					command += 2;
+				}
+				else if ((command[4] != NULL) && (g_ascii_strcasecmp (command[4], "after") == 0))
+				{
+					sibling = get_node (project, command[5]);
+					amp_project_add_sibling_source (project, node, file, TRUE, sibling, NULL);
+					command += 2;
+				}
+				else
+				{
+					ianjuta_project_add_source (project, node, file, NULL);
+				}
 				g_object_unref (file);
 			}
 			else
