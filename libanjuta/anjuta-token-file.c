@@ -295,6 +295,19 @@ anjuta_token_file_update (AnjutaTokenFile *file, AnjutaToken *token)
 		gint flags = anjuta_token_get_flags (last);
 		if (!(flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED))) break;
 	}
+
+	/* Find first modified token */
+	for (;;)
+	{
+		gint flags = anjuta_token_get_flags (token);
+		if (flags & (ANJUTA_TOKEN_ADDED | ANJUTA_TOKEN_REMOVED)) break;
+		if (token == last)
+		{
+			/* No changed */
+			return TRUE;
+		}
+		token = anjuta_token_next (token);
+	}
 	
 	/* Find previous token */
 	for (prev = token; prev != NULL; prev = anjuta_token_previous (prev))
@@ -385,7 +398,10 @@ anjuta_token_file_update (AnjutaTokenFile *file, AnjutaToken *token)
 			}
 		}
 	}
-	
+
+	fprintf (stdout, "Dump config list from file:\n");
+	anjuta_token_dump (file->content);
+
 	
 	return TRUE;
 }

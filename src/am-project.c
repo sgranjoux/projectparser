@@ -1750,7 +1750,6 @@ amp_project_add_sibling_group (AmpProject  *project,
 	/* Add in configure */
 	list = NULL;
 	if (sibling) list = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_CONFIGURE);
-	g_message ("get config =%s= sibling %p group %p", name, list, anjuta_token_parent_group (list));
 	if (list == NULL) list= amp_group_get_first_token (parent, AM_GROUP_TOKEN_CONFIGURE);
 	if (list != NULL) list = anjuta_token_parent_group (list);
 	if (list == NULL)
@@ -1817,14 +1816,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 		AnjutaToken *prev;
 		
 		prev = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_SUBDIRS);
-		if (prev != NULL)
-		{
-			if (after)
-			{
-				prev = anjuta_token_next_word (prev);
-			}
-			if (prev != NULL) list = anjuta_token_parent_group (prev);
-		}
+		list = anjuta_token_parent_group (prev);
 	}
 
 	if (list != NULL)
@@ -1835,14 +1827,17 @@ amp_project_add_sibling_group (AmpProject  *project,
 		if (sibling)
 		{
 			prev = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_SUBDIRS);
-			if ((prev != NULL) && after)
-			{
-				prev = anjuta_token_next_word (prev);
-			}
 		}		
 		
 		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, name);
-		anjuta_token_list_insert_after (list, prev, token);
+		if (after)
+		{
+			anjuta_token_insert_word_after (list, prev, token);
+		}
+		else
+		{
+			anjuta_token_insert_word_before (list, prev, token);
+		}
 	
 		anjuta_token_style_format (project->am_space_list, list);
 		anjuta_token_file_update (AMP_GROUP_DATA (parent)->tfile, token);

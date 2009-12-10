@@ -109,6 +109,9 @@ amp_project_write_config_file (AmpProject *project, AnjutaToken *list, gboolean 
 	
 	anjuta_token_style_format (project->ac_space_list, list);
 	
+	fprintf (stdout, "Dump config list after format:\n");
+	anjuta_token_dump (list);
+	
 	anjuta_token_file_update (project->configure_file, list);
 	
 	return token;
