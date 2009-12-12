@@ -1380,7 +1380,7 @@ anjuta_token_skip_comment (AnjutaToken *token)
 }
 
 AnjutaToken *
-anjuta_token_insert_token_before (AnjutaToken *pos,...)
+anjuta_token_insert_token_list (gboolean after, AnjutaToken *pos,...)
 {
 	AnjutaToken *first = NULL;
 	GList *group = NULL;
@@ -1394,7 +1394,14 @@ anjuta_token_insert_token_before (AnjutaToken *pos,...)
 		gchar *string = va_arg (args, gchar *);
 		AnjutaToken *token;
 
-		token = anjuta_token_insert_before (pos, anjuta_token_new_string (type | ANJUTA_TOKEN_ADDED, string));
+		if (after)
+		{
+			pos = token = anjuta_token_insert_after (pos, anjuta_token_new_string (type | ANJUTA_TOKEN_ADDED, string));
+		}
+		else
+		{
+			token = anjuta_token_insert_before (pos, anjuta_token_new_string (type | ANJUTA_TOKEN_ADDED, string));
+		}
 		if (first == NULL) first = token;
 
 		if (group != NULL)

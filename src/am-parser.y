@@ -127,13 +127,22 @@ line:
 		
 am_variable:
 	automake_token space_list_value {
-		amp_am_scanner_set_am_variable (scanner, amp_am_automake_variable ($1), $1, $2);
+		$$= anjuta_token_merge_previous ($2, $1);
+		amp_am_scanner_set_am_variable (scanner, amp_am_automake_variable ($1), $1, anjuta_token_last_item ($2));
 	}
 	| automake_token optional_space equal_token optional_space
+    {
+		$$ = anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL);
+        anjuta_token_merge ($$, $1);
+    }
 	;
 				
 space_list_value: optional_space  equal_token   value_list  {
-		$$ = $3;
+		$$ = anjuta_token_new_static (ANJUTA_TOKEN_LIST, NULL);
+		if ($1 != NULL) anjuta_token_set_type ($1, ANJUTA_TOKEN_START);
+		anjuta_token_merge ($$, $1);
+		anjuta_token_merge ($$, $2);
+		anjuta_token_merge ($$, $3);
 	}
 	;
 

@@ -78,7 +78,7 @@ amp_project_write_config_list (AmpProject *project)
 		
 	}
 
-	token = anjuta_token_insert_token_before (pos,
+	token = anjuta_token_insert_token_list (FALSE, pos,
 	    		AC_TOKEN_AC_CONFIG_FILES, "AC_CONFIG_FILES(",
 	    		ANJUTA_TOKEN_LIST, NULL,
 	    		ANJUTA_TOKEN_LAST, NULL,
@@ -118,6 +118,39 @@ amp_project_write_config_file (AmpProject *project, AnjutaToken *list, gboolean 
 }
 
 AnjutaToken *
+amp_project_write_target (AnjutaToken *makefile, gint type, const gchar *name, gboolean after, AnjutaToken* sibling)
+{
+	AnjutaToken *pos;
+	AnjutaToken *token;
+	
+	if (sibling == NULL)
+	{
+		pos = anjuta_token_first_item (makefile);
+		
+		/* Add at the end of the file */
+		while (anjuta_token_next_item (pos) != NULL)
+		{
+			pos = anjuta_token_next_item (pos);
+		}
+	}
+	else
+	{
+		pos = sibling;
+	}
+
+	token = anjuta_token_insert_token_list (after, pos,
+	    		ANJUTA_TOKEN_LIST, NULL,
+	    		type, name,
+	    		ANJUTA_TOKEN_SPACE, " ",
+	    		ANJUTA_TOKEN_OPERATOR, "=",
+	    		ANJUTA_TOKEN_LIST, NULL,
+	    		ANJUTA_TOKEN_START, NULL,
+	    		NULL);
+
+	return anjuta_token_last_item (token);
+}
+
+AnjutaToken *
 amp_project_write_subdirs_list (AmpGroup *project)
 {
 	AnjutaToken *pos;
@@ -126,7 +159,7 @@ amp_project_write_subdirs_list (AmpGroup *project)
 	
 	pos = anjuta_token_find_type (pos, ANJUTA_TOKEN_SEARCH_NOT, eol_type);
 
-	token = anjuta_token_insert_token_before (pos,
+	token = anjuta_token_insert_token_list (FALSE, pos,
 	    		AC_TOKEN_AC_CONFIG_FILES, "AC_CONFIG_FILES(",
 	    		ANJUTA_TOKEN_LIST, NULL,
 	    		ANJUTA_TOKEN_LAST, NULL,

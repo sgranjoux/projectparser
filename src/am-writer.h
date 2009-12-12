@@ -30,6 +30,7 @@
 G_BEGIN_DECLS
 
 AnjutaToken *amp_project_write_config_list (AmpProject *project);
+AnjutaToken *amp_project_write_target (AnjutaToken *makefile, gint type, const gchar *name, gboolean after, AnjutaToken* sibling);
 AnjutaToken *amp_project_write_config_file (AmpProject *project, AnjutaToken *list, gboolean after, AnjutaToken *sibling, const gchar *filename);
 
 G_END_DECLS

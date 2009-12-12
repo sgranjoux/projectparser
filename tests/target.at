@@ -19,6 +19,7 @@ AT_CHECK([diff output expect])
 AT_PARSER_CHECK([load empty1 \
 		 list])
 AT_CHECK([diff output expect])
+AT_CHECK([false])
 AT_DATA([expect],
 [[    GROUP (0): empty2
         TARGET (0:0): target1

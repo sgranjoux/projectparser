@@ -192,7 +192,7 @@ guint anjuta_token_get_length (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_find_type (AnjutaToken *list, gint flags, AnjutaTokenType* types);
 AnjutaToken *anjuta_token_skip_comment (AnjutaToken *list);
-AnjutaToken *anjuta_token_insert_token_before (AnjutaToken *list,...);
+AnjutaToken *anjuta_token_insert_token_list (gboolean after, AnjutaToken *list,...);
 
 G_END_DECLS
 
