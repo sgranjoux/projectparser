@@ -19,6 +19,7 @@ TESTSUITE_AT = \
 	$(srcdir)/anjuta.at \
 	$(srcdir)/group.at \
 	$(srcdir)/target.at \
+	$(srcdir)/source.at \
 	$(srcdir)/parser.at \
 	$(srcdir)/makefile.at \
 	$(srcdir)/acinit.at

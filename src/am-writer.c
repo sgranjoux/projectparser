@@ -89,6 +89,25 @@ amp_project_write_config_list (AmpProject *project)
 }
 
 AnjutaToken *
+amp_project_write_subdirs_list (AmpGroup *project)
+{
+	AnjutaToken *pos;
+	AnjutaToken *token;
+	static gint eol_type[] = {ANJUTA_TOKEN_EOL, ANJUTA_TOKEN_SPACE, ANJUTA_TOKEN_COMMENT, 0};
+	
+	pos = anjuta_token_find_type (pos, ANJUTA_TOKEN_SEARCH_NOT, eol_type);
+
+	token = anjuta_token_insert_token_list (FALSE, pos,
+	    		AC_TOKEN_AC_CONFIG_FILES, "AC_CONFIG_FILES(",
+	    		ANJUTA_TOKEN_LIST, NULL,
+	    		ANJUTA_TOKEN_LAST, NULL,
+	    		RIGHT_PAREN, ")",
+	    		NULL);
+	
+	return token;
+}
+
+AnjutaToken *
 amp_project_write_config_file (AmpProject *project, AnjutaToken *list, gboolean after, AnjutaToken *sibling, const gchar *filename)
 {
 	AnjutaToken *token;
@@ -151,20 +170,50 @@ amp_project_write_target (AnjutaToken *makefile, gint type, const gchar *name, g
 }
 
 AnjutaToken *
-amp_project_write_subdirs_list (AmpGroup *project)
+amp_project_write_source_list (AnjutaToken *makefile, const gchar *name, gboolean after, AnjutaToken* sibling)
 {
 	AnjutaToken *pos;
 	AnjutaToken *token;
-	static gint eol_type[] = {ANJUTA_TOKEN_EOL, ANJUTA_TOKEN_SPACE, ANJUTA_TOKEN_COMMENT, 0};
+	static gint eol_type[] = {ANJUTA_TOKEN_EOL, 0};
 	
-	pos = anjuta_token_find_type (pos, ANJUTA_TOKEN_SEARCH_NOT, eol_type);
+	if (sibling == NULL)
+	{
+		pos = anjuta_token_first_item (makefile);
+		
+		/* Add at the end of the file */
+		while (anjuta_token_next_item (pos) != NULL)
+		{
+			pos = anjuta_token_next_item (pos);
+		}
+	}
+	else
+	{
+		pos = sibling;
+	}
 
-	token = anjuta_token_insert_token_list (FALSE, pos,
-	    		AC_TOKEN_AC_CONFIG_FILES, "AC_CONFIG_FILES(",
-	    		ANJUTA_TOKEN_LIST, NULL,
-	    		ANJUTA_TOKEN_LAST, NULL,
-	    		RIGHT_PAREN, ")",
-	    		NULL);
+	if (after && (pos != NULL))
+	{
+		token = anjuta_token_find_type (pos, 0, eol_type);
+		if (token != NULL)
+		{
+			pos = token;
+		}
+		else
+		{
+			pos = anjuta_token_insert_token_list (after, pos,
+			    ANJUTA_TOKEN_EOL, "\n",
+			    NULL);
+		}
+	}
 	
-	return token;
+	token = anjuta_token_insert_token_list (after, pos,
+	    		ANJUTA_TOKEN_LIST, NULL,
+	    		ANJUTA_TOKEN_NAME, name,
+	    		ANJUTA_TOKEN_SPACE, " ",
+	    		ANJUTA_TOKEN_OPERATOR, "=",
+	    		ANJUTA_TOKEN_LIST, NULL,
+	    		ANJUTA_TOKEN_START, NULL,
+	    		NULL);
+
+	return anjuta_token_last_item (token);
 }

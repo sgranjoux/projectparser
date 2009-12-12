@@ -716,7 +716,7 @@ amp_group_free (AmpGroup *node)
  *---------------------------------------------------------------------------*/
 
 static void
-amp_target_add_token (AmpGroup *node, AnjutaToken *token)
+amp_target_add_token (AmpTarget *node, AnjutaToken *token)
 {
     AmpTargetData *target;
 	
@@ -727,7 +727,7 @@ amp_target_add_token (AmpGroup *node, AnjutaToken *token)
 }
 
 static GList *
-amp_target_get_token (AmpGroup *node)
+amp_target_get_token (AmpTarget *node)
 {
     AmpTargetData *target;
 	
@@ -1888,8 +1888,6 @@ amp_project_add_sibling_target (AmpProject  *project, AmpGroup *parent, const gc
 {
 	AmpTarget *child;
 	AnjutaToken* token;
-	AnjutaToken* prev_token;
-	AnjutaToken *list;
 	AnjutaToken *args;
 	AnjutaToken *var;
 	AnjutaToken *prev;
@@ -2087,65 +2085,88 @@ AmpSource*
 amp_project_add_sibling_source (AmpProject  *project, AmpTarget *target, GFile *file, gboolean after, AmpSource *sibling, GError **error)
 {
 	AmpGroup *group;
-	AmpSource *last;
 	AmpSource *source;
-	AnjutaToken* token;
+	AnjutaToken *token;
+	AnjutaToken *prev;
+	AnjutaToken *args;
 	gchar *relative_name;
 	
 	g_return_val_if_fail (file != NULL, NULL);
 	g_return_val_if_fail (target != NULL, NULL);
-	
-	if (AMP_NODE_DATA (target)->type != ANJUTA_PROJECT_TARGET) return NULL;
 
+	if (AMP_NODE_DATA (target)->type != ANJUTA_PROJECT_TARGET) return NULL;
+	
 	group = (AmpGroup *)(target->parent);
 	relative_name = g_file_get_relative_path (AMP_GROUP_DATA (group)->base.directory, file);
 
-	/* Add token */
-	last = anjuta_project_node_last_child (target);
-	if (last == NULL)
+	/* Add in Makefile.am */
+
+	// Get token corresponding to sibling and check if the target are compatible
+	prev = NULL;
+	args = NULL;
+	if (sibling != NULL)
 	{
-		/* First child */
-		AnjutaToken *tok;
-		AnjutaToken *close_tok;
-		AnjutaToken *eol_tok;
+		prev = AMP_SOURCE_DATA (sibling)->token;
+		args = anjuta_token_parent_group (prev);
+	}
+
+	if (args == NULL)
+	{
 		gchar *target_var;
 		gchar *canon_name;
-
-		/* Search where the target is declared */
-		tok = (AnjutaToken *)amp_target_get_token (target)->data;
-		close_tok = anjuta_token_new_static (ANJUTA_TOKEN_CLOSE, NULL);
-		eol_tok = anjuta_token_new_static (ANJUTA_TOKEN_EOL, NULL);
-		//anjuta_token_match (close_tok, ANJUTA_SEARCH_OVER, tok, &tok);
-		anjuta_token_match (eol_tok, ANJUTA_SEARCH_OVER, tok, &tok);
-		anjuta_token_free (close_tok);
-		anjuta_token_free (eol_tok);
-
-		/* Add a _SOURCES variable just after */
+		AnjutaToken *var;
+		GList *list;
+		
 		canon_name = canonicalize_automake_variable (AMP_TARGET_DATA (target)->base.name);
 		target_var = g_strconcat (canon_name,  "_SOURCES", NULL);
-		g_free (canon_name);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, target_var));
+
+		/* Search where the target is declared */
+		var = NULL;
+		list = amp_target_get_token (target);
+		if (list != NULL)
+		{
+			var = (AnjutaToken *)list->data;
+			if (var != NULL)
+			{
+				var = anjuta_token_parent_group (var);
+				if (var != NULL)
+				{
+					var = anjuta_token_parent_group (var);
+				}
+			}
+		}
+		
+		args = amp_project_write_source_list (AMP_GROUP_DATA (group)->make_token, target_var, after, var);
 		g_free (target_var);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_OPERATOR | ANJUTA_TOKEN_ADDED, "="));
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " "));
-		token = anjuta_token_new_static (ANJUTA_TOKEN_SPACE | ANJUTA_TOKEN_ADDED, " ");
-		tok = anjuta_token_insert_after (tok, token);
-		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, relative_name);
-		tok = anjuta_token_insert_after (tok, token);
-		tok = anjuta_token_insert_after (tok, anjuta_token_new_static (ANJUTA_TOKEN_EOL | ANJUTA_TOKEN_ADDED, "\\\n"));
 	}
-	else
+	
+	if (args != NULL)
 	{
 		token = anjuta_token_new_string (ANJUTA_TOKEN_NAME | ANJUTA_TOKEN_ADDED, relative_name);
-		anjuta_token_add_word (AMP_SOURCE_DATA (last)->token, token, NULL);
-	}
-	g_free (relative_name);
+		if (after)
+		{
+			anjuta_token_insert_word_after (args, prev, token);
+		}
+		else
+		{
+			anjuta_token_insert_word_before (args, prev, token);
+		}
 	
+		anjuta_token_style_format (project->am_space_list, args);
+		anjuta_token_file_update (AMP_GROUP_DATA (group)->tfile, token);
+	}
+
 	/* Add source node in project tree */
 	source = amp_source_new (file);
 	AMP_SOURCE_DATA(source)->token = token;
-	anjuta_project_node_append (target, source);
+	if (after)
+	{
+		anjuta_project_node_insert_after (target, sibling, source);
+	}
+	else
+	{
+		anjuta_project_node_insert_before (target, sibling, source);
+	}
 
 	return source;
 }
@@ -2248,10 +2269,45 @@ amp_project_save (AmpProject *project, GError **error)
 	return TRUE;
 }
 
+typedef struct _AmpMovePacket {
+	AmpProject *project;
+	GFile *old_root_file;
+} AmpMovePacket;
+
+static void
+foreach_node_move (AnjutaProjectNode *g_node, gpointer data)
+{
+	AmpProject *project = ((AmpMovePacket *)data)->project;
+	const gchar *old_root_file = ((AmpMovePacket *)data)->old_root_file;
+	GFile *relative;
+	GFile *new_file;
+	
+	switch (AMP_NODE_DATA (g_node)->type)
+	{
+	case ANJUTA_PROJECT_GROUP:
+		relative = get_relative_path (old_root_file, AMP_GROUP_DATA (g_node)->base.directory);
+		new_file = g_file_resolve_relative_path (project->root_file, relative);
+		g_free (relative);
+		g_object_unref (AMP_GROUP_DATA (g_node)->base.directory);
+		AMP_GROUP_DATA (g_node)->base.directory = new_file;
+
+		g_hash_table_insert (project->groups, g_file_get_uri (new_file), g_node);
+		break;
+	case ANJUTA_PROJECT_SOURCE:
+		relative = get_relative_path (old_root_file, AMP_SOURCE_DATA (g_node)->base.file);
+		new_file = g_file_resolve_relative_path (project->root_file, relative);
+		g_free (relative);
+		g_object_unref (AMP_SOURCE_DATA (g_node)->base.file);
+		AMP_SOURCE_DATA (g_node)->base.file = new_file;
+		break;
+	default:
+		break;
+	}
+}
+
 gboolean
 amp_project_move (AmpProject *project, const gchar *path)
 {
-	GFile	*old_root_file;
 	GFile *new_file;
 	gchar *relative;
 	GHashTableIter iter;
@@ -2260,27 +2316,16 @@ amp_project_move (AmpProject *project, const gchar *path)
 	AnjutaTokenFile *tfile;
 	AmpConfigFile *cfg;
 	GHashTable* old_hash;
+	AmpMovePacket packet= {project, NULL};
 
 	/* Change project root directory */
-	old_root_file = project->root_file;
+	packet.old_root_file = project->root_file;
 	project->root_file = g_file_new_for_path (path);
 
 	/* Change project root directory in groups */
 	old_hash = project->groups;
 	project->groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	g_hash_table_iter_init (&iter, old_hash);
-	while (g_hash_table_iter_next (&iter, &key, &value))
-	{
-		AmpGroup *group = (AmpGroup *)value;
-		
-		relative = get_relative_path (old_root_file, AMP_GROUP_DATA (group)->base.directory);
-		new_file = g_file_resolve_relative_path (project->root_file, relative);
-		g_free (relative);
-		g_object_unref (AMP_GROUP_DATA (group)->base.directory);
-		AMP_GROUP_DATA (group)->base.directory = new_file;
-
-		g_hash_table_insert (project->groups, g_file_get_uri (new_file), group);
-	}
+	anjuta_project_node_all_foreach (project->root_node, foreach_node_move, &packet);
 	g_hash_table_destroy (old_hash);
 
 	/* Change all files */
@@ -2289,7 +2334,7 @@ amp_project_move (AmpProject *project, const gchar *path)
 	g_hash_table_iter_init (&iter, old_hash);
 	while (g_hash_table_iter_next (&iter, &key, (gpointer *)&tfile))
 	{
-		relative = get_relative_path (old_root_file, anjuta_token_file_get_file (tfile));
+		relative = get_relative_path (packet.old_root_file, anjuta_token_file_get_file (tfile));
 		new_file = g_file_resolve_relative_path (project->root_file, relative);
 		g_free (relative);
 		anjuta_token_file_move (tfile, new_file);
@@ -2306,7 +2351,7 @@ amp_project_move (AmpProject *project, const gchar *path)
 	g_hash_table_iter_init (&iter, old_hash);
 	while (g_hash_table_iter_next (&iter, &key, (gpointer *)&cfg))
 	{
-		relative = get_relative_path (old_root_file, cfg->file);
+		relative = get_relative_path (packet.old_root_file, cfg->file);
 		new_file = g_file_resolve_relative_path (project->root_file, relative);
 		g_free (relative);
 		g_object_unref (cfg->file);
@@ -2318,7 +2363,7 @@ amp_project_move (AmpProject *project, const gchar *path)
 	g_hash_table_destroy (old_hash);
 
 	
-	g_object_unref (old_root_file);
+	g_object_unref (packet.old_root_file);
 
 	return TRUE;
 }
