@@ -26,12 +26,19 @@
 #include <stdio.h>
 #include <string.h>
 
-/*
- * This object read and write a list of tokens. It uses two list. The first
- * list is assigned when the object is created. Each token is read as characters
- * discarding the splitting. The second list is written using the data of the
- * first list, so no new memory is allocated, in order to recreate a new list
- * of tokens.
+/**
+ * SECTION:anjuta-token-stream
+ * @title: Anjuta token stream
+ * @short_description: Anjuta token stream
+ * @see_also: 
+ * @stability: Unstable
+ * @include: libanjuta/anjuta-token-stream.h
+ *  
+ * A #AnjutaTokenStream object reads and writes a list of tokens. It uses two
+ * list. The first list is assigned when the object is created. Each token is
+ * read as characters discarding the separation between tokens. The second list
+ * is written using the data of the first list, so no new memory is allocated,
+ * in order to recreate a new list of tokens.
  *
  * This is used when the lexer needs several passes. At the beginning the file
  * is read as a single token containing the whole file content. The first pass

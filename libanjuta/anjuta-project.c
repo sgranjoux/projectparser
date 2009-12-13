@@ -21,6 +21,31 @@
 
 #include "anjuta-debug.h"
 
+/**
+ * SECTION:anjuta-project
+ * @title: Anjuta project
+ * @short_description: Anjuta project
+ * @see_also: 
+ * @stability: Unstable
+ * @include: libanjuta/anjuta-project.h
+ * 
+ * A project in Anjuta is represented by a tree. There are three kinds of node.
+ * 
+ * A source node represents a source file. These are lead of the tree, a source
+ * node cannot have children.
+ *
+ * A target node represents an object file defined explicitely.
+ * There are different kinds of target: program, library...
+ * A target have as children all source needed to build it.
+ *
+ * A group node is used to group several target or source, it can represent
+ * a directory by example. The root node of the project is a group node
+ * representing the project directory.
+ *
+ * All these nodes are base objects. They have derived in each project backend
+ * to provide more specific information.
+ */ 
+
 /* convenient shortcut macro the get the AnjutaProjectNode from a GNode */
 #define NODE_DATA(node)  ((node) != NULL ? (AnjutaProjectNodeData *)((node)->data) : NULL)
 #define GROUP_DATA(node)  ((node) != NULL ? (AnjutaProjectGroupData *)((node)->data) : NULL)
@@ -64,52 +89,6 @@ anjuta_project_node_prev_sibling (AnjutaProjectNode *node)
 AnjutaProjectNode *anjuta_project_node_nth_child (AnjutaProjectNode *node, guint n)
 {
 	return g_node_nth_child (node, n);
-}
-
-GList *
-anjuta_project_node_all_child (AnjutaProjectNode *parent, AnjutaProjectNodeType type)
-{
-	AnjutaProjectNode *node;
-	GList *list = NULL;
-	
-	for (node = anjuta_project_node_first_child (parent); node != NULL; node = anjuta_project_node_next_sibling (node))
-	{
-		if (anjuta_project_node_get_type (node) == type)
-		{
-			list = g_list_prepend (list, node);
-		}
-	}
-
-	list = g_list_reverse (list);
-
-	return list;
-}
-
-GList *
-anjuta_project_node_all (AnjutaProjectNode *parent, AnjutaProjectNodeType type)
-{
-	AnjutaProjectNode *node;
-	GList *list = NULL;
-	
-	for (node = anjuta_project_node_first_child (parent); node != NULL; node = anjuta_project_node_next_sibling (node))
-	{
-		if (anjuta_project_node_get_type (node) == type)
-		{
-			list = g_list_prepend (list, node);
-		}
-		if (anjuta_project_node_get_type (node) == ANJUTA_PROJECT_GROUP)
-		{
-			GList *child_list;
-
-			child_list = anjuta_project_node_all (node, type);
-			child_list = g_list_reverse (child_list);
-			list = g_list_concat (child_list, list);
-		}
-	}
-
-	list = g_list_reverse (list);
-
-	return list;
 }
 
 typedef struct
