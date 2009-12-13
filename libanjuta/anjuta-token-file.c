@@ -200,72 +200,6 @@ anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file)
 	file->file = new_file != NULL ? g_object_ref (new_file) : NULL;
 }
 
-gboolean
-anjuta_token_file_get_token_location (AnjutaTokenFile *file, AnjutaTokenFileLocation *location, AnjutaToken *token)
-{
-	AnjutaTokenFileLocation loc = {NULL, 1, 1};
-	AnjutaToken *pos;
-	const gchar *target = anjuta_token_get_string (token);
-	
-	for (pos = file->content; pos != NULL; pos = anjuta_token_next (pos))
-	{
-		if (!(anjuta_token_get_flags (pos) & ANJUTA_TOKEN_REMOVED) && (anjuta_token_get_length (pos)))
-		{
-			const gchar *ptr;
-			const gchar *end;
-
-			ptr = anjuta_token_get_string (pos);
-			end = ptr + anjuta_token_get_length (pos);
-			
-			for (; ptr != end; ptr++)
-			{
-				if (*ptr == '\n')
-				{
-					/* New line */
-					loc.line++;
-					loc.column = 1;
-				}
-				else
-				{
-					loc.column++;
-				}
-					
-				if (ptr == target)
-				{
-					if (location != NULL)
-					{
-						location->filename = file->file == NULL ? NULL : g_file_get_parse_name (file->file);
-						location->line = loc.line;
-						location->column = loc.column;
-					}
-
-					return TRUE;
-				}
-			}
-		}
-	}
-
-	return FALSE;
-}
-
-
-AnjutaToken*
-anjuta_token_file_get_content (AnjutaTokenFile *file)
-{
-	if (file->content == NULL)
-	{
-		anjuta_token_file_load (file, NULL);
-	}
-	
-	return file->content;
-}
-
-GFile*
-anjuta_token_file_get_file (AnjutaTokenFile *file)
-{
-	return file->file;
-}
-
 /**
  * anjuta_token_file_update:
  * @file: a #AnjutaTokenFile derived class object.
@@ -406,6 +340,70 @@ anjuta_token_file_update (AnjutaTokenFile *file, AnjutaToken *token)
 	return TRUE;
 }
 
+gboolean
+anjuta_token_file_get_token_location (AnjutaTokenFile *file, AnjutaTokenFileLocation *location, AnjutaToken *token)
+{
+	AnjutaTokenFileLocation loc = {NULL, 1, 1};
+	AnjutaToken *pos;
+	const gchar *target = anjuta_token_get_string (token);
+	
+	for (pos = file->content; pos != NULL; pos = anjuta_token_next (pos))
+	{
+		if (!(anjuta_token_get_flags (pos) & ANJUTA_TOKEN_REMOVED) && (anjuta_token_get_length (pos)))
+		{
+			const gchar *ptr;
+			const gchar *end;
+
+			ptr = anjuta_token_get_string (pos);
+			end = ptr + anjuta_token_get_length (pos);
+			
+			for (; ptr != end; ptr++)
+			{
+				if (*ptr == '\n')
+				{
+					/* New line */
+					loc.line++;
+					loc.column = 1;
+				}
+				else
+				{
+					loc.column++;
+				}
+					
+				if (ptr == target)
+				{
+					if (location != NULL)
+					{
+						location->filename = file->file == NULL ? NULL : g_file_get_parse_name (file->file);
+						location->line = loc.line;
+						location->column = loc.column;
+					}
+
+					return TRUE;
+				}
+			}
+		}
+	}
+
+	return FALSE;
+}
+
+GFile*
+anjuta_token_file_get_file (AnjutaTokenFile *file)
+{
+	return file->file;
+}
+
+AnjutaToken*
+anjuta_token_file_get_content (AnjutaTokenFile *file)
+{
+	if (file->content == NULL)
+	{
+		anjuta_token_file_load (file, NULL);
+	}
+	
+	return file->content;
+}
 
 /* GObject functions
  *---------------------------------------------------------------------------*/

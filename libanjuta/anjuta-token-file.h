@@ -54,12 +54,12 @@ gboolean anjuta_token_file_unload (AnjutaTokenFile *file);
 gboolean anjuta_token_file_save (AnjutaTokenFile *file, GError **error);
 void anjuta_token_file_move (AnjutaTokenFile *file, GFile *new_file);
 
-gboolean anjuta_token_file_get_token_location (AnjutaTokenFile *file, AnjutaTokenFileLocation *location, AnjutaToken *token);
-
 gboolean anjuta_token_file_update (AnjutaTokenFile *file, AnjutaToken *token);
 
-AnjutaToken* anjuta_token_file_get_content (AnjutaTokenFile *file);
+gboolean anjuta_token_file_get_token_location (AnjutaTokenFile *file, AnjutaTokenFileLocation *location, AnjutaToken *token);
 GFile *anjuta_token_file_get_file (AnjutaTokenFile *file);
+AnjutaToken *anjuta_token_file_get_content (AnjutaTokenFile *file);
+
 
 G_END_DECLS
 
