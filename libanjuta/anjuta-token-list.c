@@ -167,7 +167,7 @@ anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 	/* Initialize first line width */
 	for (token = list; token != NULL; token = anjuta_token_previous (token))
 	{
-		gchar *value = anjuta_token_value (token);
+		gchar *value = anjuta_token_evaluate (token);
 		const gchar *eol = strrchr (value, '\n');
 		gsize len = strlen (value);
 
@@ -190,11 +190,11 @@ anjuta_token_style_update (AnjutaTokenStyle *style, AnjutaToken *list)
 		gsize len;
 		gint type;
 		
-		next_token = anjuta_token_next_sibling (token);
+		next_token = anjuta_token_next_item (token);
 		type = anjuta_token_get_type (token);
 		next = next_token == NULL ? 0 : anjuta_token_get_type (next_token);
 
-		value = anjuta_token_value (token);
+		value = anjuta_token_evaluate (token);
 		if (value == NULL) continue;
 
 		len = strlen (value);
@@ -444,7 +444,7 @@ anjuta_token_replace_nth_word (AnjutaToken *list, guint n, AnjutaToken *item)
 			n--;
 			if (n == 0)
 			{
-				anjuta_token_remove (token);
+				anjuta_token_set_flags (token, ANJUTA_TOKEN_REMOVED);
 				token = anjuta_token_insert_before (token, item);
 				return token;
 			}
@@ -592,19 +592,19 @@ anjuta_token_remove_word (AnjutaToken *token, AnjutaTokenStyle *user_style)
 	style = user_style != NULL ? user_style : anjuta_token_style_new (NULL," ","\n",NULL,0);
 	anjuta_token_style_update (style, anjuta_token_parent (token));
 	
-	anjuta_token_remove (token);
-	space = anjuta_token_next_sibling (token);
+	anjuta_token_set_flags (token, ANJUTA_TOKEN_REMOVED);
+	space = anjuta_token_next_item (token);
 	if (space && (anjuta_token_get_type (space) == ANJUTA_TOKEN_SPACE) && (anjuta_token_next (space) != NULL))
 	{
 		/* Remove following space */
-		anjuta_token_remove (space);
+		anjuta_token_set_flags (space, ANJUTA_TOKEN_REMOVED);
 	}
 	else
 	{
-		space = anjuta_token_previous_sibling (token);
+		space = anjuta_token_previous_item (token);
 		if (space && (anjuta_token_get_type (space) == ANJUTA_TOKEN_SPACE) && (anjuta_token_previous (space) != NULL))
 		{
-			anjuta_token_remove (space);
+			anjuta_token_set_flags (space, ANJUTA_TOKEN_REMOVED);
 		}
 	}
 	
@@ -612,6 +612,119 @@ anjuta_token_remove_word (AnjutaToken *token, AnjutaTokenStyle *user_style)
 	if (user_style == NULL) anjuta_token_style_free (style);
 	
 	return NULL;
+}
+
+AnjutaToken *
+anjuta_token_insert_token_list (gboolean after, AnjutaToken *pos,...)
+{
+	AnjutaToken *first = NULL;
+	GList *group = NULL;
+	va_list args;
+	gint type;
+
+	va_start (args, pos);
+
+	for (type = va_arg (args, gint); type != 0; type = va_arg (args, gint))
+	{
+		gchar *string = va_arg (args, gchar *);
+		AnjutaToken *token;
+
+		if (after)
+		{
+			pos = token = anjuta_token_insert_after (pos, anjuta_token_new_string (type | ANJUTA_TOKEN_ADDED, string));
+		}
+		else
+		{
+			token = anjuta_token_insert_before (pos, anjuta_token_new_string (type | ANJUTA_TOKEN_ADDED, string));
+		}
+		if (first == NULL) first = token;
+
+		if (group != NULL)
+		{
+			anjuta_token_merge ((AnjutaToken *)group->data, token);
+		}
+
+		if (string == NULL)
+		{
+			switch (type)
+			{
+			case ANJUTA_TOKEN_LIST:
+				break;
+			default:
+				group = g_list_delete_link (group, group);
+				break;
+			}
+			group = g_list_prepend (group, token);
+		}
+	}
+	g_list_free (group);
+	
+	va_end (args);
+	
+	return first;
+}
+
+AnjutaToken *
+anjuta_token_find_type (AnjutaToken *list, gint flags, AnjutaTokenType* types)
+{
+	AnjutaToken *tok;
+	AnjutaToken *last = NULL;
+	
+	for (tok = list; tok != NULL; tok = anjuta_token_next (tok))
+	{
+		AnjutaTokenType *type;
+		for (type = types; *type != 0; type++)
+		{
+			if (anjuta_token_get_type (tok) == *type)
+			{
+				last = tok;
+				if (flags & ANJUTA_TOKEN_SEARCH_NOT) break;
+				if (!(flags & ANJUTA_TOKEN_SEARCH_LAST)) break;
+			}
+		}
+		if ((flags & ANJUTA_TOKEN_SEARCH_NOT) && (*type == 0)) break;
+	}
+
+	return last;
+}
+
+AnjutaToken *
+anjuta_token_skip_comment (AnjutaToken *token)
+{
+	if (token == NULL) return NULL;
+	
+	for (;;)
+	{
+		for (;;)
+		{
+			AnjutaToken *next = anjuta_token_next (token);
+
+			if (next == NULL) return token;
+			
+			switch (anjuta_token_get_type (token))
+			{
+			case ANJUTA_TOKEN_FILE:
+			case ANJUTA_TOKEN_SPACE:
+				token = next;
+				continue;
+			case ANJUTA_TOKEN_COMMENT:
+				token = next;
+				break;
+			default:
+				return token;
+			}
+			break;
+		}
+		
+		for (;;)
+		{
+			AnjutaToken *next = anjuta_token_next (token);
+
+			if (next == NULL) return token;
+			token = next;
+			if (anjuta_token_get_type (token) == ANJUTA_TOKEN_EOL) break;
+		}
+	}
 }
 
 /* Constructor & Destructor

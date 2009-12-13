@@ -468,7 +468,7 @@ amp_config_file_new (const gchar *pathname, GFile *project_root, AnjutaToken *to
 
 	config = g_slice_new0(AmpConfigFile);
 	config->file = g_file_resolve_relative_path (project_root, pathname);
-	g_message ("new config file =%s= token %p group %p", pathname, token, anjuta_token_parent_group (token));
+	g_message ("new config file =%s= token %p group %p", pathname, token, anjuta_token_list (token));
 	config->token = token;
 
 	return config;
@@ -1375,7 +1375,7 @@ project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *par
 			g_object_unref (final_file);
 			if (config != NULL)
 			{
-				g_message ("add group =%s= token %p group %p", *filename, config->token, anjuta_token_parent_group (config->token));
+				g_message ("add group =%s= token %p group %p", *filename, config->token, anjuta_token_list (config->token));
 				amp_group_add_token (group, config->token, AM_GROUP_TOKEN_CONFIGURE);
 				break;
 			}
@@ -1751,7 +1751,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 	list = NULL;
 	if (sibling) list = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_CONFIGURE);
 	if (list == NULL) list= amp_group_get_first_token (parent, AM_GROUP_TOKEN_CONFIGURE);
-	if (list != NULL) list = anjuta_token_parent_group (list);
+	if (list != NULL) list = anjuta_token_list (list);
 	if (list == NULL)
 	{
 		list = amp_project_write_config_list (project);
@@ -1816,7 +1816,7 @@ amp_project_add_sibling_group (AmpProject  *project,
 		AnjutaToken *prev;
 		
 		prev = amp_group_get_first_token (sibling, AM_GROUP_TOKEN_SUBDIRS);
-		list = anjuta_token_parent_group (prev);
+		list = anjuta_token_list (prev);
 	}
 
 	if (list != NULL)
@@ -1984,10 +1984,10 @@ amp_project_add_sibling_target (AmpProject  *project, AmpGroup *parent, const gc
 		{
 			AnjutaToken *token = (AnjutaToken *)last->data;
 
-			token = anjuta_token_parent_group (token);
+			token = anjuta_token_list (token);
 			if (token != NULL)
 			{
-				token = anjuta_token_parent_group (token);
+				token = anjuta_token_list (token);
 				var = token;
 				if (token != NULL)
 				{
@@ -2002,7 +2002,7 @@ amp_project_add_sibling_target (AmpProject  *project, AmpGroup *parent, const gc
 						{
 							g_free (value);
 							prev = (AnjutaToken *)last->data;
-							args = anjuta_token_last_item (anjuta_token_parent_group (prev));
+							args = anjuta_token_last_item (anjuta_token_list (prev));
 						}
 					}
 				}
@@ -2019,7 +2019,7 @@ amp_project_add_sibling_target (AmpProject  *project, AmpGroup *parent, const gc
 			if ((value != NULL) && (strcmp (targetname, value) == 0))
 			{
 				g_free (value);
-				args = anjuta_token_last_item (anjuta_token_parent_group ((AnjutaToken *)last->data));
+				args = anjuta_token_last_item (anjuta_token_list ((AnjutaToken *)last->data));
 				break;
 			}
 			g_free (value);
@@ -2075,7 +2075,7 @@ amp_project_remove_target (AmpProject  *project,
 	
 	for (token_list = amp_target_get_token (target); token_list != NULL; token_list = g_list_next (token_list))
 	{
-		anjuta_token_remove ((AnjutaToken *)token_list->data);
+		anjuta_token_remove_word ((AnjutaToken *)token_list->data, NULL);
 	}
 
 	amp_target_free (target);
@@ -2107,7 +2107,7 @@ amp_project_add_sibling_source (AmpProject  *project, AmpTarget *target, GFile *
 	if (sibling != NULL)
 	{
 		prev = AMP_SOURCE_DATA (sibling)->token;
-		args = anjuta_token_parent_group (prev);
+		args = anjuta_token_list (prev);
 	}
 
 	if (args == NULL)
@@ -2128,10 +2128,10 @@ amp_project_add_sibling_source (AmpProject  *project, AmpTarget *target, GFile *
 			var = (AnjutaToken *)list->data;
 			if (var != NULL)
 			{
-				var = anjuta_token_parent_group (var);
+				var = anjuta_token_list (var);
 				if (var != NULL)
 				{
-					var = anjuta_token_parent_group (var);
+					var = anjuta_token_list (var);
 				}
 			}
 		}

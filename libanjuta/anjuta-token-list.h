@@ -28,6 +28,16 @@ G_BEGIN_DECLS
 
 typedef struct _AnjutaTokenStyle AnjutaTokenStyle;
 
+enum AnjutaTokenSearchFlag
+{
+	ANJUTA_SEARCH_OVER	  = 0,
+	ANJUTA_SEARCH_INTO		= 1 << 0,
+	ANJUTA_SEARCH_ALL	   = 1 << 1,
+	ANJUTA_SEARCH_BACKWARD = 1 << 2,
+	ANJUTA_TOKEN_SEARCH_LAST = 1 << 3,
+	ANJUTA_TOKEN_SEARCH_NOT	= 1 << 4,
+};
+
 AnjutaTokenStyle *anjuta_token_style_new (const gchar *start, const gchar *next, const gchar *eol, const gchar *last, guint max_width);
 void anjuta_token_style_free (AnjutaTokenStyle *style);
 
@@ -42,6 +52,10 @@ AnjutaToken *anjuta_token_replace_nth_word (AnjutaToken *list, guint n, AnjutaTo
 AnjutaToken *anjuta_token_insert_word_before (AnjutaToken *list, AnjutaToken *sibling, AnjutaToken *baby);
 AnjutaToken *anjuta_token_insert_word_after (AnjutaToken *list, AnjutaToken *sibling, AnjutaToken *baby);
 AnjutaToken *anjuta_token_remove_word (AnjutaToken *token, AnjutaTokenStyle *user_style);
+
+AnjutaToken *anjuta_token_insert_token_list (gboolean after, AnjutaToken *list,...);
+AnjutaToken *anjuta_token_find_type (AnjutaToken *list, gint flags, AnjutaTokenType* types);
+AnjutaToken *anjuta_token_skip_comment (AnjutaToken *list);
 
 G_END_DECLS
 
