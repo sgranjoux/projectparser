@@ -33,10 +33,11 @@ AnjutaTokenStream *anjuta_token_stream_pop (AnjutaTokenStream *stream);
 
 AnjutaToken* anjuta_token_stream_get_root (AnjutaTokenStream *stream);
 
-void anjuta_token_stream_append_token (AnjutaTokenStream *stream, AnjutaToken *token);
-
 AnjutaToken* anjuta_token_stream_tokenize (AnjutaTokenStream *stream, gint type, gsize length);
 gint anjuta_token_stream_read (AnjutaTokenStream *stream, gchar *buffer, gsize max_size);
+
+void anjuta_token_stream_append_token (AnjutaTokenStream *stream, AnjutaToken *token);
+
 
 G_END_DECLS
 

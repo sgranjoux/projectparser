@@ -27,15 +27,24 @@
 #include <string.h>
 
 /*
- * This object manages two lists of tokens and is used to create the second list
- * from the first one.
+ * This object read and write a list of tokens. It uses two list. The first
+ * list is assigned when the object is created. Each token is read as characters
+ * discarding the splitting. The second list is written using the data of the
+ * first list, so no new memory is allocated, in order to recreate a new list
+ * of tokens.
  *
- * The first list of tokens is assigned at creation time. These tokens can be
- * read in sequence as C strings like in an input stream.
- * The second list is written as an output stream, using the characters of the
- * first list but grouped into different tokens.
+ * This is used when the lexer needs several passes. At the beginning the file
+ * is read as a single token containing the whole file content. The first pass
+ * split this content into tokens. Additional passes are done on some parts of
+ * the token list to get a more precise splitting.
  *
- * Moreover, several objects can be linked together to create a stack.
+ * It is important to not allocate new memory and keep the same character
+ * pointers in the additional passes because the token list does not own the
+ * memory. The address of each character is used to find the position of the
+ * changed data in the file.
+ *
+ * Several objects can be linked together to create a stack. It is used for
+ * included file or variable expansion.
  */ 
 
 /* Types declarations
@@ -43,22 +52,22 @@
 
 struct _AnjutaTokenStream
 {
-    AnjutaToken *token;
-
-    /* Beginning of current token */
-    AnjutaToken *start;
-    gsize begin;
-
-    AnjutaToken *end;   /* Last token */
-
-    /* Next data read stream */
-    AnjutaToken *next;
-    gsize pos;
-
-    /* Place to put new token */
+	/* Input stream */
     AnjutaToken *first;
     AnjutaToken *last;
 
+    /* Read position in input stream */
+    AnjutaToken *next;
+    gsize pos;
+
+    /* Write position in input stream */
+    AnjutaToken *start;
+    gsize begin;
+	
+    /* Output stream */
+    AnjutaToken *root;
+	
+	/* Parent stream */
     AnjutaTokenStream *parent;    
 };
 
@@ -81,35 +90,7 @@ struct _AnjutaTokenStream
 void
 anjuta_token_stream_append_token (AnjutaTokenStream *stream, AnjutaToken *token)
 {
-	anjuta_token_append_child (stream->first, token);
-#if 0
-    if (stream->last == NULL)
-    {
-        stream->last = anjuta_token_prepend_child (stream->first, token);
-    }
-    else
-    {
-        while (anjuta_token_parent (stream->last) != stream->first)
-        {
-            stream->last = anjuta_token_parent (stream->last);
-        }
-		while (anjuta_token_list (stream->last) != NULL)
-		{
-			if (anjuta_token_last_item (anjuta_token_list (stream->last)) == stream->last)
-			{
-				stream->last = anjuta_token_list (stream->last);
-				g_message ("go upper");
-			}
-			else
-			{
-				break;
-			}
-		}
-		if (anjuta_token_list (stream->last) != NULL) g_message ("stream->group not null");
-		g_message ("stream->last->list %p", anjuta_token_list (stream->last));
-       	stream->last = anjuta_token_insert_after (stream->last, token);
-    }
-#endif
+	anjuta_token_append_child (stream->root, token);
 }
 
 /**
@@ -212,7 +193,7 @@ anjuta_token_stream_read (AnjutaTokenStream *stream, gchar *buffer, gsize max_si
             for (;;)
             {
                 /* Last token */
-                if (stream->next == stream->end) return 0;
+                if (stream->next == stream->last) return 0;
 
                 if (anjuta_token_get_type (stream->next) >= ANJUTA_TOKEN_PARSED)
                 {
@@ -267,7 +248,7 @@ anjuta_token_stream_get_root (AnjutaTokenStream *stream)
 {
 	g_return_val_if_fail (stream != NULL, NULL);
 	
-	return stream->first;
+	return stream->root;
 }
 
 
@@ -292,18 +273,17 @@ anjuta_token_stream_push (AnjutaTokenStream *parent, AnjutaToken *token)
 	AnjutaTokenStream *child;
 
     child = g_new (AnjutaTokenStream, 1);
-    child->token = token;
+    child->first = token;
     child->pos = 0;
     child->begin = 0;
     child->parent = parent;
 
     child->next = anjuta_token_next (token);
     child->start = child->next;
-    child->end = anjuta_token_last (token);
-    if (child->end == token) child->end = NULL;
+    child->last = anjuta_token_last (token);
+    if (child->last == token) child->last = NULL;
 
-	child->last = NULL;
-	child->first = anjuta_token_new_static (ANJUTA_TOKEN_FILE, NULL);
+	child->root = anjuta_token_new_static (ANJUTA_TOKEN_FILE, NULL);
 	
 	return child;
 }
