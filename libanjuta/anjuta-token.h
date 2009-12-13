@@ -86,12 +86,6 @@ typedef enum
 
 typedef struct _AnjutaToken AnjutaToken;
 
-typedef struct _AnjutaTokenRange
-{
-	AnjutaToken *first;
-	AnjutaToken *last;
-} AnjutaTokenRange;
-
 enum AnjutaTokenSearchFlag
 {
 	ANJUTA_SEARCH_OVER	  = 0,
@@ -113,60 +107,23 @@ AnjutaToken *anjuta_token_new_fragment (gint type, const gchar *pos, gsize lengt
 AnjutaToken* anjuta_token_free_children (AnjutaToken *token);
 AnjutaToken* anjuta_token_free (AnjutaToken *token);
 
-AnjutaToken *anjuta_token_unlink (AnjutaToken *token);
-
-AnjutaToken *anjuta_token_group_children (AnjutaToken *token);
-AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
-AnjutaToken *anjuta_token_merge_own_children (AnjutaToken *first);
-AnjutaToken *anjuta_token_merge_children (AnjutaToken *first, AnjutaToken *end);
-AnjutaToken *anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end);
 AnjutaToken *anjuta_token_copy_token (AnjutaToken *token);
 AnjutaToken *anjuta_token_copy (AnjutaToken *token);
-AnjutaToken *anjuta_token_clear (AnjutaToken *token);
 
-AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size);
 
-AnjutaToken *anjuta_token_cut (AnjutaToken *token, guint pos, guint size);
-
-AnjutaToken *anjuta_token_append_child (AnjutaToken *parent, AnjutaToken *child);
-AnjutaToken *anjuta_token_prepend_child (AnjutaToken *parent, AnjutaToken *child);
-AnjutaToken *anjuta_token_prepend_items (AnjutaToken *list, AnjutaToken *item);
-AnjutaToken *anjuta_token_insert_after (AnjutaToken *sibling, AnjutaToken *token);
-AnjutaToken *anjuta_token_insert_before (AnjutaToken *sibling, AnjutaToken *token);
-AnjutaToken *anjuta_token_delete_parent (AnjutaToken *parent);
-
-gboolean anjuta_token_match (AnjutaToken *token, gint flags, AnjutaToken *sequence, AnjutaToken **end);
-
-void anjuta_token_foreach (AnjutaToken *token, AnjutaTokenForeachFunc, gpointer data);
+void anjuta_token_set_type (AnjutaToken *token, gint type);
+gint anjuta_token_get_type (AnjutaToken *token);
+void anjuta_token_set_flags (AnjutaToken *token, gint flags);
+void anjuta_token_clear_flags (AnjutaToken *token, gint flags);
+gint anjuta_token_get_flags (AnjutaToken *token);
+const gchar *anjuta_token_get_string (AnjutaToken *token);
+void anjuta_token_set_string (AnjutaToken *token, const char *value, guint length);
+guint anjuta_token_get_length (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_first_item (AnjutaToken *list);
 AnjutaToken *anjuta_token_next_item (AnjutaToken *item);
 AnjutaToken *anjuta_token_last_item (AnjutaToken *list);
 AnjutaToken *anjuta_token_first_child (AnjutaToken *parent);
-
-//AnjutaToken *anjuta_token_copy (AnjutaToken *token);
-//AnjutaToken *anjuta_token_copy_include_range (AnjutaToken *token, AnjutaToken *end);
-//AnjutaToken *anjuta_token_copy_exclude_range (AnjutaToken *token, AnjutaToken *end);
-//void anjuta_token_foreach (AnjutaToken *token, GFunc func, gpointer user_data);
-gboolean anjuta_token_remove (AnjutaToken *token);
-//gboolean anjuta_token_free_range (AnjutaToken *token, AnjutaToken *end);
-//GList *anjuta_token_split_list (AnjutaToken *token);
-
-void anjuta_token_set_type (AnjutaToken *token, gint type);
-void anjuta_token_set_flags (AnjutaToken *token, gint flags);
-void anjuta_token_clear_flags (AnjutaToken *token, gint flags);
-
-gchar *anjuta_token_evaluate (AnjutaToken *token);
-void anjuta_token_evaluate_token (AnjutaToken *token, GString *value, gboolean raw);
-void anjuta_token_evaluate_child (AnjutaToken *token, GString *value, gboolean raw);
-gchar *anjuta_token_value (AnjutaToken *token);
-
-AnjutaToken *anjuta_token_next_lex (AnjutaToken *token);
-
-void anjuta_token_dump (AnjutaToken *token);
-gboolean anjuta_token_check (AnjutaToken *token);
-void anjuta_token_dump_link (AnjutaToken *token);
-
 AnjutaToken *anjuta_token_next (AnjutaToken *token);
 AnjutaToken *anjuta_token_next_after_children (AnjutaToken *token);
 AnjutaToken *anjuta_token_next_sibling (AnjutaToken *token);
@@ -177,18 +134,35 @@ AnjutaToken *anjuta_token_parent (AnjutaToken *token);
 AnjutaToken *anjuta_token_list (AnjutaToken *token);
 AnjutaToken *anjuta_token_last (AnjutaToken *token);
 AnjutaToken *anjuta_token_parent_group (AnjutaToken *token);
+
+AnjutaToken *anjuta_token_split (AnjutaToken *token, guint size);
+AnjutaToken *anjuta_token_cut (AnjutaToken *token, guint pos, guint size);
+AnjutaToken *anjuta_token_unlink (AnjutaToken *token);
+
+
+AnjutaToken *anjuta_token_merge (AnjutaToken *first, AnjutaToken *end);
+AnjutaToken *anjuta_token_merge_own_children (AnjutaToken *first);
+AnjutaToken *anjuta_token_merge_children (AnjutaToken *first, AnjutaToken *end);
+AnjutaToken *anjuta_token_merge_previous (AnjutaToken *first, AnjutaToken *end);
+
+AnjutaToken *anjuta_token_append_child (AnjutaToken *parent, AnjutaToken *child);
+AnjutaToken *anjuta_token_prepend_child (AnjutaToken *parent, AnjutaToken *child);
+AnjutaToken *anjuta_token_prepend_items (AnjutaToken *list, AnjutaToken *item);
+AnjutaToken *anjuta_token_insert_after (AnjutaToken *sibling, AnjutaToken *token);
+AnjutaToken *anjuta_token_insert_before (AnjutaToken *sibling, AnjutaToken *token);
+AnjutaToken *anjuta_token_delete_parent (AnjutaToken *parent);
+gboolean anjuta_token_remove (AnjutaToken *token);
+
+gchar *anjuta_token_evaluate (AnjutaToken *token);
+void anjuta_token_evaluate_token (AnjutaToken *token, GString *value, gboolean raw);
+void anjuta_token_evaluate_child (AnjutaToken *token, GString *value, gboolean raw);
+gchar *anjuta_token_value (AnjutaToken *token);
+
+void anjuta_token_dump (AnjutaToken *token);
+gboolean anjuta_token_check (AnjutaToken *token);
+void anjuta_token_dump_link (AnjutaToken *token);
+
 gboolean anjuta_token_compare (AnjutaToken *tokena, AnjutaToken *tokenb);
-
-AnjutaToken *anjuta_token_get_next_arg (AnjutaToken *arg, gchar ** value);
-
-
-gint anjuta_token_get_type (AnjutaToken *token);
-gint anjuta_token_get_flags (AnjutaToken *token);
-gchar *anjuta_token_get_value (AnjutaToken *token);
-gchar *anjuta_token_get_value_range (AnjutaToken *token, AnjutaToken *end);
-const gchar *anjuta_token_get_string (AnjutaToken *token);
-void anjuta_token_set_string (AnjutaToken *token, const char *value, guint length);
-guint anjuta_token_get_length (AnjutaToken *token);
 
 AnjutaToken *anjuta_token_find_type (AnjutaToken *list, gint flags, AnjutaTokenType* types);
 AnjutaToken *anjuta_token_skip_comment (AnjutaToken *list);
