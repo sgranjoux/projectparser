@@ -608,6 +608,7 @@ static void
 amp_group_add_token (AmpGroup *node, AnjutaToken *token, AmpGroupTokenCategory category)
 {
     AmpGroupData *group;
+
 	
 	g_return_if_fail ((node != NULL) && (node->data != NULL)); 
 
