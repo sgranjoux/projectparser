@@ -36,6 +36,7 @@ struct _AmpModule {
     AnjutaToken *module;
 };
 
+#if 0
 struct _AmpProperty {
 	AnjutaToken *ac_init;				/* AC_INIT macro */
 	AnjutaToken *args;
@@ -44,6 +45,14 @@ struct _AmpProperty {
 	gchar *bug_report;
 	gchar *tarname;
 	gchar *url;
+};
+#endif
+
+struct _AmpPropertyInfo {
+	AnjutaProjectPropertyInfo base;
+	gint token_type;
+	gint position;
+	AnjutaToken *token;
 };
 
 struct _AmpProject {
@@ -57,7 +66,8 @@ struct _AmpProject {
 	AnjutaTokenFile		*configure_file;		/* configure.in file */
 	AnjutaToken			*configure_token;
 	
-	AmpProperty			*property;
+	//AmpProperty			*property;
+	GList				*properties;
 	
 	AmpGroup              *root_node;         	/* tree containing project data;
 								 * each GNode's data is a

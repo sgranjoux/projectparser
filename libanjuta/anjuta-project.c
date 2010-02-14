@@ -55,6 +55,160 @@
 #define SOURCE_DATA(node)  ((node) != NULL ? (AnjutaProjectSourceData *)((node)->data) : NULL)
 
 
+/* Properties functions
+ *---------------------------------------------------------------------------*/
+
+AnjutaProjectPropertyList *
+anjuta_project_property_first (AnjutaProjectPropertyList *list)
+{
+	if (list != NULL)
+	{
+		AnjutaProjectPropertyInfo *info = (AnjutaProjectPropertyInfo *)list->data;
+
+		if (info->override != NULL)
+		{
+			list = g_list_first (info->override);
+		}
+	}
+	return list;
+}
+
+AnjutaProjectPropertyItem *
+anjuta_project_property_next (AnjutaProjectPropertyItem *list)
+{
+	return g_list_next (list);
+}
+
+AnjutaProjectPropertyInfo *
+anjuta_project_property_get_info (AnjutaProjectPropertyItem *list)
+{
+	return (AnjutaProjectPropertyInfo *)list->data;
+}
+
+AnjutaProjectPropertyInfo *
+anjuta_project_property_lookup (AnjutaProjectPropertyList *list, AnjutaProjectPropertyItem *prop)
+{
+	AnjutaProjectPropertyInfo *info;
+	
+	for (; list != NULL; list = g_list_next (list))
+	{
+		info = (AnjutaProjectPropertyInfo *)list->data;
+		
+		if (info->override == NULL)
+		{
+			info = NULL;
+			break;
+		}
+		else if (info->override == prop)
+		{
+			break;
+		}
+		info = NULL;
+	}
+
+	return info;
+}
+
+AnjutaProjectPropertyItem *
+anjuta_project_property_override (AnjutaProjectPropertyList *list, AnjutaProjectPropertyItem *prop)
+{
+	AnjutaProjectPropertyItem *item;
+	
+	for (item = list; item != NULL; item = g_list_next (item))
+	{
+		AnjutaProjectPropertyInfo *info;
+	
+		info = (AnjutaProjectPropertyInfo *)item->data;
+		
+		if (info->override == NULL)
+		{
+			item = NULL;
+			break;
+		}
+		else if (info->override == prop)
+		{
+			break;
+		}
+	}
+
+	return item;
+}
+
+AnjutaProjectPropertyItem *
+anjuta_project_property_next_item (AnjutaProjectPropertyItem *item)
+{
+	AnjutaProjectPropertyItem *prop = ((AnjutaProjectPropertyInfo *)item->data)->override;
+
+	for (item = g_list_next (item); item != NULL; item = g_list_next (item))
+	{
+		AnjutaProjectPropertyInfo *info;
+	
+		info = (AnjutaProjectPropertyInfo *)item->data;
+		
+		if (info->override == NULL)
+		{
+			item = NULL;
+			break;
+		}
+		else if (info->override == prop)
+		{
+			break;
+		}
+	}
+
+	return item;
+}
+
+AnjutaProjectPropertyList *
+anjuta_project_property_insert (AnjutaProjectPropertyList *list, AnjutaProjectPropertyItem *prop, AnjutaProjectPropertyInfo *info)
+{
+	GList *next;
+	
+	if (info->name == NULL) info->name = ((AnjutaProjectPropertyInfo *)prop->data)->name;
+	info->type = ((AnjutaProjectPropertyInfo *)prop->data)->type;
+	info->override = prop;
+
+	next = ((AnjutaProjectPropertyInfo *)list->data)->override;
+	if (next != NULL)
+	{
+		next = list;
+	}
+	list = g_list_prepend (next, info);
+	
+	return list;
+}
+
+AnjutaProjectPropertyList *
+anjuta_project_property_remove (AnjutaProjectPropertyList *list, AnjutaProjectPropertyItem *prop)
+{
+	AnjutaProjectPropertyInfo *info;
+	GList *link;
+	
+	for (link = list; link != NULL; link = g_list_next (link))
+	{
+		info = (AnjutaProjectPropertyInfo *)link->data;
+		if (info->override == NULL)
+		{
+			break;
+		}
+		else if ((info == prop->data) || (info->override == prop))
+		{
+			list = g_list_delete_link (list, link);
+			if (list == NULL) list = info->override;
+			break;
+		}
+	}
+	
+	return list;
+}
+
+void
+anjuta_project_property_foreach (AnjutaProjectPropertyList *list, GFunc func, gpointer user_data)
+{
+	g_list_foreach (list, func, user_data);
+}
+
+
 /* Node access functions
  *---------------------------------------------------------------------------*/
 
@@ -225,6 +379,61 @@ anjuta_project_node_get_file (AnjutaProjectNode *node)
 	}
 
 	return file;
+}
+
+AnjutaProjectPropertyList *
+anjuta_project_node_get_property_list (AnjutaProjectNode *node)
+{
+	GList *list = NULL;
+	GList *item;
+	GList *new_item;
+	
+	for (item = g_list_last (NODE_DATA (node)->properties); item != NULL; item = g_list_previous (item))
+	{
+		AnjutaProjectPropertyInfo *info = (AnjutaProjectPropertyInfo *)item->data;
+		
+		if (info->override != NULL) break;
+
+		list = g_list_prepend (list, item->data);
+	}
+
+	for (item = g_list_first (NODE_DATA (node)->properties); item != NULL; item = g_list_next (item))
+	{
+		AnjutaProjectPropertyInfo *info = (AnjutaProjectPropertyInfo *)item->data;
+
+		if (info->override == NULL) break;
+
+		new_item = g_list_first (list);
+		while ((new_item != NULL) && (new_item->data != NULL))
+		{
+			if (new_item->data == info->override)
+			{
+				new_item->data = info;
+				break;
+			}
+			new_item = g_list_next (new_item);
+		}
+	}
+
+	return list;
+}
+
+const gchar *
+anjuta_project_node_get_property_value (AnjutaProjectNode *node, AnjutaProjectProperty prop)
+{
+	GList *item;
+
+	for (item = g_list_first (NODE_DATA (node)->properties); item != NULL; item = g_list_next (item))
+	{
+		AnjutaProjectPropertyInfo *info = (AnjutaProjectPropertyInfo *)item->data;
+
+		if ((info == prop) || ((info->override != NULL) && (info->override->data == prop)))
+		{
+			return info->value;
+		}
+	}
+	
+	return NULL;
 }
 
 /* Group access functions

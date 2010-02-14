@@ -50,7 +50,7 @@
 #include "am-dialogs.h"
 #include "am-writer.h"
 //#include "am-config.h"
-//#include "am-properties.h"
+#include "am-properties.h"
 
 
 #define UNIMPLEMENTED  G_STMT_START { g_warning (G_STRLOC": unimplemented"); } G_STMT_END
@@ -133,10 +133,15 @@ struct _AmpConfigFile {
 typedef struct _AmpTargetInformation AmpTargetInformation;
 
 struct _AmpTargetInformation {
-	AnjutaProjectTargetInformation base;
+	AnjutaProjectTargetInfo base;
 	AnjutaTokenType token;
 	const gchar *prefix;
 	const gchar *install;
+};
+
+struct _AmpTargetPropertyBuffer {
+	GList *sources;
+	GList *properties;
 };
 
 /* Target types
@@ -221,6 +226,11 @@ static AmpTargetInformation AmpTargetTypes[] = {
 	NULL,
 	NULL}
 };
+
+/* Properties
+ *---------------------------------------------------------------------------*/
+
+
 
 
 /* ----- Standard GObject types and variables ----- */
@@ -341,7 +351,7 @@ file_type (GFile *file, const gchar *filename)
  *---------------------------------------------------------------------------*/
 
 /* Remove invalid character according to automake rules */
-gchar*
+static gchar*
 canonicalize_automake_variable (gchar *name)
 {
 	gchar *canon_name = g_strdup (name);
@@ -358,7 +368,7 @@ canonicalize_automake_variable (gchar *name)
 	return canon_name;
 }
 
-gboolean
+static gboolean
 split_automake_variable (gchar *name, gint *flags, gchar **module, gchar **primary)
 {
 	GRegex *regex;
@@ -440,7 +450,7 @@ split_automake_variable (gchar *name, gint *flags, gchar **module, gchar **prima
 	return TRUE;
 }
 
-gchar*
+static gchar*
 ac_init_default_tarname (const gchar *name)
 {
 	gchar *tarname;
@@ -456,6 +466,62 @@ ac_init_default_tarname (const gchar *name)
 	return tarname;
 }
 
+/* Properties buffer objects
+ *---------------------------------------------------------------------------*/
+
+AmpTargetPropertyBuffer*
+amp_target_property_buffer_new (void)
+{
+	AmpTargetPropertyBuffer* buffer;
+
+	buffer = g_new0 (AmpTargetPropertyBuffer, 1);
+
+	return buffer;
+}
+
+void
+amp_target_property_buffer_free (AmpTargetPropertyBuffer *buffer)
+{
+	g_list_foreach (buffer->sources, (GFunc)amp_source_free, NULL);
+	g_list_free (buffer->sources);
+	g_list_foreach (buffer->properties, (GFunc)amp_property_free, NULL);
+	g_list_free (buffer->properties);
+	g_free (buffer);
+}
+
+void
+amp_target_property_buffer_add_source (AmpTargetPropertyBuffer *buffer, AmpSource *source)
+{
+	buffer->sources = g_list_prepend (buffer->sources, source);
+}
+
+void
+amp_target_property_buffer_add_property (AmpTargetPropertyBuffer *buffer, AnjutaProjectPropertyInfo *prop)
+{
+	buffer->properties = g_list_prepend (buffer->properties, prop);
+}
+
+GList *
+amp_target_property_buffer_steal_sources (AmpTargetPropertyBuffer *buffer)
+{
+	GList *list = buffer->sources;
+
+	buffer->sources = NULL;
+
+	return list;
+}
+
+GList *
+amp_target_property_buffer_steal_properties (AmpTargetPropertyBuffer *buffer)
+{
+	GList *list = buffer->properties;
+
+	buffer->properties = NULL;
+
+	return list;
+}
+
+
 /* Config file objects
  *---------------------------------------------------------------------------*/
 
@@ -468,7 +534,6 @@ amp_config_file_new (const gchar *pathname, GFile *project_root, AnjutaToken *to
 
 	config = g_slice_new0(AmpConfigFile);
 	config->file = g_file_resolve_relative_path (project_root, pathname);
-	g_message ("new config file =%s= token %p group %p", pathname, token, anjuta_token_list (token));
 	config->token = token;
 
 	return config;
@@ -487,7 +552,7 @@ amp_config_file_free (AmpConfigFile *config)
 /* Package objects
  *---------------------------------------------------------------------------*/
 
-void
+static void
 amp_package_set_version (AmpPackage *package, const gchar *compare, const gchar *version)
 {
 	g_return_if_fail (package != NULL);
@@ -559,46 +624,6 @@ amp_project_free_module_hash (AmpProject *project)
 		g_hash_table_destroy (project->modules);
 		project->modules = NULL;
 	}
-}
-
-/* Property objects
- *---------------------------------------------------------------------------*/
-
-static AmpProperty*
-amp_property_new (AnjutaToken *macro, AnjutaToken *list)
-{
-	AmpProperty *prop;
-	AnjutaToken *arg;
-	
-	prop = g_slice_new0(AmpProperty); 
-	prop->ac_init = macro;
-	prop->args = list;
-
-	if (list != NULL)
-	{
-		arg = anjuta_token_nth_word (list, 0);
-		prop->name = anjuta_token_evaluate (arg);
-		arg = anjuta_token_nth_word (list, 1);
-		prop->version = anjuta_token_evaluate (arg);
-		arg = anjuta_token_nth_word (list, 2);
-		prop->bug_report = anjuta_token_evaluate (arg);
-		arg = anjuta_token_nth_word (list, 3);
-		prop->tarname = anjuta_token_evaluate (arg);
-		arg = anjuta_token_nth_word (list, 4);
-		prop->url = anjuta_token_evaluate (arg);
-	}
-	
-	return prop;
-}
-
-static void
-amp_property_free (AmpProperty *prop)
-{
-	g_free (prop->name);
-	g_free (prop->version);
-	g_free (prop->bug_report);
-	g_free (prop->tarname);
-    g_slice_free (AmpProperty, prop);
 }
 
 /* Group objects
@@ -689,6 +714,7 @@ amp_group_new (GFile *file, gboolean dist_only)
 	
 	group = g_slice_new0(AmpGroupData); 
 	group->base.node.type = ANJUTA_PROJECT_GROUP;
+	group->base.node.properties = amp_get_group_property_list();
 	group->base.directory = g_object_ref (file);
 	group->dist_only = dist_only;
 
@@ -702,6 +728,7 @@ amp_group_free (AmpGroup *node)
 	gint i;
 	
 	if (group->base.directory) g_object_unref (group->base.directory);
+	anjuta_project_property_foreach (group->base.node.properties, (GFunc)amp_property_free, NULL);
 	if (group->tfile) anjuta_token_file_free (group->tfile);
 	if (group->makefile) g_object_unref (group->makefile);
 	for (i = 0; i < AM_GROUP_TOKEN_LAST; i++)
@@ -709,6 +736,7 @@ amp_group_free (AmpGroup *node)
 		if (group->tokens[i] != NULL) g_list_free (group->tokens[i]);
 	}
     g_slice_free (AmpGroupData, group);
+	
 
 	g_node_destroy (node);
 }
@@ -746,6 +774,7 @@ amp_target_new (const gchar *name, AnjutaProjectTargetType type, const gchar *in
 
 	target = g_slice_new0(AmpTargetData); 
 	target->base.node.type = ANJUTA_PROJECT_TARGET;
+	target->base.node.properties = amp_get_target_property_list(type);
 	target->base.name = g_strdup (name);
 	target->base.type = type;
 	target->install = g_strdup (install);
@@ -760,6 +789,7 @@ amp_target_free (AmpTarget *node)
     AmpTargetData *target = AMP_TARGET_DATA (node);
 	
     g_free (target->base.name);
+	anjuta_project_property_foreach (target->base.node.properties, (GFunc)amp_property_free, NULL);
     g_free (target->install);
     g_slice_free (AmpTargetData, target);
 
@@ -776,6 +806,7 @@ amp_source_new (GFile *file)
 
 	source = g_slice_new0(AmpSourceData); 
 	source->base.node.type = ANJUTA_PROJECT_SOURCE;
+	source->base.node.properties = amp_get_source_property_list();
 	source->base.file = g_object_ref (file);
 
     return g_node_new (source);
@@ -787,6 +818,7 @@ amp_source_free (AmpSource *node)
     AmpSourceData *source = AMP_SOURCE_DATA (node);
 	
     g_object_unref (source->base.file);
+	anjuta_project_property_foreach (source->base.node.properties, (GFunc)amp_property_free, NULL);
     g_slice_free (AmpSourceData, source);
 
 	g_node_destroy (node);
@@ -963,11 +995,35 @@ project_node_destroy (AmpProject *project, AnjutaProjectNode *g_node)
 }
 
 void
-amp_project_load_properties (AmpProject *project, AnjutaToken *macro, AnjutaToken *list)
+amp_project_load_properties (AmpProject *project, AnjutaToken *macro, AnjutaToken *args)
 {
+	AnjutaProjectPropertyItem *list;
+	
 	fprintf (stdout, "property list:\n");
-	anjuta_token_dump (list);
-	project->property = amp_property_new (macro, list);
+	anjuta_token_dump (args);
+
+	for (list = anjuta_project_property_first (project->properties); list != NULL; list = anjuta_project_property_next (list))
+	{
+		AmpPropertyInfo *info = (AmpPropertyInfo *)anjuta_project_property_get_info (list);
+
+		if (info->position >= 0)
+		{
+			AnjutaProjectPropertyInfo *prop;
+			AnjutaToken *arg;
+
+			prop = anjuta_project_property_lookup (project->properties, list);
+			if (prop == NULL)
+			{
+				prop = (AnjutaProjectPropertyInfo *)amp_property_new (NULL, info->token_type, info->position, NULL, macro);
+				
+				project->properties = anjuta_project_property_insert (project->properties, list, prop);
+			}
+	
+			arg = anjuta_token_nth_word (args, info->position);
+			if ((prop->value != NULL) && (prop->value != info->base.value)) g_free (prop->value);
+			prop->value = anjuta_token_evaluate (arg);
+		}
+	}
 }
 
 void
@@ -1119,7 +1175,7 @@ find_canonical_target (AnjutaProjectTarget *node, gpointer data)
 }
 
 static AnjutaToken*
-project_load_target (AmpProject *project, AnjutaToken *name, AnjutaToken *list, AnjutaProjectGroup *parent, GHashTable *orphan_sources)
+project_load_target (AmpProject *project, AnjutaToken *name, AnjutaTokenType token_type, AnjutaToken *list, AnjutaProjectGroup *parent, GHashTable *orphan_properties)
 {
 	AnjutaToken *arg;
 	AnjutaProjectTargetType type = NULL;
@@ -1131,7 +1187,7 @@ project_load_target (AmpProject *project, AnjutaToken *name, AnjutaToken *list, 
 	type = (AnjutaProjectTargetType)targets;
 	while (targets->base.name != NULL)
 	{
-		if (anjuta_token_get_type (name) == targets->token)
+		if (token_type == targets->token)
 		{
 			type = (AnjutaProjectTargetType)targets;
 			break;
@@ -1141,7 +1197,6 @@ project_load_target (AmpProject *project, AnjutaToken *name, AnjutaToken *list, 
 
 	value = anjuta_token_evaluate (name);
 	split_automake_variable (value, &flags, &install, NULL);
-	g_free (value);
 
 	amp_group_add_token (parent, name, AM_GROUP_TARGET);
 	
@@ -1150,7 +1205,7 @@ project_load_target (AmpProject *project, AnjutaToken *name, AnjutaToken *list, 
 		gchar *value;
 		gchar *canon_id;
 		AmpTarget *target;
-		GList *sources;
+		AmpTargetPropertyBuffer *buffer;
 		gchar *orig_key;
 		gpointer find;
 
@@ -1174,11 +1229,14 @@ project_load_target (AmpProject *project, AnjutaToken *name, AnjutaToken *list, 
 		anjuta_project_node_append (parent, target);
 		DEBUG_PRINT ("create target %p name %s", target, value);
 
-		/* Check if there are source availables */
-		if (g_hash_table_lookup_extended (orphan_sources, canon_id, (gpointer *)&orig_key, (gpointer *)&sources))
+		/* Check if there are sources or properties availables */
+		if (g_hash_table_lookup_extended (orphan_properties, canon_id, (gpointer *)&orig_key, (gpointer *)&buffer))
 		{
+			GList *sources;
 			GList *src;
-			g_hash_table_steal (orphan_sources, canon_id);
+
+			g_hash_table_steal (orphan_properties, canon_id);
+			sources = amp_target_property_buffer_steal_sources (buffer);
 			for (src = sources; src != NULL; src = g_list_next (src))
 			{
 				AmpSource *source = src->data;
@@ -1187,23 +1245,56 @@ project_load_target (AmpProject *project, AnjutaToken *name, AnjutaToken *list, 
 			}
 			g_free (orig_key);
 			g_list_free (sources);
+
+			amp_target_property_buffer_free (buffer);
 		}
 
+		/* Set target properties */
+		if (flags & AM_TARGET_NOBASE) 
+			amp_node_property_set (target, AM_TOKEN__PROGRAMS, 0, "1", arg);
+		if (flags & AM_TARGET_NOTRANS) 
+			amp_node_property_set (target, AM_TOKEN__PROGRAMS, 1, "1", arg);
+		if (flags & AM_TARGET_DIST) 
+			amp_node_property_set (target, AM_TOKEN__PROGRAMS, 2, "1", arg);
+		if (flags & AM_TARGET_NODIST) 
+			amp_node_property_set (target, AM_TOKEN__PROGRAMS, 2, "0", arg);
+		if (flags & AM_TARGET_NOINST) 
+		{
+			amp_node_property_set (target, AM_TOKEN__PROGRAMS, 3, "1", arg);
+		}
+		else
+		{
+			gchar *instdir = g_strconcat ("$(", install, "dir)", NULL);
+			amp_node_property_set (target, AM_TOKEN__PROGRAMS, 6, instdir, arg);
+			g_free (instdir);
+		}
+		
+		if (flags & AM_TARGET_CHECK) 
+			amp_node_property_set (target, AM_TOKEN__PROGRAMS, 4, "1", arg);
+		if (flags & AM_TARGET_MAN)
+		{
+			gchar section[] = "0";
+
+			section[0] += (flags >> 7) & 0x1F;
+			amp_node_property_set (target, AM_TOKEN__PROGRAMS, 4, section, arg);
+		}
+		
 		g_free (canon_id);
 		g_free (value);
 	}
+	g_free (value);
 
 	return NULL;
 }
 
 static AnjutaToken*
-project_load_sources (AmpProject *project, AnjutaToken *name, AnjutaToken *list, AnjutaProjectGroup *parent, GHashTable *orphan_sources)
+project_load_sources (AmpProject *project, AnjutaToken *name, AnjutaToken *list, AnjutaProjectGroup *parent, GHashTable *orphan_properties)
 {
 	AnjutaToken *arg;
 	AmpGroupData *group = AMP_GROUP_DATA (parent);
 	GFile *parent_file = g_object_ref (group->base.directory);
 	gchar *target_id = NULL;
-	GList *orphan = NULL;
+	AmpTargetPropertyBuffer *orphan = NULL;
 
 	target_id = anjuta_token_evaluate (name);
 	if (target_id)
@@ -1224,6 +1315,21 @@ project_load_sources (AmpProject *project, AnjutaToken *name, AnjutaToken *list,
 		anjuta_project_node_children_foreach (parent, find_canonical_target, &find);
 		parent = (gchar *)find != target_id ? (AnjutaProjectTarget *)find : NULL;
 
+		/* Get orphan buffer if there is no target */
+		if (parent == NULL)
+		{
+			gchar *orig_key;
+			if (g_hash_table_lookup_extended (orphan_properties, target_id, (gpointer *)&orig_key, (gpointer *)&orphan))
+			{
+				g_hash_table_steal (orphan_properties, target_id);
+				g_free (orig_key);
+			}
+			else
+			{
+				orphan = amp_target_property_buffer_new ();
+			}
+		}
+
 		for (arg = anjuta_token_first_word (list); arg != NULL; arg = anjuta_token_next_word (arg))
 		{
 			gchar *value;
@@ -1238,10 +1344,9 @@ project_load_sources (AmpProject *project, AnjutaToken *name, AnjutaToken *list,
 			g_object_unref (src_file);
 			AMP_SOURCE_DATA(source)->token = arg;
 
-			if (parent == NULL)
+			if (orphan != NULL)
 			{
-				/* Add in orphan list */
-				orphan = g_list_prepend (orphan, source);
+				amp_target_property_buffer_add_source (orphan, source);
 			}
 			else
 			{
@@ -1252,19 +1357,10 @@ project_load_sources (AmpProject *project, AnjutaToken *name, AnjutaToken *list,
 
 			g_free (value);
 		}
-		
-		if (parent == NULL)
-		{
-			gchar *orig_key;
-			GList *orig_sources;
 
-			if (g_hash_table_lookup_extended (orphan_sources, target_id, (gpointer *)&orig_key, (gpointer *)&orig_sources))
-			{
-				g_hash_table_steal (orphan_sources, target_id);
-				orphan = g_list_concat (orphan, orig_sources);	
-				g_free (orig_key);
-			}
-			g_hash_table_insert (orphan_sources, target_id, orphan);
+		if (orphan != NULL)
+		{
+			g_hash_table_insert (orphan_properties, target_id, orphan);
 		}
 		else
 		{
@@ -1278,7 +1374,7 @@ project_load_sources (AmpProject *project, AnjutaToken *name, AnjutaToken *list,
 }
 
 static AnjutaToken*
-project_load_data (AmpProject *project, AnjutaToken *name, AnjutaToken *list, AnjutaProjectGroup *parent, GHashTable *orphan_sources)
+project_load_data (AmpProject *project, AnjutaToken *name, AnjutaToken *list, AnjutaProjectGroup *parent, GHashTable *orphan_properties)
 {
 	AnjutaProjectTargetType type = NULL;
 	gchar *install;
@@ -1360,6 +1456,103 @@ project_load_data (AmpProject *project, AnjutaToken *name, AnjutaToken *list, An
 	return NULL;
 }
 
+static AnjutaToken*
+project_load_target_properties (AmpProject *project, AnjutaToken *name, AnjutaTokenType type, AnjutaToken *list, AnjutaProjectGroup *parent, GHashTable *orphan_properties)
+{
+	AmpGroupData *group = AMP_GROUP_DATA (parent);
+	gchar *target_id = NULL;
+	
+	target_id = anjuta_token_evaluate (name);
+	if (target_id)
+	{
+		gchar *end = strrchr (target_id, '_');
+		if (end)
+		{
+			*end = '\0';
+		}
+	}
+
+	if (target_id)
+	{
+		gpointer find;
+		gchar *value;
+		AnjutaProjectPropertyInfo *prop;
+		AmpTargetPropertyBuffer *orphan = NULL;
+		
+		find = target_id;
+		DEBUG_PRINT ("search for canonical %s", target_id);
+		anjuta_project_node_children_foreach (parent, find_canonical_target, &find);
+		parent = (gchar *)find != target_id ? (AnjutaProjectTarget *)find : NULL;
+
+		/* Get orphan buffer if there is no target */
+		if (parent == NULL)
+		{
+			gchar *orig_key;
+			if (g_hash_table_lookup_extended (orphan_properties, target_id, (gpointer *)&orig_key, (gpointer *)&orphan))
+			{
+				g_hash_table_steal (orphan_properties, target_id);
+				g_free (orig_key);
+			}
+			else
+			{
+				orphan = amp_target_property_buffer_new ();
+			}
+		}
+
+		/* Create property */
+		value = anjuta_token_evaluate (list);
+		prop = amp_property_new (NULL, type, 0, value, list);
+
+		if (parent == NULL)
+		{
+			gchar *orig_key;
+			AmpTargetPropertyBuffer *orphan = NULL;
+			
+			if (g_hash_table_lookup_extended (orphan_properties, target_id, (gpointer *)&orig_key, (gpointer *)&orphan))
+			{
+				g_hash_table_steal (orphan_properties, target_id);
+				g_free (orig_key);
+			}
+			else
+			{
+				orphan = amp_target_property_buffer_new ();
+			}
+			amp_target_property_buffer_add_property (orphan, prop);
+			g_hash_table_insert (orphan_properties, target_id, orphan);
+		}
+		else
+		{
+			amp_node_property_add (parent, prop);
+			g_free (target_id);
+		}
+		g_free (value);
+	}
+
+	return NULL;
+}
+
+static AnjutaToken*
+project_load_group_properties (AmpProject *project, AnjutaToken *token, AnjutaTokenType type, AnjutaToken *list, AnjutaProjectGroup *parent)
+{
+	AmpGroupData *group = AMP_GROUP_DATA (parent);
+	gchar *value;
+	gchar *name;
+	AnjutaProjectPropertyInfo *prop;
+		
+	/* Create property */
+	name = anjuta_token_evaluate (token);
+	value = anjuta_token_evaluate (list);
+
+	g_message ("group_name %s", name);
+	prop = amp_property_new (name, type, 0, value, list);
+
+	amp_node_property_add (parent, prop);
+	g_free (value);
+	g_free (name);
+
+	return NULL;
+}
+
 static AmpGroup* project_load_makefile (AmpProject *project, GFile *file, AmpGroup *parent, gboolean dist_only);
 
 static void
@@ -1417,11 +1610,8 @@ remove_config_file (gpointer data, GObject *object, gboolean is_last_ref)
 static AmpGroup*
 project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *parent, gboolean dist_only)
 {
-	//GHashTable *orphan_sources = NULL;
 	const gchar **filename;
-	AmpAmScanner *scanner;
 	AmpGroup *group;
-	//AnjutaToken *significant_tok;
 	AnjutaTokenFile *tfile;
 	GFile *makefile = NULL;
 
@@ -1436,7 +1626,7 @@ project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *par
 	{
 		anjuta_project_node_append (parent, group);
 	}
-		
+	
 	/* Find makefile name
 	 * It has to be in the config_files list with .am extension */
 	for (filename = valid_am_makefiles; *filename != NULL; filename++)
@@ -1482,7 +1672,7 @@ project_load_makefile (AmpProject *project, GFile *file, AnjutaProjectGroup *par
 }
 
 void
-amp_project_set_am_variable (AmpProject* project, AmpGroup* group, AnjutaTokenType variable, AnjutaToken *name, AnjutaToken *list, GHashTable *orphan_sources)
+amp_project_set_am_variable (AmpProject* project, AmpGroup* group, AnjutaTokenType variable, AnjutaToken *name, AnjutaToken *list, GHashTable *orphan_properties)
 {
 	
 	switch (variable)
@@ -1494,7 +1684,7 @@ amp_project_set_am_variable (AmpProject* project, AmpGroup* group, AnjutaTokenTy
 		project_load_subdirs (project, list, group, TRUE);
 		break;
 	case AM_TOKEN__DATA:
-		project_load_data (project, name, list, group, orphan_sources);
+		project_load_data (project, name, list, group, orphan_properties);
 		break;
 	case AM_TOKEN__HEADERS:
 	case AM_TOKEN__LIBRARIES:
@@ -1506,10 +1696,34 @@ amp_project_set_am_variable (AmpProject* project, AmpGroup* group, AnjutaTokenTy
 	case AM_TOKEN__JAVA:
 	case AM_TOKEN__SCRIPTS:
 	case AM_TOKEN__TEXINFOS:
-		project_load_target (project, name, list, group, orphan_sources);
+		project_load_target (project, name, variable, list, group, orphan_properties);
 		break;
 	case AM_TOKEN__SOURCES:
-		project_load_sources (project, name, list, group, orphan_sources);
+		project_load_sources (project, name, list, group, orphan_properties);
+		break;
+	case AM_TOKEN_DIR:
+	case AM_TOKEN__LDFLAGS:
+	case AM_TOKEN__CPPFLAGS:
+	case AM_TOKEN__CFLAGS:
+	case AM_TOKEN__CXXFLAGS:
+	case AM_TOKEN__JAVACFLAGS:
+	case AM_TOKEN__FCFLAGS:
+	case AM_TOKEN__OBJCFLAGS:
+	case AM_TOKEN__LFLAGS:
+	case AM_TOKEN__YFLAGS:
+		project_load_group_properties (project, name, variable, list, group);
+		break;
+	case AM_TOKEN_TARGET_LDFLAGS:
+	case AM_TOKEN_TARGET_CPPFLAGS:
+	case AM_TOKEN_TARGET_CFLAGS:
+	case AM_TOKEN_TARGET_CXXFLAGS:
+	case AM_TOKEN_TARGET_JAVACFLAGS:
+	case AM_TOKEN_TARGET_FCFLAGS:
+	case AM_TOKEN_TARGET_OBJCFLAGS:
+	case AM_TOKEN_TARGET_LFLAGS:
+	case AM_TOKEN_TARGET_YFLAGS:
+	case AM_TOKEN_TARGET_DEPENDENCIES:
+		project_load_target_properties (project, name, variable, list, group, orphan_properties);
 		break;
 	default:
 		break;
@@ -1637,8 +1851,8 @@ amp_project_unload (AmpProject *project)
 	if (project->root_file) g_object_unref (project->root_file);
 	project->root_file = NULL;
 
-	if (project->property) amp_property_free (project->property);
-	project->property = NULL;
+	anjuta_project_property_foreach (project->properties, (GFunc)amp_property_free, NULL);
+	project->properties = amp_get_project_property_list ();
 	
 	/* shortcut hash tables */
 	if (project->groups) g_hash_table_destroy (project->groups);
@@ -2574,7 +2788,14 @@ amp_project_get_file (AmpProject *project)
 
 	return project->root_file;
 }
-	
+
+AnjutaProjectPropertyList *
+amp_project_get_property_list (AmpProject *project)
+{
+	return project->properties;
+}
+
+#if 0
 gchar *
 amp_project_get_property (AmpProject *project, AmpPropertyType type)
 {
@@ -2634,6 +2855,7 @@ amp_project_set_property (AmpProject *project, AmpPropertyType type, const gchar
 	
 	return amp_project_update_property (project, type);
 }
+#endif
 
 /* Implement IAnjutaProject
  *---------------------------------------------------------------------------*/
@@ -2842,7 +3064,7 @@ amp_project_instance_init (AmpProject *project)
 	project->configure_file = NULL;
 	project->configure_token = NULL;
 	project->root_node = NULL;
-	project->property = NULL;
+	project->properties = amp_get_project_property_list ();
 
 	project->am_space_list = NULL;
 	project->ac_space_list = NULL;

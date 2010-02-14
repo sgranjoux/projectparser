@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 
 static gchar* output_file = NULL;
 static FILE* output_stream = NULL;
@@ -146,27 +147,47 @@ void list_property (IAnjutaProject *project)
 {
 	if (AMP_IS_PROJECT (project))
 	{
-		gchar *value;
-		
-		value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_NAME);
-		if (value) print ("%*sNAME: %s", INDENT, "", value);
-		g_free (value);
+		AnjutaProjectPropertyList *list;
+		AnjutaProjectPropertyItem *prop;
 
-		value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_VERSION);
-		if (value) print ("%*sVERSION: %s", INDENT, "", value);
-		g_free (value);
+		list = amp_project_get_property_list (AMP_PROJECT (project));
+		for (prop = anjuta_project_property_first (list); prop != NULL; prop = anjuta_project_property_next (prop))
+		{
+			AnjutaProjectPropertyItem *item;
 
-		value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_BUG_REPORT);
-		if (value) print ("%*sBUG_REPORT: %s", INDENT, "", value);
-		g_free (value);
+			item = anjuta_project_property_override (list, prop);
+			fprintf(stdout, "info %p", item);
+			if (item != NULL)
+			{
+				AnjutaProjectPropertyInfo *info;
+				const gchar *msg = NULL;
 
-		value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_TARNAME);
-		if (value) print ("%*sTARNAME: %s", INDENT, "", value);
-		g_free (value);
-	
-		value = amp_project_get_property (AMP_PROJECT (project), AMP_PROPERTY_URL);
-		if (value) print ("%*sURL: %s", INDENT, "", value);
-		g_free (value);
+				info = anjuta_project_property_get_info(item);
+				fprintf(stdout, "info name %s", info->name);
+				if (strcmp (info->name, "Name:") == 0)
+				{
+					msg = "%*sNAME: %s";
+				}
+				else if (strcmp (info->name, "Version:") == 0)
+				{
+					msg = "%*sVERSION: %s";
+				}
+				else if (strcmp (info->name, "Bug report URL:") == 0)
+				{
+					msg = "%*sBUG_REPORT: %s";
+				}
+				else if (strcmp (info->name, "Package name:") == 0)
+				{
+					msg = "%*sTARNAME: %s";
+				}
+				else if (strcmp (info->name, "URL:") == 0)
+				{
+					msg = "%*sURL: %s";
+				}
+
+				if (msg && (info->value != NULL)) print (msg, INDENT, "", info->value);
+			}
+		}
 	}
 }
 
@@ -453,7 +474,7 @@ main(int argc, char *argv[])
 		{
 			if (AMP_IS_PROJECT (project))
 			{
-				amp_project_set_property (AMP_PROJECT (project), atoi(command[1]), command[2]);
+				//amp_project_set_property (AMP_PROJECT (project), atoi(command[1]), command[2]);
 			}
 			command += 2;
 		}

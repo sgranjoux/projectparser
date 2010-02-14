@@ -25,7 +25,6 @@ projectparser_SOURCES = \
 	main.c \
 	am-project.c \
 	am-project.h \
-	am-project-private.h \
 	am-scanner.l \
 	am-parser.y \
 	am-scanner.h \
@@ -36,8 +35,11 @@ projectparser_SOURCES = \
 	ac-writer.c \
 	am-writer.h \
 	am-writer.c \
-	am-dialogs.c \
+	am-project-private.h \
 	am-dialogs.h \
+	am-dialogs.c \
+	am-properties.c \
+	am-properties.h \
 	mk-project.c \
 	mk-project.h \
 	mk-project-private.h \

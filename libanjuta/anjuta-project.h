@@ -65,13 +65,35 @@ typedef struct
 	gchar *name;
 	AnjutaProjectTargetClass base;
 	gchar *mime_type;
-} AnjutaProjectTargetInformation;
+} AnjutaProjectTargetInfo;
 
-typedef AnjutaProjectTargetInformation* AnjutaProjectTargetType;
+typedef AnjutaProjectTargetInfo* AnjutaProjectTargetType;
+
+typedef enum
+{
+	ANJUTA_PROJECT_PROPERTY_STRING = 1,
+	ANJUTA_PROJECT_PROPERTY_BOOLEAN,
+	ANJUTA_PROJECT_PROPERTY_LIST
+} AnjutaProjectPropertyType;
+
+typedef struct
+{
+	gchar *name;
+	AnjutaProjectPropertyType type;
+	gchar *value;
+	GList *override;
+} AnjutaProjectPropertyInfo;
+
+typedef AnjutaProjectPropertyInfo* AnjutaProjectProperty;
+
+typedef GList AnjutaProjectPropertyList;
+typedef GList AnjutaProjectPropertyItem;
+
 
 typedef struct
 {
 	AnjutaProjectNodeType type;
+	AnjutaProjectPropertyList *properties;
 } AnjutaProjectNodeData;
 
 typedef struct {
@@ -95,9 +117,21 @@ typedef GNode AnjutaProjectGroup;
 typedef GNode AnjutaProjectTarget;
 typedef GNode AnjutaProjectSource;
 
+
 #define ANJUTA_PROJECT_NODE_DATA(node)  ((node) != NULL ? (AnjutaProjectNodeData *)((node)->data) : NULL)
 
 typedef void (*AnjutaProjectNodeFunc) (AnjutaProjectNode *node, gpointer data);
+
+AnjutaProjectPropertyItem *anjuta_project_property_first (AnjutaProjectPropertyList *list);
+AnjutaProjectPropertyItem *anjuta_project_property_next (AnjutaProjectPropertyItem *list);
+AnjutaProjectPropertyItem *anjuta_project_property_override (AnjutaProjectPropertyList *list, AnjutaProjectPropertyItem *prop);
+AnjutaProjectPropertyItem *anjuta_project_property_next_item (AnjutaProjectPropertyItem *item);
+AnjutaProjectPropertyInfo *anjuta_project_property_get_info (AnjutaProjectPropertyItem *list);
+AnjutaProjectPropertyInfo *anjuta_project_property_lookup (AnjutaProjectPropertyList *list, AnjutaProjectPropertyItem *prop);
+AnjutaProjectPropertyList *anjuta_project_property_insert (AnjutaProjectPropertyList *list, AnjutaProjectPropertyItem *prop, AnjutaProjectPropertyInfo *info);
+AnjutaProjectPropertyList *anjuta_project_property_remove (AnjutaProjectPropertyList *list, AnjutaProjectPropertyItem *prop);
+void anjuta_project_property_foreach (AnjutaProjectPropertyList *list, GFunc func, gpointer user_data);
+
 
 AnjutaProjectNode *anjuta_project_node_parent (AnjutaProjectNode *node);
 AnjutaProjectNode *anjuta_project_node_first_child (AnjutaProjectNode *node);
@@ -118,6 +152,9 @@ AnjutaProjectNodeType anjuta_project_node_get_type (const AnjutaProjectNode *nod
 gchar *anjuta_project_node_get_name (const AnjutaProjectNode *node);
 gchar *anjuta_project_node_get_uri (AnjutaProjectNode *node);
 GFile *anjuta_project_node_get_file (AnjutaProjectNode *node);
+
+AnjutaProjectPropertyList *anjuta_project_node_get_property_list (AnjutaProjectNode *node);
+const gchar *anjuta_project_node_get_property_value (AnjutaProjectNode *node, AnjutaProjectProperty prop);
 
 AnjutaProjectGroup *anjuta_project_group_get_node_from_file (const AnjutaProjectGroup *root, GFile *directory);
 AnjutaProjectTarget *anjuta_project_target_get_node_from_name (const AnjutaProjectGroup *parent, const gchar *name);
