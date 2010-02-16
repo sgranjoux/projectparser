@@ -156,14 +156,12 @@ void list_property (IAnjutaProject *project)
 			AnjutaProjectPropertyItem *item;
 
 			item = anjuta_project_property_override (list, prop);
-			fprintf(stdout, "info %p", item);
 			if (item != NULL)
 			{
 				AnjutaProjectPropertyInfo *info;
 				const gchar *msg = NULL;
 
 				info = anjuta_project_property_get_info(item);
-				fprintf(stdout, "info name %s", info->name);
 				if (strcmp (info->name, "Name:") == 0)
 				{
 					msg = "%*sNAME: %s";
@@ -293,6 +291,47 @@ get_type (IAnjutaProject *project, const char *id)
 	g_list_free (list);
 
 	return type;
+}
+
+static AnjutaProjectPropertyItem *
+get_project_property (AmpProject *project, const gchar *id)
+{
+	AnjutaProjectPropertyList *list;
+	AnjutaProjectPropertyItem *item;
+	AnjutaProjectPropertyItem *prop = NULL;
+	gint best = G_MAXINT;
+
+	list = amp_project_get_property_list (project);
+	for (item = anjuta_project_property_first (list); item != NULL; item = anjuta_project_property_next (item))
+	{
+		AnjutaProjectPropertyInfo *info = anjuta_project_property_get_info (item);
+		const gchar *name = info->name;
+		const gchar *ptr;
+		const gchar *iptr = id;
+		gboolean next = FALSE;
+		gint miss = 0;
+
+		for (ptr = name; *ptr != '\0'; ptr++)
+		{
+				if (!next && (*iptr != '\0') && (g_ascii_toupper (*ptr) == g_ascii_toupper (*iptr)))
+				{
+					iptr++;
+				}
+				else
+				{
+					miss++;
+					next = !g_ascii_isspace (*ptr);
+				}
+		}
+
+		if ((*iptr == '\0') && (miss < best))
+		{
+			best = miss;
+			prop = item;
+		}
+	}
+
+	return prop;
 }
 
 /* Automake parsing function
@@ -474,7 +513,11 @@ main(int argc, char *argv[])
 		{
 			if (AMP_IS_PROJECT (project))
 			{
-				//amp_project_set_property (AMP_PROJECT (project), atoi(command[1]), command[2]);
+				AnjutaProjectPropertyItem *item;
+				AnjutaProjectPropertyInfo *info = NULL;
+
+				item = get_project_property (AMP_PROJECT (project), command[1]);
+				if (item != NULL) amp_project_property_set (AMP_PROJECT (project), item, command[2]);
 			}
 			command += 2;
 		}
